@@ -1,0 +1,40 @@
+services:
+  
+  # Valhalla server
+  valhalla:
+    image: ghcr.io/valhalla/valhalla:latest
+    container_name: valhalla-server
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./valhalla/tiles:/data/tiles
+      - ./valhalla/config:/data/config
+      - ./valhalla/custom_files:/data/custom_files
+    command: valhalla_service /data/config/valhalla.json 1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Valhalla graph builder
+  valhalla-build:
+    image: ghcr.io/valhalla/valhalla:latest
+    container_name: valhalla-build
+    profiles:
+      - build
+    volumes:
+      - ./valhalla/tiles:/data/tiles
+      - ./valhalla/config:/data/config
+      - ./valhalla/custom_files:/data/custom_files
+    network_mode: "none"
+    command: >
+      sh -c "
+        echo '[1/3] Generisem konfiguraciju...' &&
+        valhalla_build_config --mjolnir-tile-dir /data/tiles --mjolnir-timezone /data/tiles/timezones.sqlite --mjolnir-admin /data/tiles/admins.sqlite > /data/config/valhalla.json &&
+        echo '[2/3] Budujem routing graph (5-15 min)...' &&
+        valhalla_build_tiles -c /data/config/valhalla.json /data/custom_files/serbia-hvt.osm.pbf &&
+        echo '[3/3] Build zavrsen!'
+        "

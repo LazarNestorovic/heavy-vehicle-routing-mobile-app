@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+PROJECT_DIR=/home/lazar/Documents/heavy-vehicle-routing
 OSM_DIR=/home/lazar/Documents/heavy-vehicle-routing/osm-data
 RAW_DIR="$OSM_DIR/raw"
 FILTERED_DIR="$OSM_DIR/filtered"
@@ -17,7 +18,9 @@ wget -q https://download.geofabrik.de/europe/serbia-latest.osm.pbf.md5 -O "$RAW_
 # 2. Verifikacija (Checksum)
 # Moramo ući u direktorijum da bi md5sum mogao da pronađe fajl naveden u .md5 fajlu
 cd "$RAW_DIR"
-if md5sum --status -c serbia-new.osm.pbf.md5; then
+EXPECTED_MD5=$(awk '{print $1}' "$RAW_DIR/serbia-new.osm.pbf.md5")
+ACTUAL_MD5=$(md5sum "$RAW_DIR/serbia-new.osm.pbf" | awk '{print $1}')
+if [ "$EXPECTED_MD5" = "$ACTUAL_MD5" ]; then
     echo "[$(date)] Checksum uspešan. Podaci su ispravni." >> "$LOG"
     
     # Zamenjujemo stari sirovi fajl novim (atomski move)
@@ -34,6 +37,26 @@ if md5sum --status -c serbia-new.osm.pbf.md5; then
       r/type=restriction \
       --output "$FILTERED_DIR/serbia-hvt.osm.pbf" \
       --overwrite
+
+    # --- Valhalla Build ---
+
+    echo "[$(date)] Započinjem Valhalla graph build..." >> "$LOG"
+    
+    # Ulazimo u direktorijum gde je docker-compose.yml
+    cd "$PROJECT_DIR"
+
+    # Pokretanje build profila
+    # Koristimo --build da osiguramo da je kontejner ažuran i --abort-on-container-exit
+    if docker compose --profile build up valhalla-build --abort-on-container-exit; then
+        echo "[$(date)] Valhalla graph uspešno izgrađen." >> "$LOG"
+        
+        # Opciono: Restartuj glavni server da učita nove mape
+        echo "[$(date)] Restartujem Valhalla server..." >> "$LOG"
+        docker compose restart valhalla
+    else
+        echo "[$(date)] GREŠKA: Valhalla build nije uspeo!" >> "$LOG"
+        exit 1
+    fi
 
     echo "[$(date)] Sve operacije su uspešno završene." >> "$LOG"
 else

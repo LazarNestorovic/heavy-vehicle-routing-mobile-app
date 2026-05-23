@@ -1,2 +1,5 @@
-.pbf
-.md5
+*.pbf
+*.md5
+valhalla/custom_files/
+valhalla/tiles/
+*.log
