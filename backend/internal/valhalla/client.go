@@ -38,16 +38,25 @@ type TruckProfile struct {
 	Hazmat     bool
 }
 
-type RouteResult struct {
-	DistanceKm float64
-	DurationMin float64
-	Shape       string // encoded polyline6 of the first leg
+// RouteCandidate is one possible route (the primary route or one of Valhalla's alternates),
+// with the route-level signals available from the plain /route response (no per-edge
+// bridge/surface/hazmat-proximity data - that would require /trace_attributes, which is
+// out of scope for this layer; see the bounded custom-graph module for that).
+type RouteCandidate struct {
+	DistanceKm    float64
+	DurationMin   float64
+	Shape         string // encoded polyline6 of the first leg
+	ManeuverCount int
+	HighwayRatio  float64 // share of route length (0..1) that runs on Valhalla-flagged "highway" edges
+	HasFerry      bool
+	HasToll       bool
 }
 
 type routeRequest struct {
-	Locations      []LatLon                  `json:"locations"`
+	Locations      []LatLon                   `json:"locations"`
 	Costing        string                     `json:"costing"`
 	CostingOptions map[string]truckCostingOpt `json:"costing_options"`
+	Alternates     int                        `json:"alternates,omitempty"`
 }
 
 // truckCostingOpt uses Valhalla's units: meters for dimensions, metric tons for weight.
@@ -60,22 +69,61 @@ type truckCostingOpt struct {
 	Hazmat   bool    `json:"hazmat"`
 }
 
+type tripData struct {
+	Summary struct {
+		Time     float64 `json:"time"`   // seconds
+		Length   float64 `json:"length"` // kilometers (default units)
+		HasFerry bool    `json:"has_ferry"`
+		HasToll  bool    `json:"has_toll"`
+	} `json:"summary"`
+	Legs []struct {
+		Shape     string `json:"shape"`
+		Maneuvers []struct {
+			Length  float64 `json:"length"` // kilometers
+			Highway bool    `json:"highway"`
+		} `json:"maneuvers"`
+	} `json:"legs"`
+}
+
 type routeResponse struct {
-	Trip *struct {
-		Summary struct {
-			Time   float64 `json:"time"`   // seconds
-			Length float64 `json:"length"` // kilometers (default units)
-		} `json:"summary"`
-		Legs []struct {
-			Shape string `json:"shape"`
-		} `json:"legs"`
-	} `json:"trip"`
+	Trip       *tripData `json:"trip"`
+	Alternates []struct {
+		Trip tripData `json:"trip"`
+	} `json:"alternates"`
 	Error     string `json:"error"`
 	ErrorCode int    `json:"error_code"`
 }
 
-// Route requests a truck-costed route between origin and destination for the given vehicle profile.
-func (c *Client) Route(ctx context.Context, origin, destination LatLon, profile TruckProfile) (*RouteResult, error) {
+func toCandidate(t tripData) RouteCandidate {
+	c := RouteCandidate{
+		DistanceKm:  t.Summary.Length,
+		DurationMin: t.Summary.Time / 60,
+		HasFerry:    t.Summary.HasFerry,
+		HasToll:     t.Summary.HasToll,
+	}
+	if len(t.Legs) > 0 {
+		c.Shape = t.Legs[0].Shape
+	}
+
+	var highwayKm float64
+	for _, leg := range t.Legs {
+		for _, m := range leg.Maneuvers {
+			c.ManeuverCount++
+			if m.Highway {
+				highwayKm += m.Length
+			}
+		}
+	}
+	if c.DistanceKm > 0 {
+		c.HighwayRatio = highwayKm / c.DistanceKm
+	}
+	return c
+}
+
+// RouteAlternates requests a truck-costed route plus up to numAlternates alternative routes
+// between origin and destination for the given vehicle profile. The primary route is always
+// candidates[0]; order beyond that is whatever Valhalla returned.
+func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon, profile TruckProfile, numAlternates int) ([]RouteCandidate, error) {
 	body := routeRequest{
 		Locations: []LatLon{origin, destination},
 		Costing:   "truck",
@@ -89,6 +137,7 @@ func (c *Client) Route(ctx context.Context, origin, destination LatLon, profile 
 				Hazmat:   profile.Hazmat,
 			},
 		},
+		Alternates: numAlternates,
 	}
 
 	payload, err := json.Marshal(body)
@@ -120,14 +169,11 @@ func (c *Client) Route(ctx context.Context, origin, destination LatLon, profile 
 		return nil, fmt.Errorf("valhalla returned no route (http %d)", resp.StatusCode)
 	}
 
-	var shape string
-	if len(parsed.Trip.Legs) > 0 {
-		shape = parsed.Trip.Legs[0].Shape
+	candidates := make([]RouteCandidate, 0, 1+len(parsed.Alternates))
+	candidates = append(candidates, toCandidate(*parsed.Trip))
+	for _, alt := range parsed.Alternates {
+		candidates = append(candidates, toCandidate(alt.Trip))
 	}
 
-	return &RouteResult{
-		DistanceKm:  parsed.Trip.Summary.Length,
-		DurationMin: parsed.Trip.Summary.Time / 60,
-		Shape:       shape,
-	}, nil
+	return candidates, nil
 }

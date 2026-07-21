@@ -126,6 +126,18 @@ Zbog roka: **ne** implementirati punu AETR/EU regulativu. Pojednostavljeno pravi
 
 Ekrani: (1) profil vozila (visina/težina/širina/dužina/hazmat — lokalno, bez auth-a za MVP), (2) mapa + zahtev za rutu (`flutter_map` + OSM tile-ovi ili sopstveni Valhalla vector tile), (3) aktivna vožnja — live pozicija preko WebSocket-a, ETA, alert za pauzu.
 
+### 3.10 Objašnjenje predložene rute (route explainability)
+
+Kad izabrana ruta odstupa od "idealne" (bez ograničenja vozila) putanje, vozaču treba objasniti **zašto**, ne samo **šta** — npr. "ruta skreće kod Novih Banovaca jer vaše vozilo (4.7m) ne zadovoljava ograničenje visine na toj deonici auto-puta". Ovo je direktno potvrđeno kao stvaran scenario: binarnom pretragom (ručno, 2026-07-21) utvrđeno je da postoji visinsko ograničenje između 4.5m i 4.6m na A1 kod izlaza 21/22, zbog kog naša scoring formula (3.3.1) korektno bira detour preko lokalnog puta.
+
+**Mehanizam (bez potrebe za novim OSM/tag pipeline-om za MVP):**
+1. Pored zahteva sa stvarnim profilom vozila, backend paralelno traži i "referentnu" rutu sa oslobođenim (nerealno velikim) limitima za sve dimenzije.
+2. Uporede se nizovi `street_names`/manevara obe rute da se nađe tačka(e) divergencije — prvi i poslednji zajednički segment pre/posle odstupanja.
+3. Za svaku divergentnu deonicu, backend redom "oslobađa" po jednu dimenziju profila (height, weight, width, axle_load) i ponovo traži rutu; dimenzija čije oslobađanje vraća direktnu rutu je vezujuće ograničenje za taj segment — isti princip kao ručna binarna pretraga koju smo koristili da potvrdimo Banovci slučaj, samo automatizovan.
+4. Generiše se poruka vozaču korišćenjem imena najbliže ulice/mesta iz `street_names`, npr.: *"Ruta skreće kod {mesto} jer {profil.height}m visina vozila ne zadovoljava ograničenje na toj deonici."*
+
+**Namerno ograničenje za MVP:** prikaz **tačne** vrednosti ograničenja sa OSM taga (npr. "nadvožnjak je ograničen na 4.5m") zahteva čitanje `maxheight`/`maxweight`/... na tačnoj ivici grafa, što obično `/route` ne izlaže — trebalo bi ili `/trace_attributes` poziv ili bounded custom-graph modul (3.3.2) koji već čita OSM direktno. Za MVP je dovoljna poruka bez tačne brojke ("ograničenje koje vaše vozilo ne zadovoljava"); prikaz tačne vrednosti je stretch cilj ako vreme dozvoli u nedelji 3-4.
+
 ## 4. Model podataka (skica)
 
 - **Vehicle**: id, height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat (bool), hazmat_class
@@ -138,7 +150,7 @@ Ekrani: (1) profil vozila (visina/težina/širina/dužina/hazmat — lokalno, be
 
 ```
 POST /api/v1/vehicles
-POST /api/v1/routes      {origin, destination, vehicle_id} -> {geometry, distance, duration, risk_score, alternates[]}
+POST /api/v1/routes      {origin, destination, vehicle_id} -> {geometry, distance, duration, risk_score, alternates[], explanation?}
 POST /api/v1/trips       {route_id} -> {trip_id}
 WS   /ws/trips/{trip_id} -> {lat, lon, ts, eta, next_rest_stop}
 ```
@@ -150,7 +162,7 @@ RabbitMQ: topic exchange `trip.events`, routing keys `trip.started`, `trip.eta_u
 |---|---|---|
 | **1** | Podići Valhalla stack, potvrditi truck costing preko `curl`; ispraviti osmium filter (3.1) i rebuild; Postgres+PostGIS u compose-u; Go skeleton + `POST /routes` koji zove Valhallu | Auth, multi-user, produkcioni RabbitMQ |
 | **2** | Custom risk-scoring sloj (3.3.1) nad Valhalla alternativama; bounded A*/Dijkstra demo (3.3.2) sa unit testovima; RabbitMQ minimalni tok (`trip.started` → worker → `trip.eta_updated`) | Puna AETR logika, elevation/nagib rizik |
-| **3** | Flutter: profil vozila → mapa → prikaz rute; WebSocket gateway + simulacija pozicije; alert za odmaralište | Offline mod, real GPS integracija |
+| **3** | Flutter: profil vozila → mapa → prikaz rute; WebSocket gateway + simulacija pozicije; alert za odmaralište; objašnjenje predložene rute (3.10) kad odstupa od neograničene putanje | Offline mod, real GPS integracija; tačna vrednost ograničenja sa OSM taga (stretch, ne MVP) |
 | **4** | Integracija (jedan `docker compose up`), bugfix, pisanje poglavlja rada (sekcija 8), fiksne demo rute testirane unapred za odbranu, buffer | Evropa/multi-country, security hardening |
 
 ## 7. Rizici
@@ -166,7 +178,7 @@ RabbitMQ: topic exchange `trip.events`, routing keys `trip.started`, `trip.eta_u
 2. Pregled postojećih rešenja (Google/PTV/TomTom trucking, OSRM/GraphHopper/Valhalla poređenje)
 3. Podaci — OSM ekstrakcija i ograničenja tagova za teretna vozila u Srbiji (3.1)
 4. Arhitektura sistema (sekcija 2, dijagram)
-5. Algoritam rutiranja prilagođen vozilu — Valhalla truck costing + sopstveni scoring/A* i evaluacija (3.3)
+5. Algoritam rutiranja prilagođen vozilu — Valhalla truck costing + sopstveni scoring/A* i evaluacija (3.3), uključujući objašnjenje predložene rute vozaču (3.10) sa Banovci slučajem kao konkretnim primerom u radu
 6. Distribuirana komunikacija i mobilna aplikacija (3.6–3.9)
 7. Modul pauza vozača i njegova ograničenja (3.8)
 8. Testiranje i evaluacija (poređenje sa/bez custom scoring-a)
