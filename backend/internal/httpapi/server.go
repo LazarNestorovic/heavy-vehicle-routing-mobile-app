@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"heavy-vehicle-routing/backend/internal/queue"
 	"heavy-vehicle-routing/backend/internal/store"
 	"heavy-vehicle-routing/backend/internal/valhalla"
 )
@@ -16,10 +17,11 @@ type Server struct {
 	Valhalla *valhalla.Client
 	Vehicles *store.VehicleStore
 	Trips    *store.TripStore
+	Queue    *queue.Client
 }
 
-func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore) *Server {
-	return &Server{Valhalla: v, Vehicles: vehicles, Trips: trips}
+func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, q *queue.Client) *Server {
+	return &Server{Valhalla: v, Vehicles: vehicles, Trips: trips, Queue: q}
 }
 
 func (s *Server) Routes() http.Handler {

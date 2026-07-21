@@ -6,6 +6,7 @@ type Config struct {
 	Port        string
 	ValhallaURL string
 	DatabaseURL string
+	RabbitMQURL string
 }
 
 func Load() Config {
@@ -13,6 +14,7 @@ func Load() Config {
 		Port:        getEnv("PORT", "8080"),
 		ValhallaURL: getEnv("VALHALLA_URL", "http://localhost:8002"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
+		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 	}
 }
 

@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS trips (
 	status TEXT NOT NULL DEFAULT 'created',
 	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ALTER .. IF NOT EXISTS instead of baking this into CREATE TABLE above, so it
+-- applies cleanly to databases that already had the trips table before this column existed.
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS next_rest_suggestion_min DOUBLE PRECISION;
 `
 
 func Connect(ctx context.Context, databaseURL string) (*sql.DB, error) {

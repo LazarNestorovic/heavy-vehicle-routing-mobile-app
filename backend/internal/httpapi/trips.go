@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
+	"heavy-vehicle-routing/backend/internal/queue"
 	"heavy-vehicle-routing/backend/internal/store"
 	"heavy-vehicle-routing/backend/internal/valhalla"
 )
@@ -65,6 +67,14 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save trip: "+err.Error())
 		return
+	}
+
+	// The trip is already persisted (source of truth); a queue hiccup here shouldn't
+	// fail the request, so we log and move on rather than returning an error.
+	if body, err := json.Marshal(queue.TripStartedEvent{TripID: saved.ID}); err != nil {
+		log.Printf("encode trip.started for trip %d: %v", saved.ID, err)
+	} else if err := s.Queue.Publish(r.Context(), queue.RoutingKeyTripStarted, body); err != nil {
+		log.Printf("publish trip.started for trip %d: %v", saved.ID, err)
 	}
 
 	writeJSON(w, http.StatusCreated, tripResponse{
