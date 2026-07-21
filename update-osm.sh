@@ -34,9 +34,14 @@ if [ "$EXPECTED_MD5" = "$ACTUAL_MD5" ]; then
       w/highway w/maxheight w/maxweight w/maxwidth \
       w/hgv w/hazmat w/bridge w/tunnel \
       w/surface w/maxspeed \
+      n/amenity=fuel,parking n/highway=rest_area n/barrier \
       r/type=restriction \
       --output "$FILTERED_DIR/serbia-hvt.osm.pbf" \
       --overwrite
+
+    # Valhalla build čita ulaz iz valhalla/custom_files, ne iz osm-data/filtered,
+    # pa filtrirani fajl moramo kopirati tamo pre pokretanja build-a.
+    cp "$FILTERED_DIR/serbia-hvt.osm.pbf" "$PROJECT_DIR/valhalla/custom_files/serbia-hvt.osm.pbf"
 
     # --- Valhalla Build ---
 

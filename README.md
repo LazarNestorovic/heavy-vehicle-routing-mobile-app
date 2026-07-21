@@ -3,5 +3,7 @@ This thesis focuses on developing a service-oriented architecture for the routin
 
 Key Features:
 * Hybrid Offline Mode: Enables downloading and using maps and routes for specific regions without an internet connection.
-* Custom Routing Engine: Implementation based on GraphHopper with custom profiles for loaded vehicles.
-* Mobile Application: Built with Flutter/React Native for real-time navigation.
+* Custom Routing Engine: Valhalla with per-request truck costing (height/weight/width/length/axle_load/hazmat), plus a custom Go scoring/algorithm layer for vehicle-specific route risk.
+* Mobile Application: Built with Flutter for real-time navigation.
+
+See [SPECIFIKACIJA.md](SPECIFIKACIJA.md) for the full architecture, data model, and work plan.
