@@ -1,0 +1,6 @@
+BELESKE za poboljsanje:
+23.07 - cost funkcija moze bolje da se tjunuje trenutno
+koristi samo distancu u metrima i tip terena!!
+
+IDEJE za prosirenja:
+23.07 - takodje omoguciti u setings da korisnik sam prilagodjava stil voznje (udeo auto puta i slicno)...

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"heavy-vehicle-routing/backend/internal/explain"
 	"heavy-vehicle-routing/backend/internal/queue"
 	"heavy-vehicle-routing/backend/internal/store"
 	"heavy-vehicle-routing/backend/internal/valhalla"
+	"heavy-vehicle-routing/backend/internal/ws"
 )
 
 // numAlternates is how many extra Valhalla route alternatives we ask for and score
@@ -18,10 +20,12 @@ type Server struct {
 	Vehicles *store.VehicleStore
 	Trips    *store.TripStore
 	Queue    *queue.Client
+	Explain  *explain.Explainer
+	WS       *ws.Gateway
 }
 
-func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, q *queue.Client) *Server {
-	return &Server{Valhalla: v, Vehicles: vehicles, Trips: trips, Queue: q}
+func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, q *queue.Client, ex *explain.Explainer, wsGateway *ws.Gateway) *Server {
+	return &Server{Valhalla: v, Vehicles: vehicles, Trips: trips, Queue: q, Explain: ex, WS: wsGateway}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -31,6 +35,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/vehicles", s.handleCreateVehicle)
 	mux.HandleFunc("GET /api/v1/vehicles/{id}", s.handleGetVehicle)
 	mux.HandleFunc("POST /api/v1/trips", s.handleCreateTrip)
+	mux.HandleFunc("GET /api/v1/trips/{id}", s.handleGetTrip)
+	mux.HandleFunc("GET /ws/trips/{id}", s.WS.HandleTripStream)
 	return mux
 }
 

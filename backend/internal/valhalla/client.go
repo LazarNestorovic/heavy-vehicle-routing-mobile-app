@@ -50,6 +50,7 @@ type RouteCandidate struct {
 	HighwayRatio  float64 // share of route length (0..1) that runs on Valhalla-flagged "highway" edges
 	HasFerry      bool
 	HasToll       bool
+	StreetNames   []string // one entry per maneuver: its primary street name, or "" if unnamed
 }
 
 type routeRequest struct {
@@ -79,8 +80,9 @@ type tripData struct {
 	Legs []struct {
 		Shape     string `json:"shape"`
 		Maneuvers []struct {
-			Length  float64 `json:"length"` // kilometers
-			Highway bool    `json:"highway"`
+			Length      float64  `json:"length"` // kilometers
+			Highway     bool     `json:"highway"`
+			StreetNames []string `json:"street_names"`
 		} `json:"maneuvers"`
 	} `json:"legs"`
 }
@@ -112,6 +114,11 @@ func toCandidate(t tripData) RouteCandidate {
 			if m.Highway {
 				highwayKm += m.Length
 			}
+			name := ""
+			if len(m.StreetNames) > 0 {
+				name = m.StreetNames[0]
+			}
+			c.StreetNames = append(c.StreetNames, name)
 		}
 	}
 	if c.DistanceKm > 0 {

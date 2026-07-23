@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"heavy-vehicle-routing/backend/internal/queue"
 	"heavy-vehicle-routing/backend/internal/store"
@@ -16,15 +17,51 @@ type createTripRequest struct {
 	Destination valhalla.LatLon `json:"destination"`
 }
 
+type restStopResponse struct {
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Name    string  `json:"name,omitempty"`
+	Amenity string  `json:"amenity"`
+}
+
 type tripResponse struct {
-	ID          int64               `json:"id"`
-	VehicleID   int64               `json:"vehicle_id"`
-	Status      string              `json:"status"`
-	DistanceKm  float64             `json:"distance_km"`
-	DurationMin float64             `json:"duration_min"`
-	Shape       string              `json:"shape"`
-	RiskScore   float64             `json:"risk_score"`
-	Candidates  []candidateResponse `json:"candidates"`
+	ID                    int64               `json:"id"`
+	VehicleID             int64               `json:"vehicle_id"`
+	Status                string              `json:"status"`
+	DistanceKm            float64             `json:"distance_km"`
+	DurationMin           float64             `json:"duration_min"`
+	Shape                 string              `json:"shape"`
+	RiskScore             float64             `json:"risk_score"`
+	Candidates            []candidateResponse `json:"candidates,omitempty"`
+	Explanation           *string             `json:"explanation,omitempty"`
+	NextRestSuggestionMin *float64            `json:"next_rest_suggestion_min,omitempty"`
+	RestStop              *restStopResponse   `json:"rest_stop,omitempty"`
+}
+
+func toTripResponse(t store.Trip, candidates []candidateResponse) tripResponse {
+	resp := tripResponse{
+		ID:                    t.ID,
+		VehicleID:             t.VehicleID,
+		Status:                t.Status,
+		DistanceKm:            t.DistanceKm,
+		DurationMin:           t.DurationMin,
+		Shape:                 t.Shape,
+		RiskScore:             t.RiskScore,
+		Candidates:            candidates,
+		Explanation:           t.Explanation,
+		NextRestSuggestionMin: t.NextRestSuggestionMin,
+	}
+	if t.RestStopLat != nil && t.RestStopLon != nil {
+		stop := restStopResponse{Lat: *t.RestStopLat, Lon: *t.RestStopLon}
+		if t.RestStopName != nil {
+			stop.Name = *t.RestStopName
+		}
+		if t.RestStopAmenity != nil {
+			stop.Amenity = *t.RestStopAmenity
+		}
+		resp.RestStop = &stop
+	}
+	return resp
 }
 
 // handleCreateTrip looks up a previously saved vehicle profile, computes and scores a
@@ -46,12 +83,14 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, fromStoreVehicle(vehicle))
+	profile := fromStoreVehicle(vehicle)
+	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	best := ranked[0]
+	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate)
 
 	saved, err := s.Trips.Create(r.Context(), store.Trip{
 		VehicleID:      req.VehicleID,
@@ -63,6 +102,7 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 		DurationMin:    best.DurationMin,
 		RiskScore:      best.RiskScore,
 		Shape:          best.Shape,
+		Explanation:    explanation,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save trip: "+err.Error())
@@ -77,14 +117,27 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 		log.Printf("publish trip.started for trip %d: %v", saved.ID, err)
 	}
 
-	writeJSON(w, http.StatusCreated, tripResponse{
-		ID:          saved.ID,
-		VehicleID:   saved.VehicleID,
-		Status:      saved.Status,
-		DistanceKm:  saved.DistanceKm,
-		DurationMin: saved.DurationMin,
-		Shape:       saved.Shape,
-		RiskScore:   saved.RiskScore,
-		Candidates:  toCandidateResponses(ranked),
-	})
+	writeJSON(w, http.StatusCreated, toTripResponse(saved, toCandidateResponses(ranked)))
+}
+
+// handleGetTrip returns the current state of a trip, including the rest-stop
+// suggestion once the trip.started worker has processed it (status "in_progress").
+func (s *Server) handleGetTrip(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid trip id")
+		return
+	}
+
+	trip, err := s.Trips.Get(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "trip not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load trip: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toTripResponse(trip, nil))
 }

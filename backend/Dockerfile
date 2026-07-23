@@ -5,6 +5,8 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /hvr-backend .
 
 FROM alpine:3.20
-COPY --from=build /hvr-backend /hvr-backend
+WORKDIR /app
+COPY --from=build /hvr-backend /app/hvr-backend
+COPY --from=build /src/data /app/data
 EXPOSE 8080
-ENTRYPOINT ["/hvr-backend"]
+ENTRYPOINT ["/app/hvr-backend"]

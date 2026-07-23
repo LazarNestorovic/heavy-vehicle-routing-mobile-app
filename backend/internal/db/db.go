@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS trips (
 -- ALTER .. IF NOT EXISTS instead of baking this into CREATE TABLE above, so it
 -- applies cleanly to databases that already had the trips table before this column existed.
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS next_rest_suggestion_min DOUBLE PRECISION;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_lat DOUBLE PRECISION;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_lon DOUBLE PRECISION;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_name TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_amenity TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS explanation TEXT;
 `
 
 func Connect(ctx context.Context, databaseURL string) (*sql.DB, error) {

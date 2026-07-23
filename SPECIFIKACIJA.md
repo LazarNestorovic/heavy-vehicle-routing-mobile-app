@@ -6,11 +6,15 @@
 
 ## 0. Trenutno stanje projekta (šta je već urađeno)
 
-- `update-osm.sh` — automatizovan pipeline: preuzimanje Geofabrik ekstrakta za Srbiju → MD5 provera → `osmium tags-filter` → Valhalla graph build → restart servisa. Radi (potvrđeno u `osm-data/update.log`).
-- `docker-compose.yml` — Valhalla servis + build profil. Kontejner trenutno **nije pokrenut** (`docker ps` prazan) — prva stvar za proveru.
-- Valhalla graf za Srbiju je izgrađen (`valhalla/tiles/`, ~201MB).
-- Nema još: backend koda, mobilne aplikacije, baze, RabbitMQ, WebSocket-a.
-- README pominje GraphHopper i Flutter/React Native kao opcije — to je zastarelo u odnosu na stvarno stanje (Valhalla + Flutter su odabrani) i ažurirano je uz ovaj dokument.
+**Status (2026-07-21): MVP iz nedelja 1-3 je implementiran i testiran end-to-end na backend-u; Flutter aplikacija je napisana ali nije pokrenuta (nema Flutter SDK u razvojnom okruženju — vidi [`documentations/features/2026-07-21-flutter-mobile-app.md`](../documentations/features/2026-07-21-flutter-mobile-app.md)).** Pun, hronološki dnevnik svake promene je u [`documentations/CHANGELOG.md`](../documentations/CHANGELOG.md) — ova sekcija je snapshot, ne zamenjuje ga.
+
+- `update-osm.sh` — automatizovan pipeline: preuzimanje Geofabrik ekstrakta za Srbiju → MD5 provera → `osmium tags-filter` (uključujući node tagove za odmarališta, popravljeno) → Valhalla graph build → restart servisa.
+- `docker-compose.yml` — Valhalla, Postgres/PostGIS, RabbitMQ, Go backend. Svi servisi rade i testirani su zajedno.
+- Valhalla graf za Srbiju je izgrađen i rebuild-ovan sa ispravljenim filterom.
+- Backend (`backend/`, Go): `POST/GET /api/v1/vehicles`, `POST/GET /api/v1/trips`, `POST /api/v1/routes`, `GET /ws/trips/{id}` — sve implementirano, testirano.
+- Bounded A*/Dijkstra modul (`backend/internal/algorithm/`) — 9 testova, sopstveni algoritam nad OSM podacima.
+- Mobilna aplikacija (`mobile/`, Flutter) — 3 ekrana napisana, **nije pokrenuta/vizuelno provereno** (nema SDK u ovom okruženju).
+- README je ažuriran da odražava stvarni stack (Valhalla + Flutter, ne GraphHopper/RN).
 
 ## 1. Kritična napomena o roku
 
@@ -158,12 +162,14 @@ RabbitMQ: topic exchange `trip.events`, routing keys `trip.started`, `trip.eta_u
 
 ## 6. Plan rada — 4 nedelje
 
-| Nedelja | MORA (za odbranu) | NE raditi sada (future work) |
+| Nedelja | MORA (za odbranu) | Status |
 |---|---|---|
-| **1** | Podići Valhalla stack, potvrditi truck costing preko `curl`; ispraviti osmium filter (3.1) i rebuild; Postgres+PostGIS u compose-u; Go skeleton + `POST /routes` koji zove Valhallu | Auth, multi-user, produkcioni RabbitMQ |
-| **2** | Custom risk-scoring sloj (3.3.1) nad Valhalla alternativama; bounded A*/Dijkstra demo (3.3.2) sa unit testovima; RabbitMQ minimalni tok (`trip.started` → worker → `trip.eta_updated`) | Puna AETR logika, elevation/nagib rizik |
-| **3** | Flutter: profil vozila → mapa → prikaz rute; WebSocket gateway + simulacija pozicije; alert za odmaralište; objašnjenje predložene rute (3.10) kad odstupa od neograničene putanje | Offline mod, real GPS integracija; tačna vrednost ograničenja sa OSM taga (stretch, ne MVP) |
-| **4** | Integracija (jedan `docker compose up`), bugfix, pisanje poglavlja rada (sekcija 8), fiksne demo rute testirane unapred za odbranu, buffer | Evropa/multi-country, security hardening |
+| **1** | Podići Valhalla stack, potvrditi truck costing preko `curl`; ispraviti osmium filter (3.1) i rebuild; Postgres+PostGIS u compose-u; Go skeleton + `POST /routes` koji zove Valhallu | ✅ Gotovo |
+| **2** | Custom risk-scoring sloj (3.3.1) nad Valhalla alternativama; bounded A*/Dijkstra demo (3.3.2) sa unit testovima; RabbitMQ minimalni tok (`trip.started` → worker → `trip.eta_updated`) | ✅ Gotovo |
+| **3** | Flutter: profil vozila → mapa → prikaz rute; WebSocket gateway + simulacija pozicije; alert za odmaralište; objašnjenje predložene rute (3.10) kad odstupa od neograničene putanje | ⚠️ Backend gotov i testiran; Flutter kod napisan ali **nije pokrenut** (nema SDK) |
+| **4** | Integracija (jedan `docker compose up`), bugfix, pisanje poglavlja rada (sekcija 8), fiksne demo rute testirane unapred za odbranu, buffer | ⏳ Preostaje: pokrenuti Flutter na mašini sa SDK-om, ispraviti šta analyzer/testiranje otkrije, uživo demo test |
+
+**Van MVP-a (namerno, future work):** auth/multi-user, produkciona RabbitMQ topologija (retry/DLQ), puna AETR logika, elevation/nagib rizik, offline mod, real GPS integracija, tačna vrednost ograničenja sa OSM taga u objašnjenju rute, Evropa/multi-country, security hardening.
 
 ## 7. Rizici
 

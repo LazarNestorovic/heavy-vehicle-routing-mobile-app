@@ -32,13 +32,11 @@ type createRouteResponse struct {
 	Shape       string              `json:"shape"`
 	RiskScore   float64             `json:"risk_score"`
 	Candidates  []candidateResponse `json:"candidates"`
+	Explanation *string             `json:"explanation,omitempty"`
 }
 
-// bestRoute requests alternatives from Valhalla for the given vehicle profile and
-// returns them ranked by risk score (best first). Shared by /api/v1/routes (stateless
-// preview) and /api/v1/trips (persisted).
-func (s *Server) bestRoute(ctx context.Context, origin, destination valhalla.LatLon, profile vehicleProfile) ([]scoring.ScoredCandidate, error) {
-	truckProfile := valhalla.TruckProfile{
+func toTruckProfile(profile vehicleProfile) valhalla.TruckProfile {
+	return valhalla.TruckProfile{
 		HeightM:    profile.HeightM,
 		WidthM:     profile.WidthM,
 		LengthM:    profile.LengthM,
@@ -46,8 +44,13 @@ func (s *Server) bestRoute(ctx context.Context, origin, destination valhalla.Lat
 		AxleLoadKg: profile.AxleLoadKg,
 		Hazmat:     profile.Hazmat,
 	}
+}
 
-	candidates, err := s.Valhalla.RouteAlternates(ctx, origin, destination, truckProfile, numAlternates)
+// bestRoute requests alternatives from Valhalla for the given vehicle profile and
+// returns them ranked by risk score (best first). Shared by /api/v1/routes (stateless
+// preview) and /api/v1/trips (persisted).
+func (s *Server) bestRoute(ctx context.Context, origin, destination valhalla.LatLon, profile vehicleProfile) ([]scoring.ScoredCandidate, error) {
+	candidates, err := s.Valhalla.RouteAlternates(ctx, origin, destination, toTruckProfile(profile), numAlternates)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +94,7 @@ func (s *Server) handleCreateRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	best := ranked[0]
+	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(req.Vehicle), best.RouteCandidate)
 
 	writeJSON(w, http.StatusOK, createRouteResponse{
 		DistanceKm:  best.DistanceKm,
@@ -98,5 +102,6 @@ func (s *Server) handleCreateRoute(w http.ResponseWriter, r *http.Request) {
 		Shape:       best.Shape,
 		RiskScore:   best.RiskScore,
 		Candidates:  toCandidateResponses(ranked),
+		Explanation: explanation,
 	})
 }
