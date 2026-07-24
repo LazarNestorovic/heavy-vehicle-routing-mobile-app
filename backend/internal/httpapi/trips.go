@@ -67,6 +67,8 @@ func toTripResponse(t store.Trip, candidates []candidateResponse) tripResponse {
 // handleCreateTrip looks up a previously saved vehicle profile, computes and scores a
 // route for it (same logic as POST /api/v1/routes), and persists the result as a trip.
 func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
 	var req createTripRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
@@ -82,17 +84,33 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
 		return
 	}
+	if vehicle.DriverID != driverID {
+		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
+		return
+	}
+
+	prefs, err := s.scoringPreferences(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferences: "+err.Error())
+		return
+	}
+	preferredStops, err := s.resolvePreferredStops(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferred stops: "+err.Error())
+		return
+	}
 
 	profile := fromStoreVehicle(vehicle)
-	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile)
+	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile, prefs, preferredStops)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	best := ranked[0]
-	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate)
+	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate, prefs, profile.WeightKg, preferredStops)
 
 	saved, err := s.Trips.Create(r.Context(), store.Trip{
+		DriverID:       driverID,
 		VehicleID:      req.VehicleID,
 		OriginLat:      req.Origin.Lat,
 		OriginLon:      req.Origin.Lon,
@@ -123,6 +141,8 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 // handleGetTrip returns the current state of a trip, including the rest-stop
 // suggestion once the trip.started worker has processed it (status "in_progress").
 func (s *Server) handleGetTrip(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid trip id")
@@ -138,6 +158,38 @@ func (s *Server) handleGetTrip(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load trip: "+err.Error())
 		return
 	}
+	if trip.DriverID != driverID {
+		writeError(w, http.StatusForbidden, "trip does not belong to you")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, toTripResponse(trip, nil))
+}
+
+// handleTripStream checks trip ownership (the ws package itself knows nothing
+// about auth) before delegating to the WebSocket gateway.
+func (s *Server) handleTripStream(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid trip id")
+		return
+	}
+
+	trip, err := s.Trips.Get(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "trip not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load trip: "+err.Error())
+		return
+	}
+	if trip.DriverID != driverID {
+		writeError(w, http.StatusForbidden, "trip does not belong to you")
+		return
+	}
+
+	s.WS.HandleTripStream(w, r)
 }

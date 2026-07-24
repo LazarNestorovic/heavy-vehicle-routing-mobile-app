@@ -2,6 +2,9 @@
 
 Hronološki indeks svih zapisa u `documentations/`. Najnoviji na vrhu. Svaki red linkuje na detaljan zapis.
 
+- **2026-07-21** — [Flutter: nalozi, preference, izbor vozila (Faza 6)](features/2026-07-21-flutter-driver-accounts-preferences.md) — `flutter analyze`/`flutter test` čisti (Flutter sada dostupan u sesiji), UI vizuelno još nije potvrđen.
+- **2026-07-21** — [Preferirane pumpe — brend i sačuvane lokacije (Faza 5)](features/2026-07-21-preferred-fuel-stations.md) — utiče na predlog pauze I na risk_score rute, potvrđeno uživo (-20 bonus tačno kako formula predviđa).
+- **2026-07-21** — [Driver nalozi + dinamičan preference-driven scoring (Faze 1-4)](features/2026-07-21-driver-preference-scoring.md) — JWT auth, vlasništvo vozila, podesivi prioriteti (1-5), nova formula rešava Radalj bug (potvrđeno uživo + testovima).
 - **2026-07-21** — [Flutter mobilna aplikacija (3.9)](features/2026-07-21-flutter-mobile-app.md) — 3 ekrana, pisano bez SDK-a, **nije pokrenuto/vizuelno provereno** — vidi napomenu u dokumentu.
 - **2026-07-21** — [WebSocket gateway — simulacija pozicije uživo](features/2026-07-21-websocket-gateway.md) — `GET /ws/trips/{id}`, testirano preko Node ws klijenta.
 - **2026-07-21** — [Objašnjenje predložene rute (3.10)](features/2026-07-21-route-explainability.md) — binding-constraint detekcija; pronađen i ispravljen bug (referentna ruta nije koristila isti scoring pipeline).

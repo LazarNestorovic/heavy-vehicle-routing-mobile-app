@@ -16,6 +16,7 @@ type Stop struct {
 	Lon     float64
 	Amenity string // "fuel", "parking", or "rest_area"
 	Name    string // may be empty - not every node is tagged with a name
+	Brand   string // may be empty - only fuel stations tend to carry this (e.g. "НИС Петрол")
 }
 
 type osmXML struct {
@@ -68,7 +69,8 @@ func Load(path string) ([]Stop, error) {
 			continue
 		}
 		name, _ := n.tag("name")
-		stops = append(stops, Stop{ID: n.ID, Lat: n.Lat, Lon: n.Lon, Amenity: amenity, Name: name})
+		brand, _ := n.tag("brand")
+		stops = append(stops, Stop{ID: n.ID, Lat: n.Lat, Lon: n.Lon, Amenity: amenity, Name: name, Brand: brand})
 	}
 	return stops, nil
 }
@@ -85,12 +87,61 @@ func NewFinder(stops []Stop) *Finder {
 // Nearest does a linear scan - fine for ~2000 stops; would need a spatial index
 // at a much larger scale (e.g. all of Europe).
 func (f *Finder) Nearest(lat, lon float64) (Stop, float64, bool) {
+	return nearestIn(f.stops, lat, lon)
+}
+
+// ByBrand returns every stop tagged with the given brand (e.g. "НИС Петрол") -
+// used by route scoring to check whether a candidate passes near any of them,
+// not just the single nearest one.
+func (f *Finder) ByBrand(brand string) []Stop {
+	if brand == "" {
+		return nil
+	}
+	var matches []Stop
+	for _, s := range f.stops {
+		if s.Brand == brand {
+			matches = append(matches, s)
+		}
+	}
+	return matches
+}
+
+// DefaultPreferredRadiusM is how far a driver's preferred brand/favorite stop
+// may be from the reference point before it's not worth the detour and we fall
+// back to the plain nearest stop of any kind.
+const DefaultPreferredRadiusM = 15000
+
+// NearestPreferred prefers, in order: a saved favorite stop, then a stop
+// matching the driver's preferred brand, within maxRadiusM of (lat, lon) -
+// falling back to the plain nearest stop of any kind/brand if neither is close
+// enough (or set at all).
+func (f *Finder) NearestPreferred(lat, lon float64, brand string, favorites []Stop, maxRadiusM float64) (Stop, float64, bool) {
+	if stop, dist, found := nearestIn(favorites, lat, lon); found && dist <= maxRadiusM {
+		return stop, dist, true
+	}
+
+	if brand != "" {
+		var brandMatches []Stop
+		for _, s := range f.stops {
+			if s.Brand == brand {
+				brandMatches = append(brandMatches, s)
+			}
+		}
+		if stop, dist, found := nearestIn(brandMatches, lat, lon); found && dist <= maxRadiusM {
+			return stop, dist, true
+		}
+	}
+
+	return f.Nearest(lat, lon)
+}
+
+func nearestIn(stops []Stop, lat, lon float64) (Stop, float64, bool) {
 	var (
 		best     Stop
 		bestDist = math.Inf(1)
 		found    bool
 	)
-	for _, s := range f.stops {
+	for _, s := range stops {
 		d := haversineMeters(lat, lon, s.Lat, s.Lon)
 		if d < bestDist {
 			bestDist = d

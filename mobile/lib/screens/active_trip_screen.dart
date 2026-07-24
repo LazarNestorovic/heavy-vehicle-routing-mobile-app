@@ -5,15 +5,20 @@ import 'package:latlong2/latlong.dart';
 import '../models/position_update.dart';
 import '../models/rest_stop.dart';
 import '../models/trip.dart';
+import '../services/api_client.dart';
 import '../services/polyline.dart';
 import '../services/trip_socket.dart';
 
 /// Active trip screen (SPECIFIKACIJA.md 3.7/3.9/3.10): live simulated position
 /// over WebSocket, ETA, and a rest-stop alert the first time the worker
 /// attaches one. See documentations/features/2026-07-21-websocket-gateway.md.
+/// The WS endpoint now requires auth too (?token= query param, since browsers'
+/// WebSocket API can't set custom headers - see backend/internal/httpapi/middleware.go
+/// RequireAuthQuery), hence `api` is needed here just for its token.
 class ActiveTripScreen extends StatefulWidget {
+  final ApiClient api;
   final Trip trip;
-  const ActiveTripScreen({super.key, required this.trip});
+  const ActiveTripScreen({super.key, required this.api, required this.trip});
 
   @override
   State<ActiveTripScreen> createState() => _ActiveTripScreenState();
@@ -49,7 +54,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   }
 
   void _listen() {
-    _socket.connect(widget.trip.id).listen(
+    _socket.connect(widget.trip.id, widget.api.token ?? '').listen(
       (update) => _onUpdate(update),
       onError: (e) => setState(() => _error = 'Konekcija prekinuta: $e'),
       onDone: () {

@@ -8,6 +8,7 @@ type Config struct {
 	DatabaseURL      string
 	RabbitMQURL      string
 	RestStopDataPath string
+	JWTSecret        string
 }
 
 func Load() Config {
@@ -17,6 +18,9 @@ func Load() Config {
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
 		RabbitMQURL:      getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 		RestStopDataPath: getEnv("REST_STOP_DATA_PATH", "data/serbia-rest-stops.osm"),
+		// Insecure fallback for local `go run` without docker-compose; docker-compose.yml
+		// sets a real random JWT_SECRET for the actual running stack.
+		JWTSecret: getEnv("JWT_SECRET", "dev-only-insecure-secret-change-me"),
 	}
 }
 

@@ -11,6 +11,13 @@ import (
 )
 
 const schema = `
+CREATE TABLE IF NOT EXISTS drivers (
+	id SERIAL PRIMARY KEY,
+	username TEXT NOT NULL UNIQUE,
+	password_hash TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS vehicles (
 	id SERIAL PRIMARY KEY,
 	height_m DOUBLE PRECISION NOT NULL,
@@ -46,6 +53,26 @@ ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_lon DOUBLE PRECISION;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_name TEXT;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS rest_stop_amenity TEXT;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS explanation TEXT;
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS driver_id INTEGER REFERENCES drivers(id);
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS driver_id INTEGER REFERENCES drivers(id);
+
+CREATE TABLE IF NOT EXISTS driver_preferences (
+	driver_id INTEGER PRIMARY KEY REFERENCES drivers(id),
+	fuel_priority SMALLINT NOT NULL DEFAULT 3 CHECK (fuel_priority BETWEEN 1 AND 5),
+	cargo_priority SMALLINT NOT NULL DEFAULT 3 CHECK (cargo_priority BETWEEN 1 AND 5),
+	highway_priority SMALLINT NOT NULL DEFAULT 3 CHECK (highway_priority BETWEEN 1 AND 5),
+	time_priority SMALLINT NOT NULL DEFAULT 3 CHECK (time_priority BETWEEN 1 AND 5),
+	preferred_fuel_brand TEXT
+);
+
+CREATE TABLE IF NOT EXISTS driver_favorite_stops (
+	id SERIAL PRIMARY KEY,
+	driver_id INTEGER NOT NULL REFERENCES drivers(id),
+	lat DOUBLE PRECISION NOT NULL,
+	lon DOUBLE PRECISION NOT NULL,
+	name TEXT,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `
 
 func Connect(ctx context.Context, databaseURL string) (*sql.DB, error) {

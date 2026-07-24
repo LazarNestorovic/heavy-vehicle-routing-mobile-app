@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"heavy-vehicle-routing/backend/internal/auth"
 	"heavy-vehicle-routing/backend/internal/config"
 	"heavy-vehicle-routing/backend/internal/db"
 	"heavy-vehicle-routing/backend/internal/explain"
@@ -55,11 +56,18 @@ func main() {
 	vhClient := valhalla.New(cfg.ValhallaURL)
 	vehicles := store.NewVehicleStore(conn)
 	trips := store.NewTripStore(conn)
+	drivers := store.NewDriverStore(conn)
+	preferences := store.NewPreferencesStore(conn)
+	favoriteStops := store.NewFavoriteStopStore(conn)
 	explainer := explain.New(vhClient)
 	wsGateway := ws.New(trips)
-	server := httpapi.NewServer(vhClient, vehicles, trips, publisherQueue, explainer, wsGateway)
+	authManager := auth.New(cfg.JWTSecret)
+	server := httpapi.NewServer(vhClient, vehicles, trips, drivers, preferences, favoriteStops, restStopFinder, publisherQueue, explainer, wsGateway, authManager)
 
-	tripWorker := &worker.TripWorker{Trips: trips, Queue: consumerQueue, RestStops: restStopFinder}
+	tripWorker := &worker.TripWorker{
+		Trips: trips, Queue: consumerQueue, RestStops: restStopFinder,
+		Preferences: preferences, FavoriteStops: favoriteStops,
+	}
 	go func() {
 		if err := tripWorker.Run(ctx); err != nil {
 			log.Fatalf("trip worker: %v", err)

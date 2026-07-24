@@ -57,6 +57,8 @@ type vehicleResponse struct {
 }
 
 func (s *Server) handleCreateVehicle(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
 	var req vehicleProfile
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
@@ -68,7 +70,10 @@ func (s *Server) handleCreateVehicle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saved, err := s.Vehicles.Create(r.Context(), toStoreVehicle(req))
+	toSave := toStoreVehicle(req)
+	toSave.DriverID = driverID
+
+	saved, err := s.Vehicles.Create(r.Context(), toSave)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save vehicle: "+err.Error())
 		return
@@ -77,7 +82,25 @@ func (s *Server) handleCreateVehicle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, vehicleResponse{ID: saved.ID, vehicleProfile: fromStoreVehicle(saved)})
 }
 
+func (s *Server) handleListVehicles(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	vehicles, err := s.Vehicles.List(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list vehicles: "+err.Error())
+		return
+	}
+
+	out := make([]vehicleResponse, len(vehicles))
+	for i, v := range vehicles {
+		out[i] = vehicleResponse{ID: v.ID, vehicleProfile: fromStoreVehicle(v)}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (s *Server) handleGetVehicle(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid vehicle id")
@@ -91,6 +114,10 @@ func (s *Server) handleGetVehicle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+		return
+	}
+	if v.DriverID != driverID {
+		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
 		return
 	}
 

@@ -12,15 +12,15 @@ import 'active_trip_screen.dart';
 /// again for destination, then preview or start the trip. No address search/
 /// geocoding in this MVP - tap-to-pick only.
 class RouteRequestScreen extends StatefulWidget {
+  final ApiClient api;
   final VehicleProfile vehicle;
-  const RouteRequestScreen({super.key, required this.vehicle});
+  const RouteRequestScreen({super.key, required this.api, required this.vehicle});
 
   @override
   State<RouteRequestScreen> createState() => _RouteRequestScreenState();
 }
 
 class _RouteRequestScreenState extends State<RouteRequestScreen> {
-  final _api = ApiClient();
   final _mapController = MapController();
 
   LatLng? _origin;
@@ -67,7 +67,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       _error = null;
     });
     try {
-      final result = await _api.previewRoute(
+      final result = await widget.api.previewRoute(
         origin: _origin!,
         destination: _destination!,
         vehicle: widget.vehicle,
@@ -92,14 +92,14 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       _error = null;
     });
     try {
-      final trip = await _api.createTrip(
+      final trip = await widget.api.createTrip(
         vehicleId: widget.vehicle.id!,
         origin: _origin!,
         destination: _destination!,
       );
       if (!mounted) return;
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ActiveTripScreen(trip: trip)),
+        MaterialPageRoute(builder: (_) => ActiveTripScreen(api: widget.api, trip: trip)),
       );
     } on ApiException catch (e) {
       setState(() => _error = 'Greška: ${e.message}');

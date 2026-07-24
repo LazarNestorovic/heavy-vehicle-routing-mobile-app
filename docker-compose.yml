@@ -86,6 +86,7 @@ services:
       VALHALLA_URL: "http://valhalla:8002"
       DATABASE_URL: "postgres://hvr:hvr_dev_password@postgres:5432/hvr?sslmode=disable"
       RABBITMQ_URL: "amqp://hvr:hvr_dev_password@rabbitmq:5672/"
+      JWT_SECRET: "708c346d30575a9e7eadd51b86ac7174c424601d92ef3f5b93424cd98734b863"
     ports:
       - "8080:8080"
     depends_on:

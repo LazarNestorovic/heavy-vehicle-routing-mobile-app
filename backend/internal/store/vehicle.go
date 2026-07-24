@@ -8,6 +8,7 @@ import (
 
 type Vehicle struct {
 	ID         int64
+	DriverID   int64
 	HeightM    float64
 	WidthM     float64
 	LengthM    float64
@@ -26,10 +27,10 @@ func NewVehicleStore(db *sql.DB) *VehicleStore {
 
 func (s *VehicleStore) Create(ctx context.Context, v Vehicle) (Vehicle, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO vehicles (height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO vehicles (driver_id, height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id`,
-		v.HeightM, v.WidthM, v.LengthM, v.WeightKg, v.AxleLoadKg, v.Hazmat)
+		v.DriverID, v.HeightM, v.WidthM, v.LengthM, v.WeightKg, v.AxleLoadKg, v.Hazmat)
 
 	if err := row.Scan(&v.ID); err != nil {
 		return Vehicle{}, fmt.Errorf("insert vehicle: %w", err)
@@ -43,14 +44,35 @@ func (s *VehicleStore) Get(ctx context.Context, id int64) (Vehicle, error) {
 	var v Vehicle
 	v.ID = id
 	row := s.db.QueryRowContext(ctx, `
-		SELECT height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat
+		SELECT driver_id, height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat
 		FROM vehicles WHERE id = $1`, id)
 
-	if err := row.Scan(&v.HeightM, &v.WidthM, &v.LengthM, &v.WeightKg, &v.AxleLoadKg, &v.Hazmat); err != nil {
+	if err := row.Scan(&v.DriverID, &v.HeightM, &v.WidthM, &v.LengthM, &v.WeightKg, &v.AxleLoadKg, &v.Hazmat); err != nil {
 		if err == sql.ErrNoRows {
 			return Vehicle{}, ErrNotFound
 		}
 		return Vehicle{}, fmt.Errorf("select vehicle: %w", err)
 	}
 	return v, nil
+}
+
+// List returns every vehicle owned by driverID, most recently created first.
+func (s *VehicleStore) List(ctx context.Context, driverID int64) ([]Vehicle, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, height_m, width_m, length_m, weight_kg, axle_load_kg, hazmat
+		FROM vehicles WHERE driver_id = $1 ORDER BY id DESC`, driverID)
+	if err != nil {
+		return nil, fmt.Errorf("list vehicles: %w", err)
+	}
+	defer rows.Close()
+
+	vehicles := []Vehicle{}
+	for rows.Next() {
+		v := Vehicle{DriverID: driverID}
+		if err := rows.Scan(&v.ID, &v.HeightM, &v.WidthM, &v.LengthM, &v.WeightKg, &v.AxleLoadKg, &v.Hazmat); err != nil {
+			return nil, fmt.Errorf("scan vehicle: %w", err)
+		}
+		vehicles = append(vehicles, v)
+	}
+	return vehicles, rows.Err()
 }

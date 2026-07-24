@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
-import '../services/vehicle_storage.dart';
-import 'route_request_screen.dart';
 
+/// Vehicle creation form. Since a driver can own multiple vehicles now (see
+/// documentations/features/2026-07-21-driver-preference-scoring.md, Faza 2),
+/// this is no longer the app's first screen - VehicleListScreen is the hub,
+/// this is reached via its "add vehicle" action and pops back with `true` on
+/// success so the list knows to refresh.
 class VehicleProfileScreen extends StatefulWidget {
-  const VehicleProfileScreen({super.key});
+  final ApiClient api;
+  const VehicleProfileScreen({super.key, required this.api});
 
   @override
   State<VehicleProfileScreen> createState() => _VehicleProfileScreenState();
@@ -14,8 +18,6 @@ class VehicleProfileScreen extends StatefulWidget {
 
 class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _storage = VehicleStorage();
-  final _api = ApiClient();
 
   // Pre-filled with a typical EU semi-truck profile so the form is usable
   // immediately during a demo, not just after manual entry.
@@ -28,28 +30,6 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
 
   bool _loading = false;
   String? _error;
-  VehicleProfile? _saved;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSaved();
-  }
-
-  Future<void> _loadSaved() async {
-    final saved = await _storage.load();
-    if (saved != null && mounted) {
-      setState(() {
-        _saved = saved;
-        _heightCtrl.text = saved.heightM.toString();
-        _widthCtrl.text = saved.widthM.toString();
-        _lengthCtrl.text = saved.lengthM.toString();
-        _weightCtrl.text = saved.weightKg.toString();
-        _axleLoadCtrl.text = saved.axleLoadKg.toString();
-        _hazmat = saved.hazmat;
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -70,7 +50,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
     return null;
   }
 
-  Future<void> _continue() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final weight = _num(_weightCtrl);
@@ -94,13 +74,10 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
         axleLoadKg: axleLoad,
         hazmat: _hazmat,
       );
-      final saved = await _api.createVehicle(profile);
-      await _storage.save(saved);
+      await widget.api.createVehicle(profile);
 
       if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RouteRequestScreen(vehicle: saved)),
-      );
+      Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       setState(() => _error = 'Greška: ${e.message}');
     } catch (e) {
@@ -113,7 +90,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil vozila')),
+      appBar: AppBar(title: const Text('Novo vozilo')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -121,14 +98,6 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_saved != null)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    'Prethodno sačuvan profil je učitan. Izmenite polja po potrebi ili nastavite.',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                ),
               _numberField('Visina (m)', _heightCtrl),
               _numberField('Širina (m)', _widthCtrl),
               _numberField('Dužina (m)', _lengthCtrl),
@@ -146,10 +115,10 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
                   child: Text(_error!, style: const TextStyle(color: Colors.red)),
                 ),
               FilledButton(
-                onPressed: _loading ? null : _continue,
+                onPressed: _loading ? null : _submit,
                 child: _loading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Sačuvaj i nastavi'),
+                    : const Text('Sačuvaj vozilo'),
               ),
             ],
           ),

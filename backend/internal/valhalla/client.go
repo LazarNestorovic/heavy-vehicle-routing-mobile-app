@@ -43,14 +43,15 @@ type TruckProfile struct {
 // bridge/surface/hazmat-proximity data - that would require /trace_attributes, which is
 // out of scope for this layer; see the bounded custom-graph module for that).
 type RouteCandidate struct {
-	DistanceKm    float64
-	DurationMin   float64
-	Shape         string // encoded polyline6 of the first leg
-	ManeuverCount int
-	HighwayRatio  float64 // share of route length (0..1) that runs on Valhalla-flagged "highway" edges
-	HasFerry      bool
-	HasToll       bool
-	StreetNames   []string // one entry per maneuver: its primary street name, or "" if unnamed
+	DistanceKm         float64
+	DurationMin        float64
+	Shape              string // encoded polyline6 of the first leg
+	ManeuverCount      int
+	SharpManeuverCount int     // sharp turns/U-turns/roundabout entries (types 11,12,13,14,26) - proxy for cargo-jostling risk
+	HighwayRatio       float64 // share of route length (0..1) that runs on Valhalla-flagged "highway" edges
+	HasFerry           bool
+	HasToll            bool
+	StreetNames        []string // one entry per maneuver: its primary street name, or "" if unnamed
 }
 
 type routeRequest struct {
@@ -82,9 +83,22 @@ type tripData struct {
 		Maneuvers []struct {
 			Length      float64  `json:"length"` // kilometers
 			Highway     bool     `json:"highway"`
+			Type        int      `json:"type"` // Valhalla maneuver type code
 			StreetNames []string `json:"street_names"`
 		} `json:"maneuvers"`
 	} `json:"legs"`
+}
+
+// sharpManeuverTypes are the Valhalla maneuver `type` codes confirmed (by live
+// test call, see documentations/features/2026-07-21-driver-preference-scoring.md)
+// to represent sharp turns, U-turns, and roundabout entries - maneuvers that
+// involve real deceleration/jostling, used as a cargo-smoothness proxy.
+var sharpManeuverTypes = map[int]bool{
+	11: true, // sharp right
+	12: true, // U-turn right
+	13: true, // U-turn left
+	14: true, // sharp left
+	26: true, // roundabout enter
 }
 
 type routeResponse struct {
@@ -113,6 +127,9 @@ func toCandidate(t tripData) RouteCandidate {
 			c.ManeuverCount++
 			if m.Highway {
 				highwayKm += m.Length
+			}
+			if sharpManeuverTypes[m.Type] {
+				c.SharpManeuverCount++
 			}
 			name := ""
 			if len(m.StreetNames) > 0 {

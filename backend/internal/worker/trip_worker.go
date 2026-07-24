@@ -23,9 +23,11 @@ import (
 const restThresholdMin = 270
 
 type TripWorker struct {
-	Trips     *store.TripStore
-	Queue     *queue.Client
-	RestStops *reststop.Finder
+	Trips         *store.TripStore
+	Queue         *queue.Client
+	RestStops     *reststop.Finder
+	Preferences   *store.PreferencesStore
+	FavoriteStops *store.FavoriteStopStore
 }
 
 // Run blocks, consuming trip.started events until the delivery channel closes.
@@ -56,7 +58,7 @@ func (w *TripWorker) handle(ctx context.Context, d amqp.Delivery) {
 		return
 	}
 
-	rest := w.computeRestStop(trip)
+	rest := w.computeRestStop(ctx, trip)
 
 	if err := w.Trips.UpdateAfterProcessing(ctx, trip.ID, rest); err != nil {
 		log.Printf("worker: update trip %d: %v", trip.ID, err)
@@ -83,7 +85,7 @@ func (w *TripWorker) handle(ctx context.Context, d amqp.Delivery) {
 	log.Printf("worker: processed trip %d (rest_suggestion_min=%v)", trip.ID, rest.AfterMinutes)
 }
 
-func (w *TripWorker) computeRestStop(trip store.Trip) store.RestStopSuggestion {
+func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store.RestStopSuggestion {
 	if trip.DurationMin <= restThresholdMin {
 		return store.RestStopSuggestion{}
 	}
@@ -95,7 +97,22 @@ func (w *TripWorker) computeRestStop(trip store.Trip) store.RestStopSuggestion {
 	fraction := restThresholdMin / trip.DurationMin
 	at := valhalla.PointAtFraction(points, fraction)
 
-	stop, _, found := w.RestStops.Nearest(at.Lat, at.Lon)
+	var brand string
+	var favorites []reststop.Stop
+	if prefs, err := w.Preferences.Get(ctx, trip.DriverID); err != nil {
+		log.Printf("worker: load preferences for driver %d: %v (falling back to plain nearest)", trip.DriverID, err)
+	} else if prefs.PreferredFuelBrand != nil {
+		brand = *prefs.PreferredFuelBrand
+	}
+	if favs, err := w.FavoriteStops.List(ctx, trip.DriverID); err != nil {
+		log.Printf("worker: load favorite stops for driver %d: %v (falling back to plain nearest)", trip.DriverID, err)
+	} else {
+		for _, f := range favs {
+			favorites = append(favorites, reststop.Stop{ID: f.ID, Lat: f.Lat, Lon: f.Lon, Name: f.Name})
+		}
+	}
+
+	stop, _, found := w.RestStops.NearestPreferred(at.Lat, at.Lon, brand, favorites, reststop.DefaultPreferredRadiusM)
 	if !found {
 		return suggestion // threshold still meaningful even without a matched location
 	}

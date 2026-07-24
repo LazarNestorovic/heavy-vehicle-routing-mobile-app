@@ -8,6 +8,7 @@ import (
 
 type Trip struct {
 	ID                    int64
+	DriverID              int64
 	VehicleID             int64
 	OriginLat             float64
 	OriginLon             float64
@@ -49,11 +50,11 @@ func (s *TripStore) Create(ctx context.Context, t Trip) (Trip, error) {
 	}
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO trips (vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
+		INSERT INTO trips (driver_id, vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
 			distance_km, duration_min, risk_score, shape, status, explanation)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id`,
-		t.VehicleID, t.OriginLat, t.OriginLon, t.DestinationLat, t.DestinationLon,
+		t.DriverID, t.VehicleID, t.OriginLat, t.OriginLon, t.DestinationLat, t.DestinationLon,
 		t.DistanceKm, t.DurationMin, t.RiskScore, t.Shape, t.Status, t.Explanation)
 
 	if err := row.Scan(&t.ID); err != nil {
@@ -66,12 +67,12 @@ func (s *TripStore) Get(ctx context.Context, id int64) (Trip, error) {
 	var t Trip
 	t.ID = id
 	row := s.db.QueryRowContext(ctx, `
-		SELECT vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
+		SELECT driver_id, vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
 			distance_km, duration_min, risk_score, shape, status, explanation,
 			next_rest_suggestion_min, rest_stop_lat, rest_stop_lon, rest_stop_name, rest_stop_amenity
 		FROM trips WHERE id = $1`, id)
 
-	if err := row.Scan(&t.VehicleID, &t.OriginLat, &t.OriginLon, &t.DestinationLat, &t.DestinationLon,
+	if err := row.Scan(&t.DriverID, &t.VehicleID, &t.OriginLat, &t.OriginLon, &t.DestinationLat, &t.DestinationLon,
 		&t.DistanceKm, &t.DurationMin, &t.RiskScore, &t.Shape, &t.Status, &t.Explanation,
 		&t.NextRestSuggestionMin, &t.RestStopLat, &t.RestStopLon, &t.RestStopName, &t.RestStopAmenity); err != nil {
 		if err == sql.ErrNoRows {

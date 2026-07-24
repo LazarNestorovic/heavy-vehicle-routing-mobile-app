@@ -81,21 +81,23 @@ func dimensions() []dimension {
 // reference made Explain blame vehicle dimensions for distance differences that
 // were actually caused by our own scoring formula's highway-ratio preference
 // (see documentations/features/2026-07-21-route-explainability.md).
-func (e *Explainer) rankedBest(ctx context.Context, origin, destination valhalla.LatLon, profile valhalla.TruckProfile) (valhalla.RouteCandidate, error) {
+func (e *Explainer) rankedBest(ctx context.Context, origin, destination valhalla.LatLon, profile valhalla.TruckProfile, prefs scoring.Preferences, vehicleWeightKg float64, preferredStops []valhalla.LatLon) (valhalla.RouteCandidate, error) {
 	candidates, err := e.Valhalla.RouteAlternates(ctx, origin, destination, profile, numAlternates)
 	if err != nil {
 		return valhalla.RouteCandidate{}, err
 	}
-	return scoring.Rank(candidates)[0].RouteCandidate, nil
+	return scoring.Rank(candidates, prefs, vehicleWeightKg, preferredStops)[0].RouteCandidate, nil
 }
 
 // Explain returns a driver-facing explanation string, or nil if the chosen route
 // doesn't meaningfully detour from what an unconstrained vehicle would take.
 // A Valhalla error while probing is treated as "no explanation available", not
 // a fatal error for the caller - this is a nice-to-have, not a hard requirement
-// for the route response.
-func (e *Explainer) Explain(ctx context.Context, origin, destination valhalla.LatLon, profile valhalla.TruckProfile, chosen valhalla.RouteCandidate) *string {
-	ref, err := e.rankedBest(ctx, origin, destination, referenceProfile())
+// for the route response. prefs/vehicleWeightKg/preferredStops must be the same
+// values used to pick `chosen`, so the reference/probe routes are ranked by the
+// identical formula - see the rankedBest doc comment for why that matters.
+func (e *Explainer) Explain(ctx context.Context, origin, destination valhalla.LatLon, profile valhalla.TruckProfile, chosen valhalla.RouteCandidate, prefs scoring.Preferences, vehicleWeightKg float64, preferredStops []valhalla.LatLon) *string {
+	ref, err := e.rankedBest(ctx, origin, destination, referenceProfile(), prefs, vehicleWeightKg, preferredStops)
 	if err != nil {
 		return nil
 	}
@@ -108,7 +110,7 @@ func (e *Explainer) Explain(ctx context.Context, origin, destination valhalla.La
 
 	for _, d := range dimensions() {
 		relaxed := d.relax(profile)
-		result, err := e.rankedBest(ctx, origin, destination, relaxed)
+		result, err := e.rankedBest(ctx, origin, destination, relaxed, prefs, vehicleWeightKg, preferredStops)
 		if err != nil {
 			continue
 		}

@@ -55,3 +55,59 @@ func TestFinder_Nearest_EmptyFinder(t *testing.T) {
 		t.Error("expected no stop found for an empty finder")
 	}
 }
+
+func TestFinder_NearestPreferred_BrandMatch(t *testing.T) {
+	stops, err := Load(fixture)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	finder := NewFinder(stops)
+
+	// Real "НИС Петрол" station at ~45.2687,19.8115 (near Novi Sad) confirmed
+	// present in the data. Query right next to it - the plain Nearest() might
+	// return a closer non-NIS station, but NearestPreferred with the brand set
+	// must return the NIS one if it's within radius.
+	const brand = "НИС Петрол"
+	stop, dist, found := finder.NearestPreferred(45.2687, 19.8115, brand, nil, DefaultPreferredRadiusM)
+	if !found {
+		t.Fatal("expected a preferred stop to be found")
+	}
+	if stop.Brand != brand {
+		t.Errorf("expected brand %q, got %q (dist=%.0fm)", brand, stop.Brand, dist)
+	}
+}
+
+func TestFinder_NearestPreferred_FavoriteWinsOverBrand(t *testing.T) {
+	stops, err := Load(fixture)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	finder := NewFinder(stops)
+
+	favorite := Stop{ID: 999999, Lat: 45.0, Lon: 19.5, Name: "Moja omiljena", Amenity: "fuel"}
+	stop, dist, found := finder.NearestPreferred(45.0, 19.5, "НИС Петрол", []Stop{favorite}, DefaultPreferredRadiusM)
+	if !found {
+		t.Fatal("expected a stop to be found")
+	}
+	if stop.ID != favorite.ID {
+		t.Errorf("expected the exact favorite stop to win (dist should be ~0), got id=%d dist=%.0fm", stop.ID, dist)
+	}
+}
+
+func TestFinder_NearestPreferred_FallsBackWhenNothingInRadius(t *testing.T) {
+	stops, err := Load(fixture)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	finder := NewFinder(stops)
+
+	// A brand that doesn't exist in the data at all - must fall back to plain Nearest.
+	stop, _, found := finder.NearestPreferred(44.95, 20.25, "Definitely Not A Real Brand", nil, DefaultPreferredRadiusM)
+	if !found {
+		t.Fatal("expected fallback to plain Nearest to still find a stop")
+	}
+	plain, _, _ := finder.Nearest(44.95, 20.25)
+	if stop.ID != plain.ID {
+		t.Errorf("expected fallback to match plain Nearest (id=%d), got id=%d", plain.ID, stop.ID)
+	}
+}
