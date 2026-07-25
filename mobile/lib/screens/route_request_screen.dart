@@ -6,6 +6,7 @@ import '../models/route_result.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/polyline.dart';
+import '../theme/nocturne_theme.dart';
 import 'active_trip_screen.dart';
 
 /// Map + route request screen (SPECIFIKACIJA.md 3.9): tap once for origin,
@@ -28,8 +29,24 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
   RouteResult? _routeResult;
   List<LatLng> _routePoints = [];
 
+  final _cargoDescriptionCtrl = TextEditingController();
+  final _cargoWeightCtrl = TextEditingController();
+  final _cargoTempRangeCtrl = TextEditingController();
+  final _pickupLocationCtrl = TextEditingController();
+  final _dropoffLocationCtrl = TextEditingController();
+
   bool _loading = false;
   String? _error;
+
+  @override
+  void dispose() {
+    _cargoDescriptionCtrl.dispose();
+    _cargoWeightCtrl.dispose();
+    _cargoTempRangeCtrl.dispose();
+    _pickupLocationCtrl.dispose();
+    _dropoffLocationCtrl.dispose();
+    super.dispose();
+  }
 
   static const _serbiaCenter = LatLng(44.5, 20.5);
 
@@ -96,10 +113,15 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
         vehicleId: widget.vehicle.id!,
         origin: _origin!,
         destination: _destination!,
+        cargoDescription: _cargoDescriptionCtrl.text.trim().isEmpty ? null : _cargoDescriptionCtrl.text.trim(),
+        cargoWeightKg: double.tryParse(_cargoWeightCtrl.text.trim()),
+        cargoTempRange: _cargoTempRangeCtrl.text.trim().isEmpty ? null : _cargoTempRangeCtrl.text.trim(),
+        pickupLocation: _pickupLocationCtrl.text.trim().isEmpty ? null : _pickupLocationCtrl.text.trim(),
+        dropoffLocation: _dropoffLocationCtrl.text.trim().isEmpty ? null : _dropoffLocationCtrl.text.trim(),
       );
       if (!mounted) return;
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ActiveTripScreen(api: widget.api, trip: trip)),
+        MaterialPageRoute(builder: (_) => ActiveTripScreen(api: widget.api, trip: trip, vehicleId: widget.vehicle.id!)),
       );
     } on ApiException catch (e) {
       setState(() => _error = 'Greška: ${e.message}');
@@ -133,6 +155,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
             ),
           ),
           Expanded(
+            flex: 3,
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -147,7 +170,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                 ),
                 if (_routePoints.isNotEmpty)
                   PolylineLayer(polylines: [
-                    Polyline(points: _routePoints, strokeWidth: 4, color: Colors.indigo),
+                    Polyline(points: _routePoints, strokeWidth: 4, color: NocturneColors.accent),
                   ]),
                 MarkerLayer(markers: [
                   if (_origin != null)
@@ -158,32 +181,81 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
               ],
             ),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            ),
-          if (_routeResult != null) _RouteSummaryCard(result: _routeResult!),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: (_origin != null && _destination != null && !_loading) ? _previewRoute : null,
-                    child: const Text('Pregled rute'),
+          // Own Scrollable (not the map) so a focused cargo field scrolls into
+          // view above the keyboard instead of staying hidden under it - the
+          // map keeps its own Expanded region so panning it doesn't fight the
+          // page scroll gesture.
+          Expanded(
+            flex: 2,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
+                    ),
+                  if (_routeResult != null) _RouteSummaryCard(result: _routeResult!),
+                  Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      title: const Text('Podaci o tovaru (opciono)'),
+                      leading: const Icon(Icons.inventory_2_outlined),
+                      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        TextField(
+                          controller: _cargoDescriptionCtrl,
+                          decoration: const InputDecoration(labelText: 'Opis tovara'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _cargoWeightCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Težina tovara (kg)'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _cargoTempRangeCtrl,
+                          decoration: const InputDecoration(labelText: 'Temperaturni opseg', hintText: 'npr. -18°C do -15°C'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _pickupLocationCtrl,
+                          decoration: const InputDecoration(labelText: 'Mesto preuzimanja'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _dropoffLocationCtrl,
+                          decoration: const InputDecoration(labelText: 'Mesto isporuke'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: (_origin != null && _destination != null && !_loading) ? _startTrip : null,
-                    child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Kreni na put'),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: (_origin != null && _destination != null && !_loading) ? _previewRoute : null,
+                            child: const Text('Pregled rute'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: (_origin != null && _destination != null && !_loading) ? _startTrip : null,
+                            child: _loading
+                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text('Kreni na put'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -213,7 +285,7 @@ class _RouteSummaryCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: Colors.orange),
+                  const Icon(Icons.info_outline, size: 18, color: NocturneColors.accent300),
                   const SizedBox(width: 6),
                   Expanded(child: Text(result.explanation!, style: const TextStyle(fontStyle: FontStyle.italic))),
                 ],

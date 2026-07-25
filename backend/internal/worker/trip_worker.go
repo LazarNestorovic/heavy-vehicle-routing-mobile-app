@@ -9,6 +9,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -24,6 +25,7 @@ const restThresholdMin = 270
 
 type TripWorker struct {
 	Trips         *store.TripStore
+	TripEvents    *store.TripEventStore
 	Queue         *queue.Client
 	RestStops     *reststop.Finder
 	Preferences   *store.PreferencesStore
@@ -64,6 +66,13 @@ func (w *TripWorker) handle(ctx context.Context, d amqp.Delivery) {
 		log.Printf("worker: update trip %d: %v", trip.ID, err)
 		_ = d.Nack(false, true) // our own DB hiccup, not a bad message - requeue
 		return
+	}
+
+	if rest.AfterMinutes != nil {
+		desc := fmt.Sprintf("Rest break recommended after %.0f min", *rest.AfterMinutes)
+		if _, err := w.TripEvents.Create(ctx, trip.ID, "rest_stop_suggested", desc); err != nil {
+			log.Printf("worker: log rest_stop_suggested for trip %d: %v", trip.ID, err)
+		}
 	}
 
 	body, err := json.Marshal(queue.TripETAUpdatedEvent{

@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../models/driver_preferences.dart';
 import '../models/favorite_stop.dart';
 import '../services/api_client.dart';
+import '../theme/nocturne_theme.dart';
 
 /// Driver preference sliders (1-5, see documentations/features/2026-07-21-driver-preference-scoring.md)
 /// plus preferred fuel brand and saved favorite stops (documentations/features/
@@ -111,7 +112,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                    child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
                   ),
                 _prioritySlider(
                   'Ušteda goriva',

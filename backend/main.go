@@ -56,16 +56,20 @@ func main() {
 	vhClient := valhalla.New(cfg.ValhallaURL)
 	vehicles := store.NewVehicleStore(conn)
 	trips := store.NewTripStore(conn)
+	tripEvents := store.NewTripEventStore(conn)
 	drivers := store.NewDriverStore(conn)
+	dispatcherRequests := store.NewDispatcherRequestStore(conn)
 	preferences := store.NewPreferencesStore(conn)
 	favoriteStops := store.NewFavoriteStopStore(conn)
+	chats := store.NewChatMessageStore(conn)
 	explainer := explain.New(vhClient)
-	wsGateway := ws.New(trips)
+	wsGateway := ws.New(trips, tripEvents)
+	chatWS := ws.NewChat(publisherQueue)
 	authManager := auth.New(cfg.JWTSecret)
-	server := httpapi.NewServer(vhClient, vehicles, trips, drivers, preferences, favoriteStops, restStopFinder, publisherQueue, explainer, wsGateway, authManager)
+	server := httpapi.NewServer(vhClient, vehicles, trips, tripEvents, drivers, dispatcherRequests, preferences, favoriteStops, chats, restStopFinder, publisherQueue, explainer, wsGateway, chatWS, authManager)
 
 	tripWorker := &worker.TripWorker{
-		Trips: trips, Queue: consumerQueue, RestStops: restStopFinder,
+		Trips: trips, TripEvents: tripEvents, Queue: consumerQueue, RestStops: restStopFinder,
 		Preferences: preferences, FavoriteStops: favoriteStops,
 	}
 	go func() {

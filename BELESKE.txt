@@ -4,3 +4,9 @@ koristi samo distancu u metrima i tip terena!!
 
 IDEJE za prosirenja:
 23.07 - takodje omoguciti u setings da korisnik sam prilagodjava stil voznje (udeo auto puta i slicno)...
+
+24.07 - Kada osposobis da sve radi preko vallhale sledeci
+zadatak ce biti da razvijemo sopstveni routing sistem.
+
+25.07 - Treba dodati da iako je vozac sa dispecerom, da postoji mogucnost
+da koristi i svoj kamion kao sto postoji da koristi dispecerom(firmin).

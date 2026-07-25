@@ -50,11 +50,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type Gateway struct {
-	Trips *store.TripStore
+	Trips      *store.TripStore
+	TripEvents *store.TripEventStore
 }
 
-func New(trips *store.TripStore) *Gateway {
-	return &Gateway{Trips: trips}
+func New(trips *store.TripStore, tripEvents *store.TripEventStore) *Gateway {
+	return &Gateway{Trips: trips, TripEvents: tripEvents}
 }
 
 func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +135,9 @@ func (g *Gateway) simulate(ctx context.Context, conn *websocket.Conn, trip store
 			return // client disconnected
 		}
 		if fraction >= 1 {
+			if _, err := g.TripEvents.Create(ctx, trip.ID, "arrived", "Arrived at destination"); err != nil {
+				log.Printf("ws: log arrived event for trip %d: %v", trip.ID, err)
+			}
 			return
 		}
 

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 
+import 'screens/entry_router.dart';
 import 'screens/login_screen.dart';
-import 'screens/vehicle_list_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_storage.dart';
+import 'theme/nocturne_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final api = ApiClient();
-  api.token = await AuthStorage().loadToken();
+  final authStorage = AuthStorage();
+  api.token = await authStorage.loadToken();
+  api.username = await authStorage.loadUsername();
+  api.driverId = await authStorage.loadDriverId();
+  api.role = await authStorage.loadRole();
+  api.dispatcherId = await authStorage.loadDispatcherId();
 
   runApp(HvrApp(api: api));
 }
@@ -22,11 +28,8 @@ class HvrApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'HVR - Vozač',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: api.token != null ? VehicleListScreen(api: api) : LoginScreen(api: api),
+      theme: buildNocturneTheme(),
+      home: api.token != null ? homeScreenFor(api) : LoginScreen(api: api),
     );
   }
 }

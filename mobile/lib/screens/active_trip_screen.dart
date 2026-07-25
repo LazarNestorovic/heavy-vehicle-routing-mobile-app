@@ -5,9 +5,17 @@ import 'package:latlong2/latlong.dart';
 import '../models/position_update.dart';
 import '../models/rest_stop.dart';
 import '../models/trip.dart';
+import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/polyline.dart';
 import '../services/trip_socket.dart';
+import '../theme/nocturne_theme.dart';
+import '../widgets/radial_fab_menu.dart';
+import 'cargo_screen.dart';
+import 'chat_list_screen.dart';
+import 'profile_screen.dart';
+import 'trip_log_screen.dart';
+import 'truck_status_screen.dart';
 
 /// Active trip screen (SPECIFIKACIJA.md 3.7/3.9/3.10): live simulated position
 /// over WebSocket, ETA, and a rest-stop alert the first time the worker
@@ -15,10 +23,19 @@ import '../services/trip_socket.dart';
 /// The WS endpoint now requires auth too (?token= query param, since browsers'
 /// WebSocket API can't set custom headers - see backend/internal/httpapi/middleware.go
 /// RequireAuthQuery), hence `api` is needed here just for its token.
+///
+/// This is also the mock-up's "Main" screen (see documentations/features/
+/// 2026-07-21-nocturne-redesign.md) - only `vehicleId` is required (not a full
+/// VehicleProfile): a dispatcher-assigned trip reaches this screen via
+/// OfferedTripsScreen, which never has the vehicle object in hand the way
+/// RouteRequestScreen does, so this screen loads it itself. Profile/Truck
+/// Status/Cargo/Trip Log/Chat are reached via the draggable RadialFabMenu
+/// overlaid on the map, matching the mock-up.
 class ActiveTripScreen extends StatefulWidget {
   final ApiClient api;
   final Trip trip;
-  const ActiveTripScreen({super.key, required this.api, required this.trip});
+  final int vehicleId;
+  const ActiveTripScreen({super.key, required this.api, required this.trip, required this.vehicleId});
 
   @override
   State<ActiveTripScreen> createState() => _ActiveTripScreenState();
@@ -36,6 +53,8 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   RestStop? _restStop;
   bool _restStopAlertShown = false;
   String? _error;
+  int _chatUnreadTotal = 0;
+  VehicleProfile? _vehicle;
 
   @override
   void initState() {
@@ -51,6 +70,31 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       });
     }
     _listen();
+    _loadChatUnreadTotal();
+    _loadVehicle();
+  }
+
+  Future<void> _loadVehicle() async {
+    try {
+      final vehicle = await widget.api.getVehicle(widget.vehicleId);
+      if (!mounted) return;
+      setState(() => _vehicle = vehicle);
+    } catch (_) {
+      // Non-fatal: Truck Status just won't be openable until this succeeds.
+    }
+  }
+
+  // Refreshed once on entry (and again whenever the chat list screen is
+  // popped back to here) - not live-updating on its own, same scope cut as
+  // the rest of chat's polling-free design (REST is the source of truth).
+  Future<void> _loadChatUnreadTotal() async {
+    try {
+      final chats = await widget.api.listChats();
+      if (!mounted) return;
+      setState(() => _chatUnreadTotal = chats.fold(0, (sum, c) => sum + c.unreadCount));
+    } catch (_) {
+      // Non-critical - the badge just stays at its last known value.
+    }
   }
 
   void _listen() {
@@ -96,7 +140,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       SnackBar(
         content: Text('Predlog pauze: ${stop.label} (${stop.amenityLabel})'),
         duration: const Duration(seconds: 8),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: NocturneColors.accent800,
       ),
     );
   }
@@ -135,9 +179,9 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           if (_error != null)
             Container(
               width: double.infinity,
-              color: Colors.red.shade100,
+              color: NocturneColors.error.withValues(alpha: 0.15),
               padding: const EdgeInsets.all(8),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
             ),
           _StatusBar(
             progressFraction: _progressFraction,
@@ -146,36 +190,92 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
             restStop: _restStop,
           ),
           Expanded(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _currentPosition ?? const LatLng(44.5, 20.5),
-                initialZoom: 9,
-              ),
+            child: Stack(
               children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.hvr_mobile',
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentPosition ?? const LatLng(44.5, 20.5),
+                    initialZoom: 9,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.hvr_mobile',
+                    ),
+                    PolylineLayer(polylines: [
+                      Polyline(points: _routePoints, strokeWidth: 4, color: NocturneColors.accent.withValues(alpha: 0.5)),
+                    ]),
+                    MarkerLayer(markers: [
+                      if (_currentPosition != null)
+                        Marker(
+                          point: _currentPosition!,
+                          width: 44,
+                          height: 44,
+                          child: const Icon(Icons.local_shipping, color: NocturneColors.accent, size: 32),
+                        ),
+                      if (_restStop != null)
+                        Marker(
+                          point: LatLng(_restStop!.lat, _restStop!.lon),
+                          width: 36,
+                          height: 36,
+                          child: const Icon(Icons.local_gas_station, color: NocturneColors.accent300),
+                        ),
+                    ]),
+                  ],
                 ),
-                PolylineLayer(polylines: [
-                  Polyline(points: _routePoints, strokeWidth: 4, color: Colors.indigo.withValues(alpha: 0.5)),
-                ]),
-                MarkerLayer(markers: [
-                  if (_currentPosition != null)
-                    Marker(
-                      point: _currentPosition!,
-                      width: 44,
-                      height: 44,
-                      child: const Icon(Icons.local_shipping, color: Colors.indigo, size: 32),
+                RadialFabMenu(
+                  items: [
+                    RadialFabMenuItem(
+                      icon: Icons.person_outline,
+                      tooltip: 'Profil',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+                      ),
                     ),
-                  if (_restStop != null)
-                    Marker(
-                      point: LatLng(_restStop!.lat, _restStop!.lon),
-                      width: 36,
-                      height: 36,
-                      child: const Icon(Icons.local_gas_station, color: Colors.orange),
+                    RadialFabMenuItem(
+                      icon: Icons.local_shipping_outlined,
+                      tooltip: 'Status vozila',
+                      onTap: () {
+                        if (_vehicle == null) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(content: Text('Podaci o vozilu se još učitavaju...')));
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TruckStatusScreen(api: widget.api, vehicle: _vehicle!, currentTrip: widget.trip),
+                          ),
+                        );
+                      },
                     ),
-                ]),
+                    RadialFabMenuItem(
+                      icon: Icons.inventory_2_outlined,
+                      tooltip: 'Tovar',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => CargoScreen(trip: widget.trip)),
+                      ),
+                    ),
+                    RadialFabMenuItem(
+                      icon: Icons.history,
+                      tooltip: 'Dnevnik putovanja',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => TripLogScreen(api: widget.api, tripId: widget.trip.id)),
+                      ),
+                    ),
+                    RadialFabMenuItem(
+                      icon: Icons.chat_bubble_outline,
+                      tooltip: 'Poruke',
+                      badgeCount: _chatUnreadTotal,
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => ChatListScreen(api: widget.api)),
+                        );
+                        _loadChatUnreadTotal();
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -212,7 +312,7 @@ class _StatusBar extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           if (restStop != null)
-            Text('Sledeća pauza: ${restStop!.label}', style: const TextStyle(color: Colors.orange)),
+            Text('Sledeća pauza: ${restStop!.label}', style: const TextStyle(color: NocturneColors.accent300)),
         ],
       ),
     );

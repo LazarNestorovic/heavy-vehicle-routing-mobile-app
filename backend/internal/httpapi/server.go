@@ -18,24 +18,29 @@ import (
 const numAlternates = 2
 
 type Server struct {
-	Valhalla      *valhalla.Client
-	Vehicles      *store.VehicleStore
-	Trips         *store.TripStore
-	Drivers       *store.DriverStore
-	Preferences   *store.PreferencesStore
-	FavoriteStops *store.FavoriteStopStore
-	RestStops     *reststop.Finder
-	Queue         *queue.Client
-	Explain       *explain.Explainer
-	WS            *ws.Gateway
-	Auth          *auth.Manager
+	Valhalla           *valhalla.Client
+	Vehicles           *store.VehicleStore
+	Trips              *store.TripStore
+	TripEvents         *store.TripEventStore
+	Drivers            *store.DriverStore
+	DispatcherRequests *store.DispatcherRequestStore
+	Preferences        *store.PreferencesStore
+	FavoriteStops      *store.FavoriteStopStore
+	Chats              *store.ChatMessageStore
+	RestStops          *reststop.Finder
+	Queue              *queue.Client
+	Explain            *explain.Explainer
+	WS                 *ws.Gateway
+	ChatWS             *ws.ChatGateway
+	Auth               *auth.Manager
 }
 
-func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, drivers *store.DriverStore, preferences *store.PreferencesStore, favoriteStops *store.FavoriteStopStore, restStops *reststop.Finder, q *queue.Client, ex *explain.Explainer, wsGateway *ws.Gateway, authManager *auth.Manager) *Server {
+func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, tripEvents *store.TripEventStore, drivers *store.DriverStore, dispatcherRequests *store.DispatcherRequestStore, preferences *store.PreferencesStore, favoriteStops *store.FavoriteStopStore, chats *store.ChatMessageStore, restStops *reststop.Finder, q *queue.Client, ex *explain.Explainer, wsGateway *ws.Gateway, chatWS *ws.ChatGateway, authManager *auth.Manager) *Server {
 	return &Server{
-		Valhalla: v, Vehicles: vehicles, Trips: trips, Drivers: drivers,
-		Preferences: preferences, FavoriteStops: favoriteStops, RestStops: restStops,
-		Queue: q, Explain: ex, WS: wsGateway, Auth: authManager,
+		Valhalla: v, Vehicles: vehicles, Trips: trips, TripEvents: tripEvents, Drivers: drivers,
+		DispatcherRequests: dispatcherRequests,
+		Preferences:        preferences, FavoriteStops: favoriteStops, Chats: chats, RestStops: restStops,
+		Queue: q, Explain: ex, WS: wsGateway, ChatWS: chatWS, Auth: authManager,
 	}
 }
 
@@ -49,14 +54,32 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/vehicles", s.RequireAuth(s.handleCreateVehicle))
 	mux.HandleFunc("GET /api/v1/vehicles", s.RequireAuth(s.handleListVehicles))
 	mux.HandleFunc("GET /api/v1/vehicles/{id}", s.RequireAuth(s.handleGetVehicle))
+	mux.HandleFunc("PATCH /api/v1/vehicles/{id}/status", s.RequireAuth(s.handleUpdateVehicleStatus))
+	mux.HandleFunc("GET /api/v1/vehicles/{id}/hours", s.RequireAuth(s.handleGetVehicleHours))
 	mux.HandleFunc("POST /api/v1/trips", s.RequireAuth(s.handleCreateTrip))
+	mux.HandleFunc("GET /api/v1/trips", s.RequireAuth(s.handleListTrips))
 	mux.HandleFunc("GET /api/v1/trips/{id}", s.RequireAuth(s.handleGetTrip))
+	mux.HandleFunc("POST /api/v1/trips/{id}/accept", s.RequireAuth(s.handleAcceptTrip))
+	mux.HandleFunc("POST /api/v1/trips/{id}/reject", s.RequireAuth(s.handleRejectTrip))
+	mux.HandleFunc("POST /api/v1/trips/{id}/start", s.RequireAuth(s.handleStartTrip))
+	mux.HandleFunc("GET /api/v1/trips/{id}/events", s.RequireAuth(s.handleListTripEvents))
 	mux.HandleFunc("GET /ws/trips/{id}", s.RequireAuthQuery(s.handleTripStream))
+	mux.HandleFunc("GET /api/v1/dispatcher/drivers", s.RequireAuth(s.handleListManagedDrivers))
+	mux.HandleFunc("GET /api/v1/dispatcher/available-drivers", s.RequireAuth(s.handleListAvailableDrivers))
+	mux.HandleFunc("POST /api/v1/dispatcher/requests", s.RequireAuth(s.handleCreateDispatcherRequest))
+	mux.HandleFunc("GET /api/v1/dispatcher/requests", s.RequireAuth(s.handleListDispatcherRequests))
+	mux.HandleFunc("GET /api/v1/driver/requests", s.RequireAuth(s.handleListDriverRequests))
+	mux.HandleFunc("POST /api/v1/driver/requests/{id}/respond", s.RequireAuth(s.handleRespondDispatcherRequest))
 	mux.HandleFunc("GET /api/v1/preferences", s.RequireAuth(s.handleGetPreferences))
 	mux.HandleFunc("PUT /api/v1/preferences", s.RequireAuth(s.handleUpdatePreferences))
 	mux.HandleFunc("POST /api/v1/favorite-stops", s.RequireAuth(s.handleCreateFavoriteStop))
 	mux.HandleFunc("GET /api/v1/favorite-stops", s.RequireAuth(s.handleListFavoriteStops))
 	mux.HandleFunc("DELETE /api/v1/favorite-stops/{id}", s.RequireAuth(s.handleDeleteFavoriteStop))
+	mux.HandleFunc("GET /api/v1/drivers", s.RequireAuth(s.handleListDrivers))
+	mux.HandleFunc("GET /api/v1/chats", s.RequireAuth(s.handleListChats))
+	mux.HandleFunc("GET /api/v1/chats/{driverId}/messages", s.RequireAuth(s.handleGetChatMessages))
+	mux.HandleFunc("POST /api/v1/chats/{driverId}/messages", s.RequireAuth(s.handleSendChatMessage))
+	mux.HandleFunc("GET /ws/chats/{counterpartId}", s.RequireAuthQuery(s.handleChatStream))
 	return mux
 }
 

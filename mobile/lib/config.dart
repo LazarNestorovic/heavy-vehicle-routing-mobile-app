@@ -8,5 +8,5 @@
 //   the device and the backend must be reachable on the same network.
 //
 // See documentations/guides/run-flutter-app.md for how to switch this.
-const String apiBaseUrl = 'http://192.168.1.114:8080';
-const String wsBaseUrl = 'ws://192.168.1.114:8080';
+const String apiBaseUrl = 'http://192.168.1.13:8080';
+const String wsBaseUrl = 'ws://192.168.1.13:8080';

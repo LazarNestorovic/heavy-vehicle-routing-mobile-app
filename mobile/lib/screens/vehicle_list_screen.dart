@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/auth_storage.dart';
+import 'dispatcher_requests_screen.dart';
 import 'login_screen.dart';
 import 'preferences_screen.dart';
 import 'route_request_screen.dart';
@@ -45,6 +46,10 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   Future<void> _logout() async {
     await AuthStorage().clear();
     widget.api.token = null;
+    widget.api.driverId = null;
+    widget.api.username = null;
+    widget.api.role = null;
+    widget.api.dispatcherId = null;
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: widget.api)),
@@ -63,6 +68,13 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             tooltip: 'Preference',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => PreferencesScreen(api: widget.api)),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.business),
+            tooltip: 'Zahtevi dispečera',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => DispatcherRequestsScreen(api: widget.api)),
             ),
           ),
           IconButton(icon: const Icon(Icons.logout), tooltip: 'Odjava', onPressed: _logout),

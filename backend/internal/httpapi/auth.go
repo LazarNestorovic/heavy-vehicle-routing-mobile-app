@@ -11,11 +11,17 @@ import (
 type credentialsRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	// Role is optional at registration ("driver"/"dispatcher", default
+	// "driver"); ignored on login. The dispatcher<->driver link is never set
+	// here - see dispatcher_requests / handleRespondDispatcherRequest.
+	Role string `json:"role,omitempty"`
 }
 
 type authResponse struct {
-	Token    string `json:"token"`
-	DriverID int64  `json:"driver_id"`
+	Token        string `json:"token"`
+	DriverID     int64  `json:"driver_id"`
+	Role         string `json:"role"`
+	DispatcherID *int64 `json:"dispatcher_id,omitempty"`
 }
 
 func (req credentialsRequest) validate() error {
@@ -24,6 +30,9 @@ func (req credentialsRequest) validate() error {
 	}
 	if len(req.Password) < 6 {
 		return errValidation("password must be at least 6 characters")
+	}
+	if req.Role != "" && req.Role != store.RoleDriver && req.Role != store.RoleDispatcher {
+		return errValidation("role must be 'driver' or 'dispatcher'")
 	}
 	return nil
 }
@@ -49,7 +58,12 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	driver, err := s.Drivers.Create(r.Context(), req.Username, hash)
+	role := req.Role
+	if role == "" {
+		role = store.RoleDriver
+	}
+
+	driver, err := s.Drivers.Create(r.Context(), req.Username, hash, role)
 	if err != nil {
 		if err == store.ErrDuplicateUsername {
 			writeError(w, http.StatusConflict, "username already taken")
@@ -65,7 +79,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, authResponse{Token: token, DriverID: driver.ID})
+	writeJSON(w, http.StatusCreated, authResponse{Token: token, DriverID: driver.ID, Role: driver.Role, DispatcherID: driver.DispatcherID})
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -93,5 +107,5 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, authResponse{Token: token, DriverID: driver.ID})
+	writeJSON(w, http.StatusOK, authResponse{Token: token, DriverID: driver.ID, Role: driver.Role, DispatcherID: driver.DispatcherID})
 }

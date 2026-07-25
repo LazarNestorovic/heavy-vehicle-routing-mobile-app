@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_storage.dart';
+import '../theme/nocturne_theme.dart';
+import 'entry_router.dart';
 import 'register_screen.dart';
-import 'vehicle_list_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final ApiClient api;
@@ -37,13 +38,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final result = await widget.api.login(_usernameCtrl.text.trim(), _passwordCtrl.text);
+      final username = _usernameCtrl.text.trim();
+      final result = await widget.api.login(username, _passwordCtrl.text);
       widget.api.token = result.token;
-      await _authStorage.save(result.token, result.driverId);
+      widget.api.driverId = result.driverId;
+      widget.api.username = username;
+      widget.api.role = result.role;
+      widget.api.dispatcherId = result.dispatcherId;
+      await _authStorage.save(result.token, result.driverId, username, result.role, result.dispatcherId);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => VehicleListScreen(api: widget.api)),
+        MaterialPageRoute(builder: (_) => homeScreenFor(widget.api)),
       );
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -67,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.local_shipping, size: 64, color: Colors.indigo),
+                const Icon(Icons.local_shipping, size: 64, color: NocturneColors.accent),
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _usernameCtrl,
@@ -85,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                    child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
                   ),
                 FilledButton(
                   onPressed: _loading ? null : _login,

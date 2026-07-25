@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
+import '../theme/nocturne_theme.dart';
 
 /// Vehicle creation form. Since a driver can own multiple vehicles now (see
 /// documentations/features/2026-07-21-driver-preference-scoring.md, Faza 2),
@@ -112,7 +113,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                  child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
                 ),
               FilledButton(
                 onPressed: _loading ? null : _submit,

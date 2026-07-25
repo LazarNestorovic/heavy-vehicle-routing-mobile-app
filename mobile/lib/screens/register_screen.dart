@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_storage.dart';
-import 'vehicle_list_screen.dart';
+import '../theme/nocturne_theme.dart';
+import 'entry_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   final ApiClient api;
@@ -18,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordCtrl = TextEditingController();
   final _authStorage = AuthStorage();
 
+  String _role = 'driver';
   bool _loading = false;
   String? _error;
 
@@ -46,13 +48,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
     try {
-      final result = await widget.api.register(_usernameCtrl.text.trim(), _passwordCtrl.text);
+      final username = _usernameCtrl.text.trim();
+      final result = await widget.api.register(username, _passwordCtrl.text, role: _role);
       widget.api.token = result.token;
-      await _authStorage.save(result.token, result.driverId);
+      widget.api.driverId = result.driverId;
+      widget.api.username = username;
+      widget.api.role = result.role;
+      widget.api.dispatcherId = result.dispatcherId;
+      await _authStorage.save(result.token, result.driverId, username, result.role, result.dispatcherId);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => VehicleListScreen(api: widget.api)),
+        MaterialPageRoute(builder: (_) => homeScreenFor(widget.api)),
       );
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -76,6 +83,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'driver', label: Text('Vozač'), icon: Icon(Icons.local_shipping)),
+                    ButtonSegment(value: 'dispatcher', label: Text('Dispečer'), icon: Icon(Icons.business)),
+                  ],
+                  selected: {_role},
+                  onSelectionChanged: (selected) => setState(() => _role = selected.first),
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _usernameCtrl,
                   decoration: const InputDecoration(labelText: 'Korisničko ime', border: OutlineInputBorder()),
@@ -92,7 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                    child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
                   ),
                 FilledButton(
                   onPressed: _loading ? null : _register,

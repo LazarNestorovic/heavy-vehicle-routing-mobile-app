@@ -5,10 +5,15 @@ import 'package:latlong2/latlong.dart';
 
 import '../config.dart';
 import '../models/auth_result.dart';
+import '../models/chat_message.dart';
+import '../models/dispatcher_request.dart';
+import '../models/driver.dart';
 import '../models/driver_preferences.dart';
 import '../models/favorite_stop.dart';
 import '../models/route_result.dart';
 import '../models/trip.dart';
+import '../models/trip_event.dart';
+import '../models/vehicle_hours.dart';
 import '../models/vehicle_profile.dart';
 
 class ApiException implements Exception {
@@ -26,6 +31,10 @@ class ApiException implements Exception {
 class ApiClient {
   final http.Client _client;
   String? token;
+  int? driverId;
+  String? username;
+  String? role;
+  int? dispatcherId;
 
   ApiClient({http.Client? client, this.token}) : _client = client ?? http.Client();
 
@@ -34,11 +43,11 @@ class ApiClient {
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-  Future<AuthResult> register(String username, String password) async {
+  Future<AuthResult> register(String username, String password, {String role = 'driver'}) async {
     final resp = await _client.post(
       Uri.parse('$apiBaseUrl/api/v1/auth/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
+      body: jsonEncode({'username': username, 'password': password, 'role': role}),
     );
     if (resp.statusCode != 201) {
       throw ApiException(_errorMessage(resp));
@@ -79,6 +88,14 @@ class ApiClient {
     return list.map((v) => VehicleProfile.fromJson(v as Map<String, dynamic>)).toList();
   }
 
+  Future<VehicleProfile> getVehicle(int id) async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/vehicles/$id'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return VehicleProfile.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
   Future<RouteResult> previewRoute({
     required LatLng origin,
     required LatLng destination,
@@ -99,10 +116,20 @@ class ApiClient {
     return RouteResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
+  /// Creates a trip. [driverId] is required when the caller is a dispatcher
+  /// (who this trip is assigned to) - it saves as status "offered" and the
+  /// driver starts it themselves via [startTrip]. Omit for self-service
+  /// (independent driver) creation, which starts immediately as before.
   Future<Trip> createTrip({
     required int vehicleId,
     required LatLng origin,
     required LatLng destination,
+    String? cargoDescription,
+    double? cargoWeightKg,
+    String? cargoTempRange,
+    String? pickupLocation,
+    String? dropoffLocation,
+    int? driverId,
   }) async {
     final resp = await _client.post(
       Uri.parse('$apiBaseUrl/api/v1/trips'),
@@ -111,6 +138,12 @@ class ApiClient {
         'vehicle_id': vehicleId,
         'origin': {'lat': origin.latitude, 'lon': origin.longitude},
         'destination': {'lat': destination.latitude, 'lon': destination.longitude},
+        if (cargoDescription != null) 'cargo_description': cargoDescription,
+        if (cargoWeightKg != null) 'cargo_weight_kg': cargoWeightKg,
+        if (cargoTempRange != null) 'cargo_temp_range': cargoTempRange,
+        if (pickupLocation != null) 'pickup_location': pickupLocation,
+        if (dropoffLocation != null) 'dropoff_location': dropoffLocation,
+        if (driverId != null) 'driver_id': driverId,
       }),
     );
     if (resp.statusCode != 201) {
@@ -121,6 +154,47 @@ class ApiClient {
 
   Future<Trip> getTrip(int id) async {
     final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/trips/$id'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Lists the caller's own trips (self-service and assigned, for a driver;
+  /// assigned-by-them, for a dispatcher). Optional status filter (e.g.
+  /// "offered", "in_progress").
+  Future<List<Trip>> listMyTrips({String? status}) async {
+    final uri = Uri.parse('$apiBaseUrl/api/v1/trips').replace(queryParameters: status != null ? {'status': status} : null);
+    final resp = await _client.get(uri, headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((t) => Trip.fromJson(t as Map<String, dynamic>)).toList();
+  }
+
+  /// Accepts a dispatcher-assigned "offered" trip -> "accepted" - driver-only.
+  /// The driver has reviewed it but hasn't departed yet (see [startTrip]).
+  Future<Trip> acceptTrip(int id) async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$id/accept'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Declines a dispatcher-assigned "offered" trip -> "rejected" - driver-only.
+  Future<Trip> rejectTrip(int id) async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$id/reject'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Starts an "accepted" trip (-> active) - driver-only.
+  Future<Trip> startTrip(int id) async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$id/start'), headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }
@@ -173,6 +247,140 @@ class ApiClient {
     if (resp.statusCode != 204) {
       throw ApiException(_errorMessage(resp));
     }
+  }
+
+  Future<List<Driver>> listDrivers() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/drivers'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((d) => Driver.fromJson(d as Map<String, dynamic>)).toList();
+  }
+
+  Future<VehicleProfile> updateVehicleStatus(int vehicleId, {required double fuelPercent, double? nextServiceKm}) async {
+    final resp = await _client.patch(
+      Uri.parse('$apiBaseUrl/api/v1/vehicles/$vehicleId/status'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'fuel_percent': fuelPercent,
+        if (nextServiceKm != null) 'next_service_km': nextServiceKm,
+      }),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return VehicleProfile.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<VehicleHours> getVehicleHours(int vehicleId) async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/vehicles/$vehicleId/hours'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return VehicleHours.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<List<TripEvent>> listTripEvents(int tripId) async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/events'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((e) => TripEvent.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ChatConversation>> listChats() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/chats'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((c) => ChatConversation.fromJson(c as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ChatMessage>> getChatMessages(int counterpartId) async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/chats/$counterpartId/messages'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>)).toList();
+  }
+
+  Future<ChatMessage> sendChatMessage(int counterpartId, String body) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/chats/$counterpartId/messages'),
+      headers: _authHeaders,
+      body: jsonEncode({'body': body}),
+    );
+    if (resp.statusCode != 201) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return ChatMessage.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<List<Driver>> listManagedDrivers() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/drivers'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((d) => Driver.fromJson(d as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<Driver>> listAvailableDrivers() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/available-drivers'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((d) => Driver.fromJson(d as Map<String, dynamic>)).toList();
+  }
+
+  Future<DispatcherRequest> sendDispatcherRequest(int driverId) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/dispatcher/requests'),
+      headers: _authHeaders,
+      body: jsonEncode({'driver_id': driverId}),
+    );
+    if (resp.statusCode != 201) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return DispatcherRequest.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<List<DispatcherRequest>> listSentDispatcherRequests() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/requests'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((r) => DispatcherRequest.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<DispatcherRequest>> listDriverRequests() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/driver/requests'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((r) => DispatcherRequest.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  /// Returns the updated dispatcher_id (non-null when [approve] was true) so
+  /// the caller can update local session state without re-logging in.
+  Future<int?> respondDispatcherRequest(int requestId, bool approve) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/driver/requests/$requestId/respond'),
+      headers: _authHeaders,
+      body: jsonEncode({'approve': approve}),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    return body['dispatcher_id'] as int?;
   }
 
   String _errorMessage(http.Response resp) {
