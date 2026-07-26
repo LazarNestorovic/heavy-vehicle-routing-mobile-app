@@ -6,6 +6,8 @@ import (
 
 	"heavy-vehicle-routing/backend/internal/auth"
 	"heavy-vehicle-routing/backend/internal/explain"
+	"heavy-vehicle-routing/backend/internal/geocode"
+	"heavy-vehicle-routing/backend/internal/mailer"
 	"heavy-vehicle-routing/backend/internal/queue"
 	"heavy-vehicle-routing/backend/internal/reststop"
 	"heavy-vehicle-routing/backend/internal/store"
@@ -27,20 +29,27 @@ type Server struct {
 	Preferences        *store.PreferencesStore
 	FavoriteStops      *store.FavoriteStopStore
 	Chats              *store.ChatMessageStore
+	EmailVerifications *store.EmailVerificationTokenStore
+	PasswordResets     *store.PasswordResetTokenStore
+	Geocoder           *geocode.Client
 	RestStops          *reststop.Finder
 	Queue              *queue.Client
 	Explain            *explain.Explainer
 	WS                 *ws.Gateway
 	ChatWS             *ws.ChatGateway
 	Auth               *auth.Manager
+	GoogleAuth         *auth.GoogleVerifier
+	Mailer             *mailer.Client
+	PublicBackendURL   string
 }
 
-func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, tripEvents *store.TripEventStore, drivers *store.DriverStore, dispatcherRequests *store.DispatcherRequestStore, preferences *store.PreferencesStore, favoriteStops *store.FavoriteStopStore, chats *store.ChatMessageStore, restStops *reststop.Finder, q *queue.Client, ex *explain.Explainer, wsGateway *ws.Gateway, chatWS *ws.ChatGateway, authManager *auth.Manager) *Server {
+func NewServer(v *valhalla.Client, vehicles *store.VehicleStore, trips *store.TripStore, tripEvents *store.TripEventStore, drivers *store.DriverStore, dispatcherRequests *store.DispatcherRequestStore, preferences *store.PreferencesStore, favoriteStops *store.FavoriteStopStore, chats *store.ChatMessageStore, emailVerifications *store.EmailVerificationTokenStore, passwordResets *store.PasswordResetTokenStore, restStops *reststop.Finder, q *queue.Client, ex *explain.Explainer, wsGateway *ws.Gateway, chatWS *ws.ChatGateway, authManager *auth.Manager, googleAuth *auth.GoogleVerifier, mailerClient *mailer.Client, geocoder *geocode.Client, publicBackendURL string) *Server {
 	return &Server{
 		Valhalla: v, Vehicles: vehicles, Trips: trips, TripEvents: tripEvents, Drivers: drivers,
 		DispatcherRequests: dispatcherRequests,
-		Preferences:        preferences, FavoriteStops: favoriteStops, Chats: chats, RestStops: restStops,
+		Preferences:        preferences, FavoriteStops: favoriteStops, Chats: chats, EmailVerifications: emailVerifications, PasswordResets: passwordResets, RestStops: restStops,
 		Queue: q, Explain: ex, WS: wsGateway, ChatWS: chatWS, Auth: authManager,
+		GoogleAuth: googleAuth, Mailer: mailerClient, Geocoder: geocoder, PublicBackendURL: publicBackendURL,
 	}
 }
 
@@ -49,11 +58,21 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("POST /api/v1/auth/register", s.handleRegister)
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/google", s.handleGoogleAuth)
+	mux.HandleFunc("GET /api/v1/auth/verify-email", s.handleVerifyEmail)
+	mux.HandleFunc("POST /api/v1/auth/resend-verification", s.RequireAuth(s.handleResendVerification))
+	mux.HandleFunc("POST /api/v1/auth/forgot-password", s.handleForgotPassword)
+	mux.HandleFunc("GET /api/v1/auth/reset-password", s.handleShowResetPasswordForm)
+	mux.HandleFunc("POST /api/v1/auth/reset-password", s.handleSubmitResetPassword)
+	mux.HandleFunc("POST /api/v1/auth/logout-all", s.RequireAuth(s.handleLogoutAll))
 
 	mux.HandleFunc("POST /api/v1/routes", s.RequireAuth(s.handleCreateRoute))
+	mux.HandleFunc("GET /api/v1/geocode", s.RequireAuth(s.handleGeocode))
 	mux.HandleFunc("POST /api/v1/vehicles", s.RequireAuth(s.handleCreateVehicle))
 	mux.HandleFunc("GET /api/v1/vehicles", s.RequireAuth(s.handleListVehicles))
 	mux.HandleFunc("GET /api/v1/vehicles/{id}", s.RequireAuth(s.handleGetVehicle))
+	mux.HandleFunc("PUT /api/v1/vehicles/{id}", s.RequireAuth(s.handleUpdateVehicle))
+	mux.HandleFunc("DELETE /api/v1/vehicles/{id}", s.RequireAuth(s.handleDeleteVehicle))
 	mux.HandleFunc("PATCH /api/v1/vehicles/{id}/status", s.RequireAuth(s.handleUpdateVehicleStatus))
 	mux.HandleFunc("GET /api/v1/vehicles/{id}/hours", s.RequireAuth(s.handleGetVehicleHours))
 	mux.HandleFunc("POST /api/v1/trips", s.RequireAuth(s.handleCreateTrip))
@@ -62,9 +81,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/trips/{id}/accept", s.RequireAuth(s.handleAcceptTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/reject", s.RequireAuth(s.handleRejectTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/start", s.RequireAuth(s.handleStartTrip))
+	mux.HandleFunc("POST /api/v1/trips/{id}/position", s.RequireAuth(s.handleReportPosition))
+	mux.HandleFunc("POST /api/v1/trips/{id}/complete", s.RequireAuth(s.handleCompleteTrip))
 	mux.HandleFunc("GET /api/v1/trips/{id}/events", s.RequireAuth(s.handleListTripEvents))
 	mux.HandleFunc("GET /ws/trips/{id}", s.RequireAuthQuery(s.handleTripStream))
 	mux.HandleFunc("GET /api/v1/dispatcher/drivers", s.RequireAuth(s.handleListManagedDrivers))
+	mux.HandleFunc("GET /api/v1/dispatcher/drivers/{id}/vehicles", s.RequireAuth(s.handleListDriverVehiclesForDispatcher))
 	mux.HandleFunc("GET /api/v1/dispatcher/available-drivers", s.RequireAuth(s.handleListAvailableDrivers))
 	mux.HandleFunc("POST /api/v1/dispatcher/requests", s.RequireAuth(s.handleCreateDispatcherRequest))
 	mux.HandleFunc("GET /api/v1/dispatcher/requests", s.RequireAuth(s.handleListDispatcherRequests))

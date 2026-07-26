@@ -115,3 +115,24 @@ func TestRank_PreferredStopNearRoute_GetsDiscount(t *testing.T) {
 			withFarStop[0].RiskScore, without[0].RiskScore)
 	}
 }
+
+func TestNearestPreferredStopWithinRadius(t *testing.T) {
+	onRoute := valhalla.LatLon{Lat: 44.799996, Lon: 20.399933}
+	farAway := valhalla.LatLon{Lat: 10.0, Lon: 10.0}
+
+	got, found := NearestPreferredStopWithinRadius(beogradNoviSadShape, []valhalla.LatLon{farAway, onRoute})
+	if !found {
+		t.Fatal("expected the on-route stop to be found")
+	}
+	if got != onRoute {
+		t.Errorf("expected the exact matching stop %+v to be returned, got %+v", onRoute, got)
+	}
+
+	if _, found := NearestPreferredStopWithinRadius(beogradNoviSadShape, []valhalla.LatLon{farAway}); found {
+		t.Error("expected no match when no preferred stop is near the route")
+	}
+
+	if _, found := NearestPreferredStopWithinRadius(beogradNoviSadShape, nil); found {
+		t.Error("expected no match for an empty preferred stops list")
+	}
+}

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/driver.dart';
 import '../models/route_result.dart';
@@ -8,14 +7,13 @@ import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/polyline.dart';
 import '../theme/nocturne_theme.dart';
+import '../widgets/address_search_field.dart';
 
 /// Dispatcher's route-planning screen for a specific managed driver - the
 /// dispatcher counterpart of RouteRequestScreen (see documentations/features/
-/// entry for the dispatcher/driver roles feature). Vehicle choice is scoped
-/// to the dispatcher's own fleet (GET /api/v1/vehicles returns just that for
-/// a dispatcher caller) - the backend also accepts the target driver's own
-/// personal vehicle, but there's no listing endpoint for "another driver's
-/// vehicles" yet, so that path isn't exposed in this picker.
+/// entry for the dispatcher/driver roles feature). Vehicle picker offers both
+/// the dispatcher's own fleet AND that driver's personal vehicles (GET
+/// /api/v1/dispatcher/drivers/{id}/vehicles), grouped by label.
 class DispatcherCreateTripScreen extends StatefulWidget {
   final ApiClient api;
   final Driver driver;
@@ -26,11 +24,10 @@ class DispatcherCreateTripScreen extends StatefulWidget {
 }
 
 class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen> {
-  final _mapController = MapController();
-
   late Future<List<VehicleProfile>> _vehiclesFuture;
   VehicleProfile? _selectedVehicle;
 
+  GoogleMapController? _mapController;
   LatLng? _origin;
   LatLng? _destination;
   RouteResult? _routeResult;
@@ -47,10 +44,27 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
 
   static const _serbiaCenter = LatLng(44.5, 20.5);
 
+  // Not-chosen alternatives from the last preview, drawn thin/grey underneath
+  // the chosen route (see documentations/features/ entry) - purely visual.
+  Set<Polyline> get _alternatePolylines {
+    final candidates = _routeResult?.candidates ?? const [];
+    return {
+      for (final (i, c) in candidates.indexed)
+        if (!c.chosen)
+          Polyline(
+            polylineId: PolylineId('alt_$i'),
+            points: decodePolyline6(c.shape),
+            width: 2,
+            color: Colors.grey.withValues(alpha: 0.6),
+            zIndex: 0,
+          ),
+    };
+  }
+
   @override
   void initState() {
     super.initState();
-    _vehiclesFuture = widget.api.listVehicles();
+    _vehiclesFuture = widget.api.listDriverVehicles(widget.driver.id);
   }
 
   @override
@@ -63,7 +77,7 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
     super.dispose();
   }
 
-  void _handleTap(TapPosition tapPos, LatLng point) {
+  void _handleTap(LatLng point) {
     setState(() {
       _routeResult = null;
       _routePoints = [];
@@ -77,6 +91,13 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
         _destination = null;
       }
     });
+  }
+
+  // Same origin/destination sequencing as _handleTap, but from an address
+  // search result instead of a map tap (see widgets/address_search_field.dart).
+  void _handleSearchSelect(LatLng point) {
+    _handleTap(point);
+    _mapController?.animateCamera(CameraUpdate.newLatLng(point));
   }
 
   Future<void> _previewRoute() async {
@@ -153,11 +174,14 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                 }
                 return DropdownButtonFormField<VehicleProfile>(
                   initialValue: _selectedVehicle,
-                  decoration: const InputDecoration(labelText: 'Vozilo iz flote', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Vozilo', border: OutlineInputBorder()),
                   items: vehicles
                       .map((v) => DropdownMenuItem(
                             value: v,
-                            child: Text('${v.heightM}m/${v.widthM}m/${v.lengthM}m · ${v.weightKg.toStringAsFixed(0)}kg'),
+                            child: Text(
+                              '${v.isFleet ? "Flota" : widget.driver.username} · '
+                              '${v.heightM}m/${v.widthM}m/${v.lengthM}m · ${v.weightKg.toStringAsFixed(0)}kg',
+                            ),
                           ))
                       .toList(),
                   onChanged: (v) => setState(() => _selectedVehicle = v),
@@ -167,36 +191,50 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: AddressSearchField(api: widget.api, onSelected: (r) => _handleSearchSelect(LatLng(r.lat, r.lon))),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               _origin == null
-                  ? 'Dodirni mapu da postaviš polaznu tačku.'
+                  ? 'Dodirni mapu ili pretraži adresu da postaviš polaznu tačku.'
                   : _destination == null
-                      ? 'Dodirni mapu da postaviš odredište.'
+                      ? 'Dodirni mapu ili pretraži adresu da postaviš odredište.'
                       : 'Polazna i odredišna tačka su postavljene.',
               textAlign: TextAlign.center,
             ),
           ),
           Expanded(
             flex: 3,
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(initialCenter: _serbiaCenter, initialZoom: 7, onTap: _handleTap),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.hvr_mobile',
-                ),
+            child: GoogleMap(
+              initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
+              onMapCreated: (c) => _mapController = c,
+              onTap: _handleTap,
+              polylines: {
+                ..._alternatePolylines,
                 if (_routePoints.isNotEmpty)
-                  PolylineLayer(polylines: [
-                    Polyline(points: _routePoints, strokeWidth: 4, color: NocturneColors.accent),
-                  ]),
-                MarkerLayer(markers: [
-                  if (_origin != null)
-                    Marker(point: _origin!, width: 40, height: 40, child: const Icon(Icons.trip_origin, color: Colors.green)),
-                  if (_destination != null)
-                    Marker(point: _destination!, width: 40, height: 40, child: const Icon(Icons.flag, color: Colors.red)),
-                ]),
-              ],
+                  Polyline(
+                    polylineId: const PolylineId('route'),
+                    points: _routePoints,
+                    width: 4,
+                    color: NocturneColors.accent,
+                    zIndex: 1,
+                  ),
+              },
+              markers: {
+                if (_origin != null)
+                  Marker(
+                    markerId: const MarkerId('origin'),
+                    position: _origin!,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                  ),
+                if (_destination != null)
+                  Marker(
+                    markerId: const MarkerId('destination'),
+                    position: _destination!,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                  ),
+              },
             ),
           ),
           // Own Scrollable (not the map) so a focused cargo field scrolls into

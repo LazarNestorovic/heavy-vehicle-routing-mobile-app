@@ -22,8 +22,8 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		driverID, err := s.Auth.ParseToken(strings.TrimPrefix(header, prefix))
-		if err != nil {
+		driverID, tokenVersion, err := s.Auth.ParseToken(strings.TrimPrefix(header, prefix))
+		if err != nil || !s.tokenVersionValid(r.Context(), driverID, tokenVersion) {
 			writeError(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
@@ -37,13 +37,25 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 // token travels as a query parameter (?token=...) instead.
 func (s *Server) RequireAuthQuery(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		driverID, err := s.Auth.ParseToken(r.URL.Query().Get("token"))
-		if err != nil {
+		driverID, tokenVersion, err := s.Auth.ParseToken(r.URL.Query().Get("token"))
+		if err != nil || !s.tokenVersionValid(r.Context(), driverID, tokenVersion) {
 			writeError(w, http.StatusUnauthorized, "missing or invalid token query parameter")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), driverIDContextKey, driverID)))
 	}
+}
+
+// tokenVersionValid checks the claim against the database's current value -
+// one extra query per authenticated request, an accepted cost at this
+// project's scale (see documentations/features/ live-GPS/auth entry) in
+// exchange for real "logout everywhere" support without a blocklist table.
+func (s *Server) tokenVersionValid(ctx context.Context, driverID int64, tokenVersion int) bool {
+	d, err := s.Drivers.Get(ctx, driverID)
+	if err != nil {
+		return false
+	}
+	return d.TokenVersion == tokenVersion
 }
 
 func driverIDFromContext(ctx context.Context) (int64, bool) {

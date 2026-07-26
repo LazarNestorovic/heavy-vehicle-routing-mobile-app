@@ -1,16 +1,22 @@
 // Package ws is the WebSocket gateway from SPECIFIKACIJA.md 3.7: pushes a
-// simulated GPS position along a trip's route to a connected client. There's no
-// real vehicle/phone in this project (see the guide's timeline constraints), so
-// position is simulated by walking the route's decoded shape at a fixed
-// wall-clock pace - a standard, accepted substitute for live GPS in a thesis
-// demo (documentations/features/2026-07-21-websocket-gateway.md).
+// vehicle's position along a trip's route to a connected client. Two modes:
+//   - Simulated (default): no real GPS ping has arrived yet for this trip, so
+//     position is simulated by walking the route's decoded shape at a fixed
+//     wall-clock pace - the original substitute for live GPS in a thesis demo
+//     (documentations/features/2026-07-21-websocket-gateway.md).
+//   - Live: once the driver's phone reports a real position (ReportPosition,
+//     called from POST /api/v1/trips/{id}/position), all WS watchers for that
+//     trip switch to relaying real pings instead - see documentations/features/
+//     for the live-GPS feature entry.
 package ws
 
 import (
 	"context"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -49,13 +55,119 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// liveTrip fans a real GPS ping out to every WS connection currently watching
+// one trip (the driver's own screen and, potentially, their dispatcher's live
+// map - both connect to the same GET /ws/trips/{id}).
+type liveTrip struct {
+	mu          sync.Mutex
+	subscribers map[chan positionUpdate]struct{}
+}
+
+func newLiveTrip() *liveTrip {
+	return &liveTrip{subscribers: make(map[chan positionUpdate]struct{})}
+}
+
+func (lt *liveTrip) subscribe() chan positionUpdate {
+	ch := make(chan positionUpdate, 4)
+	lt.mu.Lock()
+	lt.subscribers[ch] = struct{}{}
+	lt.mu.Unlock()
+	return ch
+}
+
+func (lt *liveTrip) unsubscribe(ch chan positionUpdate) {
+	lt.mu.Lock()
+	delete(lt.subscribers, ch)
+	lt.mu.Unlock()
+	close(ch)
+}
+
+func (lt *liveTrip) broadcast(update positionUpdate) {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	for ch := range lt.subscribers {
+		select {
+		case ch <- update:
+		default: // a slow/stuck subscriber shouldn't block the reporter
+		}
+	}
+}
+
 type Gateway struct {
 	Trips      *store.TripStore
 	TripEvents *store.TripEventStore
+
+	liveMu sync.Mutex
+	live   map[int64]*liveTrip
 }
 
 func New(trips *store.TripStore, tripEvents *store.TripEventStore) *Gateway {
-	return &Gateway{Trips: trips, TripEvents: tripEvents}
+	return &Gateway{Trips: trips, TripEvents: tripEvents, live: make(map[int64]*liveTrip)}
+}
+
+func (g *Gateway) liveTripFor(tripID int64, create bool) *liveTrip {
+	g.liveMu.Lock()
+	defer g.liveMu.Unlock()
+	lt, ok := g.live[tripID]
+	if !ok && create {
+		lt = newLiveTrip()
+		g.live[tripID] = lt
+	}
+	return lt
+}
+
+// ReportPosition is called from the driver's phone (POST /api/v1/trips/{id}/position)
+// with a real GPS fix. The first call for a trip switches every WS watcher of
+// that trip from the simulated walk to live relaying (see HandleTripStream).
+// Progress/ETA are approximated from the remaining haversine distance to the
+// destination at the trip's originally-planned average pace - the same kind
+// of honest simplification as PointAtFraction's constant-speed assumption
+// (documentations/features/2026-07-21-rest-stop-locations.md).
+func (g *Gateway) ReportPosition(trip store.Trip, lat, lon float64) {
+	lt := g.liveTripFor(trip.ID, true)
+
+	remainingKm := haversineKm(lat, lon, trip.DestinationLat, trip.DestinationLon)
+	progress := 0.0
+	if trip.DistanceKm > 0 {
+		progress = 1 - remainingKm/trip.DistanceKm
+		if progress < 0 {
+			progress = 0
+		}
+		if progress > 1 {
+			progress = 1
+		}
+	}
+	etaMin := trip.DurationMin
+	if avgSpeedKmPerMin := trip.DistanceKm / trip.DurationMin; avgSpeedKmPerMin > 0 {
+		etaMin = remainingKm / avgSpeedKmPerMin
+	}
+
+	update := positionUpdate{Lat: lat, Lon: lon, ProgressFraction: progress, ETAMin: etaMin, Status: "in_progress"}
+	if trip.RestStopLat != nil && trip.RestStopLon != nil {
+		update.RestStop = &restStopPayload{
+			Lat:     *trip.RestStopLat,
+			Lon:     *trip.RestStopLon,
+			Amenity: derefOr(trip.RestStopAmenity, ""),
+			Name:    derefOr(trip.RestStopName, ""),
+		}
+	}
+	lt.broadcast(update)
+}
+
+// CompleteTrip marks a live-tracked trip as arrived: sends a final message to
+// every watcher and tears down its live state. Real GPS has no reliable
+// auto-arrival signal the way the simulated walk's progress_fraction=1 does,
+// so this is driven by an explicit POST /api/v1/trips/{id}/complete from the
+// driver instead.
+func (g *Gateway) CompleteTrip(tripID int64) {
+	g.liveMu.Lock()
+	lt, ok := g.live[tripID]
+	delete(g.live, tripID)
+	g.liveMu.Unlock()
+	if !ok {
+		return
+	}
+	lt.broadcast(positionUpdate{Status: "arrived", ProgressFraction: 1})
 }
 
 func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +194,35 @@ func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	if lt := g.liveTripFor(trip.ID, false); lt != nil {
+		g.relayLive(r.Context(), conn, lt)
+		return
+	}
 	g.simulate(r.Context(), conn, trip)
+}
+
+// relayLive just forwards whatever ReportPosition/CompleteTrip broadcast to
+// this one connection, until the trip arrives or the client disconnects.
+func (g *Gateway) relayLive(ctx context.Context, conn *websocket.Conn, lt *liveTrip) {
+	ch := lt.subscribe()
+	defer lt.unsubscribe(ch)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case update, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := conn.WriteJSON(update); err != nil {
+				return
+			}
+			if update.Status == "arrived" {
+				return
+			}
+		}
+	}
 }
 
 func (g *Gateway) simulate(ctx context.Context, conn *websocket.Conn, trip store.Trip) {
@@ -102,6 +242,14 @@ func (g *Gateway) simulate(ctx context.Context, conn *websocket.Conn, trip store
 	restStopSent := false
 
 	for i := 0; i <= steps; i++ {
+		// A real GPS ping may have arrived mid-simulation (driver's app caught
+		// up to the trip after starting the WS connection) - hand off to live
+		// relaying rather than keep simulating alongside real pings.
+		if lt := g.liveTripFor(trip.ID, false); lt != nil {
+			g.relayLive(ctx, conn, lt)
+			return
+		}
+
 		fraction := float64(i) / float64(steps)
 		point := valhalla.PointAtFraction(points, fraction)
 
@@ -154,4 +302,16 @@ func derefOr(s *string, fallback string) string {
 		return fallback
 	}
 	return *s
+}
+
+const earthRadiusKm = 6371.0
+
+func haversineKm(lat1, lon1, lat2, lon2 float64) float64 {
+	toRad := func(deg float64) float64 { return deg * math.Pi / 180 }
+	dLat := toRad(lat2 - lat1)
+	dLon := toRad(lon2 - lon1)
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKm * c
 }

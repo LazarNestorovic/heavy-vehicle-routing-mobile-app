@@ -86,7 +86,24 @@ services:
       VALHALLA_URL: "http://valhalla:8002"
       DATABASE_URL: "postgres://hvr:hvr_dev_password@postgres:5432/hvr?sslmode=disable"
       RABBITMQ_URL: "amqp://hvr:hvr_dev_password@rabbitmq:5672/"
-      JWT_SECRET: "708c346d30575a9e7eadd51b86ac7174c424601d92ef3f5b93424cd98734b863"
+      # Real values live in .env (gitignored, not this file) - see .env.example
+      # for the template and documentations/guides/google-maps-setup.md for how
+      # to obtain each one. Google sign-in / email verification are both
+      # optional; the app runs fine with these left empty.
+      JWT_SECRET: "${JWT_SECRET:-dev-only-insecure-secret-change-me}"
+      PUBLIC_BACKEND_URL: "http://localhost:8080"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM: "${SMTP_FROM:-no-reply@hvr.local}"
+      # Address search (see documentations/features/2026-07-26-scope-cut-closures.md
+      # Blok L) - defaults already point at the public Nominatim instance, override
+      # NOMINATIM_USER_AGENT with real contact info before any non-thesis-demo use
+      # (see https://operations.osmfoundation.org/policies/nominatim/).
+      NOMINATIM_BASE_URL: "https://nominatim.openstreetmap.org"
+      NOMINATIM_USER_AGENT: "heavy-vehicle-routing-thesis/1.0"
     ports:
       - "8080:8080"
     depends_on:

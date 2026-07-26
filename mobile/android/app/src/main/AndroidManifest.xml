@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Foreground-only live GPS tracking during an active trip (see
+         documentations/features/ live-GPS entry) - no ACCESS_BACKGROUND_LOCATION,
+         tracking only runs while ActiveTripScreen is open. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
         android:label="hvr_mobile"
         android:name="${applicationName}"
@@ -30,6 +35,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- MAPS_API_KEY is a Gradle manifest placeholder read from local.properties
+             (gitignored, per-machine) - see documentations/guides/google-maps-setup.md. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

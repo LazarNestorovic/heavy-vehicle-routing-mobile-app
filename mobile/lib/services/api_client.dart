@@ -1,7 +1,7 @@
 import 'dart:convert';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
 
 import '../config.dart';
 import '../models/auth_result.dart';
@@ -10,6 +10,7 @@ import '../models/dispatcher_request.dart';
 import '../models/driver.dart';
 import '../models/driver_preferences.dart';
 import '../models/favorite_stop.dart';
+import '../models/geocode_result.dart';
 import '../models/route_result.dart';
 import '../models/trip.dart';
 import '../models/trip_event.dart';
@@ -35,19 +36,26 @@ class ApiClient {
   String? username;
   String? role;
   int? dispatcherId;
+  String? email;
+  bool emailVerified;
 
-  ApiClient({http.Client? client, this.token}) : _client = client ?? http.Client();
+  ApiClient({http.Client? client, this.token, this.emailVerified = false}) : _client = client ?? http.Client();
 
   Map<String, String> get _authHeaders => {
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-  Future<AuthResult> register(String username, String password, {String role = 'driver'}) async {
+  Future<AuthResult> register(String username, String password, {String role = 'driver', String? email}) async {
     final resp = await _client.post(
       Uri.parse('$apiBaseUrl/api/v1/auth/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password, 'role': role}),
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        'role': role,
+        if (email != null && email.isNotEmpty) 'email': email,
+      }),
     );
     if (resp.statusCode != 201) {
       throw ApiException(_errorMessage(resp));
@@ -65,6 +73,53 @@ class ApiClient {
       throw ApiException(_errorMessage(resp));
     }
     return AuthResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Exchanges a Google ID token (see services/google_auth.dart) for a normal
+  /// session, same as [login]/[register]. [role] is only used if this Google
+  /// account has no matching driver row yet (first-time sign-in).
+  Future<AuthResult> signInWithGoogle(String idToken, {String role = 'driver'}) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/auth/google'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'id_token': idToken, 'role': role}),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return AuthResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<void> resendVerificationEmail() async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/auth/resend-verification'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+  }
+
+  /// Always succeeds regardless of whether [email] matches an account (see
+  /// backend/internal/httpapi/auth.go handleForgotPassword - doesn't leak
+  /// which addresses are registered). The actual reset happens on a web page
+  /// opened from the emailed link, not in the app.
+  Future<void> forgotPassword(String email) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+  }
+
+  /// Invalidates every token previously issued to this account (see
+  /// Driver.TokenVersion) - including the one this call itself just used, so
+  /// the caller should treat this the same as a local logout afterward.
+  Future<void> logoutAll() async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/auth/logout-all'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
   }
 
   Future<VehicleProfile> createVehicle(VehicleProfile profile) async {
@@ -94,6 +149,27 @@ class ApiClient {
       throw ApiException(_errorMessage(resp));
     }
     return VehicleProfile.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  Future<VehicleProfile> updateVehicle(int id, VehicleProfile profile) async {
+    final resp = await _client.put(
+      Uri.parse('$apiBaseUrl/api/v1/vehicles/$id'),
+      headers: _authHeaders,
+      body: jsonEncode(profile.toJson()),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return VehicleProfile.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Throws ApiException with a 409 message if the vehicle still has trips
+  /// associated with it (see backend/internal/store/vehicle.go ErrVehicleInUse).
+  Future<void> deleteVehicle(int id) async {
+    final resp = await _client.delete(Uri.parse('$apiBaseUrl/api/v1/vehicles/$id'), headers: _authHeaders);
+    if (resp.statusCode != 204) {
+      throw ApiException(_errorMessage(resp));
+    }
   }
 
   Future<RouteResult> previewRoute({
@@ -199,6 +275,44 @@ class ApiClient {
       throw ApiException(_errorMessage(resp));
     }
     return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Reports a real GPS fix for an active trip (driver-only) - switches every
+  /// WS watcher of this trip (this screen, and any dispatcher watching the
+  /// fleet map) from the simulated route playback to live relaying. See
+  /// services/location_service.dart and backend/internal/ws/gateway.go.
+  Future<void> reportPosition(int tripId, double lat, double lon) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/position'),
+      headers: _authHeaders,
+      body: jsonEncode({'lat': lat, 'lon': lon}),
+    );
+    if (resp.statusCode != 204) {
+      throw ApiException(_errorMessage(resp));
+    }
+  }
+
+  /// Explicitly confirms arrival (driver-only) - needed for live-GPS trips,
+  /// which have no reliable auto-arrival signal the way the simulated WS
+  /// playback's progress_fraction=1 does.
+  Future<Trip> completeTrip(int tripId) async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/complete'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Address search (see widgets/address_search_field.dart) - GET /api/v1/geocode,
+  /// a thin authenticated proxy to Nominatim (internal/geocode).
+  Future<List<GeocodeResult>> geocodeSearch(String query) async {
+    final uri = Uri.parse('$apiBaseUrl/api/v1/geocode').replace(queryParameters: {'q': query, 'limit': '5'});
+    final resp = await _client.get(uri, headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((r) => GeocodeResult.fromJson(r as Map<String, dynamic>)).toList();
   }
 
   Future<DriverPreferences> getPreferences() async {
@@ -318,6 +432,18 @@ class ApiClient {
       throw ApiException(_errorMessage(resp));
     }
     return ChatMessage.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Fleet vehicles + that managed driver's own personal vehicles - the
+  /// dispatcher create-trip picker's vehicle list (see documentations/
+  /// features/ entry). Dispatcher-only; driverId must be one of theirs.
+  Future<List<VehicleProfile>> listDriverVehicles(int driverId) async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/drivers/$driverId/vehicles'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list.map((v) => VehicleProfile.fromJson(v as Map<String, dynamic>)).toList();
   }
 
   Future<List<Driver>> listManagedDrivers() async {

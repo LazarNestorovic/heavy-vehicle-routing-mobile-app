@@ -4,14 +4,17 @@ import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../theme/nocturne_theme.dart';
 
-/// Vehicle creation form. Since a driver can own multiple vehicles now (see
-/// documentations/features/2026-07-21-driver-preference-scoring.md, Faza 2),
-/// this is no longer the app's first screen - VehicleListScreen is the hub,
-/// this is reached via its "add vehicle" action and pops back with `true` on
-/// success so the list knows to refresh.
+/// Vehicle creation/edit form. Since a driver can own multiple vehicles now
+/// (see documentations/features/2026-07-21-driver-preference-scoring.md, Faza
+/// 2), this is no longer the app's first screen - VehicleListScreen is the
+/// hub, this is reached via its "add vehicle"/"edit" actions and pops back
+/// with `true` on success so the list knows to refresh. Pass [existing] to
+/// edit that vehicle instead of creating a new one (see documentations/
+/// features/ entry for vehicle edit/delete).
 class VehicleProfileScreen extends StatefulWidget {
   final ApiClient api;
-  const VehicleProfileScreen({super.key, required this.api});
+  final VehicleProfile? existing;
+  const VehicleProfileScreen({super.key, required this.api, this.existing});
 
   @override
   State<VehicleProfileScreen> createState() => _VehicleProfileScreenState();
@@ -20,14 +23,19 @@ class VehicleProfileScreen extends StatefulWidget {
 class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Pre-filled with a typical EU semi-truck profile so the form is usable
-  // immediately during a demo, not just after manual entry.
-  final _heightCtrl = TextEditingController(text: '4.0');
-  final _widthCtrl = TextEditingController(text: '2.55');
-  final _lengthCtrl = TextEditingController(text: '16.5');
-  final _weightCtrl = TextEditingController(text: '40000');
-  final _axleLoadCtrl = TextEditingController(text: '11500');
-  bool _hazmat = false;
+  // Pre-filled with a typical EU semi-truck profile (when creating - editing
+  // pre-fills from widget.existing instead) so the form is usable immediately
+  // during a demo, not just after manual entry.
+  late final _heightCtrl = TextEditingController(text: _initial(widget.existing?.heightM, '4.0'));
+  late final _widthCtrl = TextEditingController(text: _initial(widget.existing?.widthM, '2.55'));
+  late final _lengthCtrl = TextEditingController(text: _initial(widget.existing?.lengthM, '16.5'));
+  late final _weightCtrl = TextEditingController(text: _initial(widget.existing?.weightKg, '40000'));
+  late final _axleLoadCtrl = TextEditingController(text: _initial(widget.existing?.axleLoadKg, '11500'));
+  late bool _hazmat = widget.existing?.hazmat ?? false;
+
+  static String _initial(double? value, String fallback) => value == null ? fallback : value.toString();
+
+  bool get _editing => widget.existing != null;
 
   bool _loading = false;
   String? _error;
@@ -75,7 +83,11 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
         axleLoadKg: axleLoad,
         hazmat: _hazmat,
       );
-      await widget.api.createVehicle(profile);
+      if (_editing) {
+        await widget.api.updateVehicle(widget.existing!.id!, profile);
+      } else {
+        await widget.api.createVehicle(profile);
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -91,7 +103,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Novo vozilo')),
+      appBar: AppBar(title: Text(_editing ? 'Izmena vozila' : 'Novo vozilo')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -119,7 +131,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen> {
                 onPressed: _loading ? null : _submit,
                 child: _loading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Sačuvaj vozilo'),
+                    : Text(_editing ? 'Sačuvaj izmene' : 'Sačuvaj vozilo'),
               ),
             ],
           ),

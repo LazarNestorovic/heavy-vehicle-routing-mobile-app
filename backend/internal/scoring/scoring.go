@@ -95,6 +95,27 @@ func preferredStopDiscount(shape string, preferredStops []valhalla.LatLon) float
 	return 0
 }
 
+// NearestPreferredStopWithinRadius reports whether shape passes within
+// preferredStopRadiusM of any of preferredStops - and if so, the exact stop
+// it matched (the first one found, same scan order as preferredStopDiscount).
+// Lets a caller explain WHY a route got the discount score() applies, not
+// just that it did (see documentations/features/ entry for the driver-facing
+// "why" message built from this).
+func NearestPreferredStopWithinRadius(shape string, preferredStops []valhalla.LatLon) (valhalla.LatLon, bool) {
+	if len(preferredStops) == 0 {
+		return valhalla.LatLon{}, false
+	}
+	points := valhalla.DecodePolyline6(shape)
+	for _, stop := range preferredStops {
+		for i := 0; i < len(points); i += shapeSampleStride {
+			if haversineMeters(points[i], stop) <= preferredStopRadiusM {
+				return stop, true
+			}
+		}
+	}
+	return valhalla.LatLon{}, false
+}
+
 const earthRadiusM = 6371000.0
 
 func haversineMeters(a, b valhalla.LatLon) float64 {

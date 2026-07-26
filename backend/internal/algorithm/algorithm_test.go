@@ -103,6 +103,122 @@ func TestAStar_MatchesDijkstra(t *testing.T) {
 	}
 }
 
+// buildNodeBarrierGraph is buildDiamondGraph's shape, but the shortcut's
+// height restriction sits on the NODE (node 3 itself), not on its edges -
+// exercises nodeAllowed rather than allowed (see documentations/guides/
+// extract-osm-corridor.md for why this needed its own synthetic test: real
+// height-tagged barrier nodes turned out to not be connected to any major
+// road in the actual corridor extract).
+func buildNodeBarrierGraph() *Graph {
+	g := NewGraph()
+	g.Nodes[1] = Node{ID: 1, Lat: 0, Lon: 0}
+	g.Nodes[2] = Node{ID: 2, Lat: 0, Lon: 0}
+	g.Nodes[3] = Node{ID: 3, Lat: 0, Lon: 0, MaxHeightM: 3.5}
+	g.Nodes[4] = Node{ID: 4, Lat: 0, Lon: 0}
+
+	g.addEdge(1, Edge{To: 2, LengthM: 10})
+	g.addEdge(2, Edge{To: 4, LengthM: 10})
+	g.addEdge(2, Edge{To: 1, LengthM: 10})
+	g.addEdge(4, Edge{To: 2, LengthM: 10})
+
+	g.addEdge(1, Edge{To: 3, LengthM: 5})
+	g.addEdge(3, Edge{To: 4, LengthM: 5})
+	g.addEdge(3, Edge{To: 1, LengthM: 5})
+	g.addEdge(4, Edge{To: 3, LengthM: 5})
+
+	return g
+}
+
+func TestDijkstra_NodeBarrierAllowsLowVehicleShortcut(t *testing.T) {
+	g := buildNodeBarrierGraph()
+
+	result, err := Dijkstra(g, 1, 4, VehicleProfile{HeightM: 2.5})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Cost != 10 {
+		t.Errorf("expected cost 10 (via node 3), got %v (path %v)", result.Cost, result.Path)
+	}
+	if len(result.Path) != 3 || result.Path[1] != 3 {
+		t.Errorf("expected path [1 3 4], got %v", result.Path)
+	}
+}
+
+func TestDijkstra_NodeBarrierExcludesTallVehicle(t *testing.T) {
+	g := buildNodeBarrierGraph()
+
+	// Node 3's edges (1->3, 3->4) carry no height tag of their own - only the
+	// node itself does. A tall vehicle must still be forced to detour via
+	// node 2, proving the exclusion is coming from nodeAllowed, not allowed.
+	result, err := Dijkstra(g, 1, 4, VehicleProfile{HeightM: 4.0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Cost != 20 {
+		t.Errorf("expected cost 20 (forced detour via node 2), got %v (path %v)", result.Cost, result.Path)
+	}
+	if len(result.Path) != 3 || result.Path[1] != 2 {
+		t.Errorf("expected path [1 2 4], got %v", result.Path)
+	}
+}
+
+func TestDijkstra_PrefersHigherRoadClassWhenLengthEqual(t *testing.T) {
+	g := NewGraph()
+	g.Nodes[1] = Node{ID: 1, Lat: 0, Lon: 0}
+	g.Nodes[2] = Node{ID: 2, Lat: 0, Lon: 0}
+	g.Nodes[3] = Node{ID: 3, Lat: 0, Lon: 0}
+	g.Nodes[4] = Node{ID: 4, Lat: 0, Lon: 0}
+
+	g.addEdge(1, Edge{To: 2, LengthM: 10, RoadClass: "motorway"})
+	g.addEdge(2, Edge{To: 4, LengthM: 10, RoadClass: "motorway"})
+
+	g.addEdge(1, Edge{To: 3, LengthM: 10, RoadClass: "secondary"})
+	g.addEdge(3, Edge{To: 4, LengthM: 10, RoadClass: "secondary"})
+
+	result, err := Dijkstra(g, 1, 4, VehicleProfile{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Path) != 3 || result.Path[1] != 2 {
+		t.Errorf("expected motorway path via node 2 despite equal raw length, got %v", result.Path)
+	}
+	if want := 20 * roadClassMultiplier["motorway"]; result.Cost != want {
+		t.Errorf("expected cost %v (motorway multiplier applied), got %v", want, result.Cost)
+	}
+}
+
+// TestDijkstra_TurnPenaltyPrefersStraightOverShorterSharpTurn uses real,
+// distinct coordinates (unlike the diamond graph's shared Lat:0,Lon:0 nodes,
+// which make every turn angle 0) to exercise turnPenaltyMeters. Path A runs
+// straight through a collinear midpoint (turn angle 0, raw length 19). Path B
+// is a shorter raw distance (17) but turns ~97 degrees at its midpoint - a
+// "sharp turn" per turnPenaltyMeters's bucket, which should push its total
+// cost above path A's.
+func TestDijkstra_TurnPenaltyPrefersStraightOverShorterSharpTurn(t *testing.T) {
+	g := NewGraph()
+	g.Nodes[1] = Node{ID: 1, Lat: 0, Lon: 0}
+	g.Nodes[4] = Node{ID: 4, Lat: 0, Lon: 2}
+	g.Nodes[10] = Node{ID: 10, Lat: 0, Lon: 1} // collinear midpoint - straight path
+	g.Nodes[20] = Node{ID: 20, Lat: 1, Lon: 0.5}
+
+	g.addEdge(1, Edge{To: 10, LengthM: 9})
+	g.addEdge(10, Edge{To: 4, LengthM: 10})
+
+	g.addEdge(1, Edge{To: 20, LengthM: 8})
+	g.addEdge(20, Edge{To: 4, LengthM: 9})
+
+	result, err := Dijkstra(g, 1, 4, VehicleProfile{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Path) != 3 || result.Path[1] != 10 {
+		t.Errorf("expected the straight (turn-free) path via node 10 despite its longer raw length, got %v", result.Path)
+	}
+	if result.Cost != 19 {
+		t.Errorf("expected cost 19 (no turn penalty on the collinear path), got %v", result.Cost)
+	}
+}
+
 func TestParseMeters(t *testing.T) {
 	cases := map[string]float64{
 		"4.5":     4.5,
@@ -213,6 +329,26 @@ func TestRealCorridor_HeightRestrictionExcludesRealTaggedEdge(t *testing.T) {
 	_, err = Dijkstra(g, start, goal, VehicleProfile{HeightM: 4.5})
 	if err == nil {
 		t.Error("4.5m vehicle: expected no path (exceeds the real 4.3m maxheight tag on this edge, and this bounded major-roads-only extract has no alternate), but a route was found")
+	}
+}
+
+// TestRealCorridor_ParsesNodeBarrierHeightTag verifies node-tag parsing
+// against genuine OSM data (not the synthetic graph used by
+// TestDijkstra_NodeBarrierExcludesTallVehicle). Node 11742525355 is a real
+// barrier=lift_gate, maxheight=2.2 node near central Belgrade
+// (44.8056573,20.449473) - see documentations/guides/extract-osm-corridor.md
+// for why this node (and the only two others like it in this extract) isn't
+// actually connected to any of the major-road edges this module routes over,
+// so this test covers parsing correctness only, not exclusion behavior.
+func TestRealCorridor_ParsesNodeBarrierHeightTag(t *testing.T) {
+	g := loadCorridor(t)
+
+	n, ok := g.Nodes[11742525355]
+	if !ok {
+		t.Fatal("expected node 11742525355 to be present in the loaded graph")
+	}
+	if n.MaxHeightM != 2.2 {
+		t.Errorf("expected MaxHeightM 2.2 parsed from the node's own maxheight tag, got %v", n.MaxHeightM)
 	}
 }
 

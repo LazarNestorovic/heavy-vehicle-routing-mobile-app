@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/position_update.dart';
 import '../models/rest_stop.dart';
 import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
+import '../services/location_service.dart';
 import '../services/polyline.dart';
 import '../services/trip_socket.dart';
 import '../theme/nocturne_theme.dart';
@@ -43,7 +46,10 @@ class ActiveTripScreen extends StatefulWidget {
 
 class _ActiveTripScreenState extends State<ActiveTripScreen> {
   final _socket = TripSocket();
-  final _mapController = MapController();
+  final _locationService = LocationService();
+  StreamSubscription<Position>? _positionSub;
+  bool _liveGpsActive = false;
+  GoogleMapController? _mapController;
 
   late final List<LatLng> _routePoints;
   LatLng? _currentPosition;
@@ -72,6 +78,44 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     _listen();
     _loadChatUnreadTotal();
     _loadVehicle();
+    _startLiveGps();
+  }
+
+  // Starts reporting real GPS fixes to the backend if the user grants
+  // location permission - see services/location_service.dart and
+  // backend/internal/ws/gateway.go. If permission is denied (or location
+  // services are off), this simply does nothing and the existing WS-driven
+  // simulated playback (via _listen/_onUpdate) keeps working exactly as
+  // before - a deliberate, silent fallback, not an error.
+  //
+  // Note: the map may briefly show two different positions right after the
+  // trip starts - this device's own GPS fix (immediate) vs. the server's
+  // simulated position (until the first real ping flips the WS gateway from
+  // simulated to live) - a one-time transition, not a bug.
+  Future<void> _startLiveGps() async {
+    final granted = await _locationService.ensurePermission();
+    if (!granted || !mounted) return;
+
+    setState(() => _liveGpsActive = true);
+    _positionSub = _locationService.positionStream().listen((position) {
+      if (!mounted) return;
+      final point = LatLng(position.latitude, position.longitude);
+      setState(() => _currentPosition = point);
+      _mapController?.animateCamera(CameraUpdate.newLatLng(point));
+
+      // Fire-and-forget: a dropped ping just means this update didn't reach
+      // the dispatcher's live map, the next one (20m later) will.
+      unawaited(widget.api.reportPosition(widget.trip.id, position.latitude, position.longitude).catchError((_) {}));
+    });
+  }
+
+  Future<void> _completeTrip() async {
+    try {
+      await widget.api.completeTrip(widget.trip.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Greška: $e')));
+    }
   }
 
   Future<void> _loadVehicle() async {
@@ -122,7 +166,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
         _showRestStopAlert(update.restStop!);
       }
     });
-    _mapController.move(_currentPosition!, _mapController.camera.zoom);
+    _mapController?.animateCamera(CameraUpdate.newLatLng(_currentPosition!));
 
     if (update.status == 'arrived') {
       _showArrivedDialog();
@@ -166,6 +210,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
 
   @override
   void dispose() {
+    _positionSub?.cancel();
     _socket.close();
     super.dispose();
   }
@@ -173,7 +218,17 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Putovanje #${widget.trip.id}')),
+      appBar: AppBar(
+        title: Text('Putovanje #${widget.trip.id}'),
+        actions: [
+          if (_liveGpsActive && _status != 'arrived')
+            IconButton(
+              icon: const Icon(Icons.flag_outlined),
+              tooltip: 'Stigao sam',
+              onPressed: _completeTrip,
+            ),
+        ],
+      ),
       body: Column(
         children: [
           if (_error != null)
@@ -192,37 +247,31 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           Expanded(
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _currentPosition ?? const LatLng(44.5, 20.5),
-                    initialZoom: 9,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.hvr_mobile',
+                GoogleMap(
+                  onMapCreated: (controller) => _mapController = controller,
+                  initialCameraPosition: CameraPosition(target: _currentPosition ?? const LatLng(44.5, 20.5), zoom: 9),
+                  polylines: {
+                    Polyline(
+                      polylineId: const PolylineId('route'),
+                      points: _routePoints,
+                      width: 4,
+                      color: NocturneColors.accent.withValues(alpha: 0.5),
                     ),
-                    PolylineLayer(polylines: [
-                      Polyline(points: _routePoints, strokeWidth: 4, color: NocturneColors.accent.withValues(alpha: 0.5)),
-                    ]),
-                    MarkerLayer(markers: [
-                      if (_currentPosition != null)
-                        Marker(
-                          point: _currentPosition!,
-                          width: 44,
-                          height: 44,
-                          child: const Icon(Icons.local_shipping, color: NocturneColors.accent, size: 32),
-                        ),
-                      if (_restStop != null)
-                        Marker(
-                          point: LatLng(_restStop!.lat, _restStop!.lon),
-                          width: 36,
-                          height: 36,
-                          child: const Icon(Icons.local_gas_station, color: NocturneColors.accent300),
-                        ),
-                    ]),
-                  ],
+                  },
+                  markers: {
+                    if (_currentPosition != null)
+                      Marker(
+                        markerId: const MarkerId('truck'),
+                        position: _currentPosition!,
+                        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+                      ),
+                    if (_restStop != null)
+                      Marker(
+                        markerId: const MarkerId('rest_stop'),
+                        position: LatLng(_restStop!.lat, _restStop!.lon),
+                        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                      ),
+                  },
                 ),
                 RadialFabMenu(
                   items: [

@@ -23,6 +23,11 @@ import (
 // restThresholdMin is a stand-in for a real AETR-style driving-hours rule: 4.5h.
 const restThresholdMin = 270
 
+// routeSampleStride matches scoring.go's shapeSampleStride - check every Nth
+// decoded shape point when building the route corridor for
+// reststop.Finder.NearestOnRoute, for performance.
+const routeSampleStride = 5
+
 type TripWorker struct {
 	Trips         *store.TripStore
 	TripEvents    *store.TripEventStore
@@ -30,6 +35,7 @@ type TripWorker struct {
 	RestStops     *reststop.Finder
 	Preferences   *store.PreferencesStore
 	FavoriteStops *store.FavoriteStopStore
+	Vehicles      *store.VehicleStore
 }
 
 // Run blocks, consuming trip.started events until the delivery channel closes.
@@ -75,21 +81,6 @@ func (w *TripWorker) handle(ctx context.Context, d amqp.Delivery) {
 		}
 	}
 
-	body, err := json.Marshal(queue.TripETAUpdatedEvent{
-		TripID:                trip.ID,
-		DurationMin:           trip.DurationMin,
-		NextRestSuggestionMin: rest.AfterMinutes,
-		RestStopLat:           rest.Lat,
-		RestStopLon:           rest.Lon,
-		RestStopName:          rest.Name,
-		RestStopAmenity:       rest.Amenity,
-	})
-	if err != nil {
-		log.Printf("worker: encode trip.eta_updated for %d: %v", trip.ID, err)
-	} else if err := w.Queue.Publish(ctx, queue.RoutingKeyTripETAUpdated, body); err != nil {
-		log.Printf("worker: publish trip.eta_updated for %d: %v", trip.ID, err)
-	}
-
 	_ = d.Ack(false)
 	log.Printf("worker: processed trip %d (rest_suggestion_min=%v)", trip.ID, rest.AfterMinutes)
 }
@@ -106,6 +97,11 @@ func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store
 	fraction := restThresholdMin / trip.DurationMin
 	at := valhalla.PointAtFraction(points, fraction)
 
+	routePoints := make([]reststop.Point, 0, len(points)/routeSampleStride+1)
+	for i := 0; i < len(points); i += routeSampleStride {
+		routePoints = append(routePoints, reststop.Point{Lat: points[i].Lat, Lon: points[i].Lon})
+	}
+
 	var brand string
 	var favorites []reststop.Stop
 	if prefs, err := w.Preferences.Get(ctx, trip.DriverID); err != nil {
@@ -121,7 +117,14 @@ func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store
 		}
 	}
 
-	stop, _, found := w.RestStops.NearestPreferred(at.Lat, at.Lon, brand, favorites, reststop.DefaultPreferredRadiusM)
+	var hazmat bool
+	if vehicle, err := w.Vehicles.Get(ctx, trip.VehicleID); err != nil {
+		log.Printf("worker: load vehicle %d for hazmat check: %v (assuming non-hazmat)", trip.VehicleID, err)
+	} else {
+		hazmat = vehicle.Hazmat
+	}
+
+	stop, _, found := w.RestStops.NearestOnRoute(at.Lat, at.Lon, brand, favorites, reststop.DefaultPreferredRadiusM, routePoints, reststop.DefaultRouteCorridorRadiusM, hazmat)
 	if !found {
 		return suggestion // threshold still meaningful even without a matched location
 	}

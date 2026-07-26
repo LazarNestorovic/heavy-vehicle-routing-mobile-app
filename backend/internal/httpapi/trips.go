@@ -190,13 +190,16 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile := fromStoreVehicle(vehicle)
-	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile, prefs, preferredStops)
+	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile, prefs, plainCoords(preferredStops))
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 	best := ranked[0]
-	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate, prefs, profile.WeightKg, preferredStops)
+	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate, prefs, profile.WeightKg, plainCoords(preferredStops))
+	if explanation == nil {
+		explanation = preferredStopMessage(best.Shape, preferredStops)
+	}
 
 	saved, err := s.Trips.Create(r.Context(), store.Trip{
 		DriverID:         assignedDriverID,
@@ -324,6 +327,65 @@ func (s *Server) handleStartTrip(w http.ResponseWriter, r *http.Request) {
 	s.startTripSideEffects(r.Context(), trip.ID)
 
 	trip.Status = store.TripStatusCreated
+	writeJSON(w, http.StatusOK, toTripResponse(trip, nil))
+}
+
+type positionRequest struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+// handleReportPosition is called by the driver's own phone with a real GPS
+// fix (see documentations/features/ live-GPS entry) - switches this trip's WS
+// watchers (the driver's own screen, and any dispatcher watching the fleet
+// map) from the simulated route playback to relaying real positions.
+func (s *Server) handleReportPosition(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	trip, ok := s.loadOwnTrip(w, r, driverID)
+	if !ok {
+		return
+	}
+	if trip.Status != store.TripStatusCreated && trip.Status != store.TripStatusInProgress {
+		writeError(w, http.StatusConflict, "trip is not currently active")
+		return
+	}
+
+	var req positionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	s.WS.ReportPosition(trip, req.Lat, req.Lon)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleCompleteTrip lets the driver explicitly confirm arrival - real GPS
+// tracking has no reliable auto-arrival signal, unlike the simulated WS
+// playback which knows when progress_fraction reaches 1.
+func (s *Server) handleCompleteTrip(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	trip, ok := s.loadOwnTrip(w, r, driverID)
+	if !ok {
+		return
+	}
+	if trip.Status != store.TripStatusCreated && trip.Status != store.TripStatusInProgress {
+		writeError(w, http.StatusConflict, "trip is not currently active")
+		return
+	}
+
+	if err := s.Trips.MarkCompleted(r.Context(), trip.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to complete trip: "+err.Error())
+		return
+	}
+	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "arrived", "Arrived at destination"); err != nil {
+		log.Printf("log arrived event for trip %d: %v", trip.ID, err)
+	}
+	s.WS.CompleteTrip(trip.ID)
+
+	trip.Status = store.TripStatusCompleted
 	writeJSON(w, http.StatusOK, toTripResponse(trip, nil))
 }
 

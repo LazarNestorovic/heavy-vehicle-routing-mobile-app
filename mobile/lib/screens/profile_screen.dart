@@ -17,11 +17,29 @@ class ProfileScreen extends StatelessWidget {
     api.token = null;
     api.driverId = null;
     api.username = null;
+    api.role = null;
+    api.dispatcherId = null;
+    api.email = null;
+    api.emailVerified = false;
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: api)),
       (route) => false,
     );
+  }
+
+  // Invalidates every token issued to this account (including the one this
+  // very call used - see ApiClient.logoutAll), then logs out locally too,
+  // same as _logout.
+  Future<void> _logoutAll(BuildContext context) async {
+    try {
+      await api.logoutAll();
+    } catch (_) {
+      // Non-fatal - even if the request fails, clearing the local session
+      // below still logs this device out; other devices just keep working.
+    }
+    if (!context.mounted) return;
+    await _logout(context);
   }
 
   @override
@@ -63,6 +81,12 @@ class ProfileScreen extends StatelessWidget {
               onPressed: () => _logout(context),
               icon: const Icon(Icons.logout),
               label: const Text('Odjava'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _logoutAll(context),
+              icon: const Icon(Icons.phonelink_erase),
+              label: const Text('Odjavi sve uređaje'),
             ),
           ],
         ),

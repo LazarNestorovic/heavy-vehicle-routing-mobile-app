@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/trip.dart';
 import '../services/api_client.dart';
@@ -23,7 +22,6 @@ class DispatcherLiveMapScreen extends StatefulWidget {
 }
 
 class _DispatcherLiveMapScreenState extends State<DispatcherLiveMapScreen> {
-  final _mapController = MapController();
   final Map<int, TripSocket> _sockets = {};
   final Map<int, LatLng> _positions = {};
   bool _loading = true;
@@ -97,28 +95,16 @@ class _DispatcherLiveMapScreenState extends State<DispatcherLiveMapScreen> {
                     child: Text('Nema vozila trenutno na putu.'),
                   ),
                 Expanded(
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: const MapOptions(initialCenter: LatLng(44.5, 20.5), initialZoom: 7),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.hvr_mobile',
-                      ),
-                      MarkerLayer(
-                        markers: _positions.entries
-                            .map((entry) => Marker(
-                                  point: entry.value,
-                                  width: 44,
-                                  height: 44,
-                                  child: Tooltip(
-                                    message: 'Tura #${entry.key}',
-                                    child: const Icon(Icons.local_shipping, color: NocturneColors.accent, size: 32),
-                                  ),
-                                ))
-                            .toList(),
-                      ),
-                    ],
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(target: LatLng(44.5, 20.5), zoom: 7),
+                    markers: _positions.entries
+                        .map((entry) => Marker(
+                              markerId: MarkerId('trip_${entry.key}'),
+                              position: entry.value,
+                              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+                              infoWindow: InfoWindow(title: 'Tura #${entry.key}'),
+                            ))
+                        .toSet(),
                   ),
                 ),
               ],

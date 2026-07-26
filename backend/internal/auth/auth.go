@@ -39,14 +39,20 @@ func CheckPassword(hash, password string) bool {
 type claims struct {
 	DriverID int64  `json:"driver_id"`
 	Username string `json:"username"`
+	// TokenVersion mirrors store.Driver.TokenVersion at issue time - callers
+	// (httpapi.RequireAuth) compare it against the current database value on
+	// every request, so incrementing it (logout-all) invalidates every
+	// previously issued token without a server-side blocklist table.
+	TokenVersion int `json:"token_version"`
 	jwt.RegisteredClaims
 }
 
-func (m *Manager) IssueToken(driverID int64, username string) (string, error) {
+func (m *Manager) IssueToken(driverID int64, username string, tokenVersion int) (string, error) {
 	now := time.Now()
 	c := claims{
-		DriverID: driverID,
-		Username: username,
+		DriverID:     driverID,
+		Username:     username,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
@@ -56,8 +62,9 @@ func (m *Manager) IssueToken(driverID int64, username string) (string, error) {
 	return token.SignedString(m.secret)
 }
 
-// ParseToken verifies the signature and expiry, returning the driver_id claim.
-func (m *Manager) ParseToken(tokenString string) (int64, error) {
+// ParseToken verifies the signature and expiry, returning the driver_id and
+// token_version claims.
+func (m *Manager) ParseToken(tokenString string) (int64, int, error) {
 	var c claims
 	token, err := jwt.ParseWithClaims(tokenString, &c, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -66,7 +73,7 @@ func (m *Manager) ParseToken(tokenString string) (int64, error) {
 		return m.secret, nil
 	})
 	if err != nil || !token.Valid {
-		return 0, ErrInvalidToken
+		return 0, 0, ErrInvalidToken
 	}
-	return c.DriverID, nil
+	return c.DriverID, c.TokenVersion, nil
 }

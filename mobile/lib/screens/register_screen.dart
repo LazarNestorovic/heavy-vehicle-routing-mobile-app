@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
-import '../services/auth_storage.dart';
+import '../services/google_auth.dart';
 import '../theme/nocturne_theme.dart';
 import 'entry_router.dart';
 
@@ -17,7 +17,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _authStorage = AuthStorage();
+  final _emailCtrl = TextEditingController();
+  final _googleAuth = GoogleAuthService();
 
   String _role = 'driver';
   bool _loading = false;
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -40,6 +42,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  String? _validateEmail(String? v) {
+    if (v == null || v.isEmpty) return null; // optional
+    if (!v.contains('@')) return 'Nevažeća email adresa';
+    return null;
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -49,13 +57,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     try {
       final username = _usernameCtrl.text.trim();
-      final result = await widget.api.register(username, _passwordCtrl.text, role: _role);
-      widget.api.token = result.token;
-      widget.api.driverId = result.driverId;
-      widget.api.username = username;
-      widget.api.role = result.role;
-      widget.api.dispatcherId = result.dispatcherId;
-      await _authStorage.save(result.token, result.driverId, username, result.role, result.dispatcherId);
+      final email = _emailCtrl.text.trim();
+      final result = await widget.api.register(username, _passwordCtrl.text, role: _role, email: email.isEmpty ? null : email);
+      await applySession(widget.api, result);
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => homeScreenFor(widget.api)),
+      );
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = 'Neočekivana greška: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _continueWithGoogle() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final idToken = await _googleAuth.signIn();
+      if (idToken == null) return; // user canceled - not an error
+      final result = await widget.api.signInWithGoogle(idToken, role: _role);
+      await applySession(widget.api, result);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -104,6 +132,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: true,
                   validator: _validatePassword,
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _emailCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (opciono)',
+                    hintText: 'Za potvrdu naloga - poslaćemo link',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: _validateEmail,
+                ),
                 const SizedBox(height: 20),
                 if (_error != null)
                   Padding(
@@ -115,6 +154,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: _loading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Registruj se'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('ili', style: TextStyle(color: NocturneColors.text.withValues(alpha: 0.6))),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _loading ? null : _continueWithGoogle,
+                  icon: const Icon(Icons.login),
+                  label: const Text('Nastavi sa Google nalogom'),
                 ),
               ],
             ),

@@ -17,15 +17,30 @@ const (
 	RoleDispatcher = "dispatcher"
 )
 
+// Driver.PasswordHash is nullable - a Google-only account (see CreateGoogle)
+// never sets one. GoogleSub/Email/EmailVerified are all optional too, since
+// a username/password account may have neither until it registers with an
+// email or links a Google sign-in (see LinkGoogleSub).
 type Driver struct {
-	ID           int64
-	Username     string
-	PasswordHash string
-	Role         string
-	DispatcherID *int64
+	ID            int64
+	Username      string
+	PasswordHash  *string
+	Role          string
+	DispatcherID  *int64
+	GoogleSub     *string
+	Email         *string
+	EmailVerified bool
+	// TokenVersion is embedded in every issued JWT and checked on every
+	// authenticated request (RequireAuth) - incrementing it (see
+	// IncrementTokenVersion) invalidates every previously issued token for
+	// this account without a server-side blocklist table.
+	TokenVersion int
 }
 
-var ErrDuplicateUsername = errors.New("store: username already taken")
+var (
+	ErrDuplicateUsername = errors.New("store: username already taken")
+	ErrDuplicateEmail    = errors.New("store: email already registered")
+)
 
 type DriverStore struct {
 	db *sql.DB
@@ -35,19 +50,48 @@ func NewDriverStore(db *sql.DB) *DriverStore {
 	return &DriverStore{db: db}
 }
 
-// Create registers a new account with the given role. The dispatcher<->driver
-// relationship is never set here - see DispatcherRequestStore.
-func (s *DriverStore) Create(ctx context.Context, username, passwordHash, role string) (Driver, error) {
-	d := Driver{Username: username, PasswordHash: passwordHash, Role: role}
+const driverColumns = "id, username, password_hash, role, dispatcher_id, google_sub, email, email_verified, token_version"
+
+func scanDriver(row interface{ Scan(...any) error }, d *Driver) error {
+	return row.Scan(&d.ID, &d.Username, &d.PasswordHash, &d.Role, &d.DispatcherID, &d.GoogleSub, &d.Email, &d.EmailVerified, &d.TokenVersion)
+}
+
+// Create registers a new username/password account with the given role and
+// optional email (see documentations/features/ entry - email is opt-in on
+// registration, verified separately via internal/mailer). The dispatcher<->
+// driver relationship is never set here - see DispatcherRequestStore.
+func (s *DriverStore) Create(ctx context.Context, username, passwordHash, role string, email *string) (Driver, error) {
+	d := Driver{Username: username, PasswordHash: &passwordHash, Role: role, Email: email}
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO drivers (username, password_hash, role) VALUES ($1, $2, $3)
-		RETURNING id`, username, passwordHash, role)
+		INSERT INTO drivers (username, password_hash, role, email) VALUES ($1, $2, $3, $4)
+		RETURNING id`, username, passwordHash, role, email)
+
+	if err := row.Scan(&d.ID); err != nil {
+		if isUniqueViolation(err) {
+			if strings.Contains(err.Error(), "email") {
+				return Driver{}, ErrDuplicateEmail
+			}
+			return Driver{}, ErrDuplicateUsername
+		}
+		return Driver{}, fmt.Errorf("insert driver: %w", err)
+	}
+	return d, nil
+}
+
+// CreateGoogle registers a new account from a verified Google sign-in - no
+// password, email_verified is trusted straight from Google's own claim (see
+// internal/auth.GoogleClaims).
+func (s *DriverStore) CreateGoogle(ctx context.Context, username, googleSub, role string, email *string, emailVerified bool) (Driver, error) {
+	d := Driver{Username: username, Role: role, GoogleSub: &googleSub, Email: email, EmailVerified: emailVerified}
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO drivers (username, role, google_sub, email, email_verified) VALUES ($1, $2, $3, $4, $5)
+		RETURNING id`, username, role, googleSub, email, emailVerified)
 
 	if err := row.Scan(&d.ID); err != nil {
 		if isUniqueViolation(err) {
 			return Driver{}, ErrDuplicateUsername
 		}
-		return Driver{}, fmt.Errorf("insert driver: %w", err)
+		return Driver{}, fmt.Errorf("insert google driver: %w", err)
 	}
 	return d, nil
 }
@@ -58,16 +102,87 @@ func (s *DriverStore) Create(ctx context.Context, username, passwordHash, role s
 // caching role in the token).
 func (s *DriverStore) Get(ctx context.Context, id int64) (Driver, error) {
 	d := Driver{ID: id}
-	row := s.db.QueryRowContext(ctx, `
-		SELECT username, password_hash, role, dispatcher_id FROM drivers WHERE id = $1`, id)
-
-	if err := row.Scan(&d.Username, &d.PasswordHash, &d.Role, &d.DispatcherID); err != nil {
+	row := s.db.QueryRowContext(ctx, `SELECT `+driverColumns+` FROM drivers WHERE id = $1`, id)
+	if err := scanDriver(row, &d); err != nil {
 		if err == sql.ErrNoRows {
 			return Driver{}, ErrNotFound
 		}
 		return Driver{}, fmt.Errorf("select driver: %w", err)
 	}
 	return d, nil
+}
+
+// GetByGoogleSub looks up an account previously created/linked via Google
+// sign-in.
+func (s *DriverStore) GetByGoogleSub(ctx context.Context, googleSub string) (Driver, error) {
+	var d Driver
+	row := s.db.QueryRowContext(ctx, `SELECT `+driverColumns+` FROM drivers WHERE google_sub = $1`, googleSub)
+	if err := scanDriver(row, &d); err != nil {
+		if err == sql.ErrNoRows {
+			return Driver{}, ErrNotFound
+		}
+		return Driver{}, fmt.Errorf("select driver by google sub: %w", err)
+	}
+	return d, nil
+}
+
+// GetByEmail looks up an account by email - used to link a Google sign-in to
+// a pre-existing username/password account that used the same address.
+func (s *DriverStore) GetByEmail(ctx context.Context, email string) (Driver, error) {
+	var d Driver
+	row := s.db.QueryRowContext(ctx, `SELECT `+driverColumns+` FROM drivers WHERE email = $1`, email)
+	if err := scanDriver(row, &d); err != nil {
+		if err == sql.ErrNoRows {
+			return Driver{}, ErrNotFound
+		}
+		return Driver{}, fmt.Errorf("select driver by email: %w", err)
+	}
+	return d, nil
+}
+
+// LinkGoogleSub attaches a Google account to a pre-existing driver row (found
+// via GetByEmail) - so future sign-ins with that Google account resolve
+// straight to google_sub instead of relying on the email match again.
+func (s *DriverStore) LinkGoogleSub(ctx context.Context, driverID int64, googleSub string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE drivers SET google_sub = $2 WHERE id = $1`, driverID, googleSub)
+	if err != nil {
+		return fmt.Errorf("link google sub: %w", err)
+	}
+	return nil
+}
+
+// MarkEmailVerified sets email_verified=true - called once a verification
+// token is successfully consumed (see EmailVerificationTokenStore.Consume).
+func (s *DriverStore) MarkEmailVerified(ctx context.Context, driverID int64) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE drivers SET email_verified = true WHERE id = $1`, driverID)
+	if err != nil {
+		return fmt.Errorf("mark email verified: %w", err)
+	}
+	return nil
+}
+
+// IncrementTokenVersion bumps token_version, invalidating every JWT issued
+// before this call (see Driver.TokenVersion) - the "logout everywhere"
+// primitive, called from POST /api/v1/auth/logout-all.
+func (s *DriverStore) IncrementTokenVersion(ctx context.Context, driverID int64) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE drivers SET token_version = token_version + 1 WHERE id = $1`, driverID)
+	if err != nil {
+		return fmt.Errorf("increment token version: %w", err)
+	}
+	return nil
+}
+
+// SetPasswordHash overwrites a driver's password hash - used by the
+// forgot-password flow (handleResetPassword) once a reset token has been
+// consumed. Also bumps token_version, so a password reset (e.g. because the
+// old one leaked) invalidates any tokens issued under the old password too.
+func (s *DriverStore) SetPasswordHash(ctx context.Context, driverID int64, passwordHash string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE drivers SET password_hash = $2, token_version = token_version + 1 WHERE id = $1`, driverID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("set password hash: %w", err)
+	}
+	return nil
 }
 
 // SetDispatcher links driverID to dispatcherID - called only from an approved
@@ -146,11 +261,8 @@ func (s *DriverStore) List(ctx context.Context, excludeID int64) ([]Driver, erro
 
 func (s *DriverStore) GetByUsername(ctx context.Context, username string) (Driver, error) {
 	var d Driver
-	d.Username = username
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, password_hash, role, dispatcher_id FROM drivers WHERE username = $1`, username)
-
-	if err := row.Scan(&d.ID, &d.PasswordHash, &d.Role, &d.DispatcherID); err != nil {
+	row := s.db.QueryRowContext(ctx, `SELECT `+driverColumns+` FROM drivers WHERE username = $1`, username)
+	if err := scanDriver(row, &d); err != nil {
 		if err == sql.ErrNoRows {
 			return Driver{}, ErrNotFound
 		}

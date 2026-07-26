@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
@@ -39,6 +38,29 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     super.initState();
     _routePoints = decodePolyline6(widget.trip.shape);
     _vehicleFuture = widget.api.getVehicle(widget.trip.vehicleId);
+  }
+
+  // GoogleMap has no declarative "fit these points" option (unlike flutter_map's
+  // initialCameraFit) - compute bounds ourselves and fit them once the map/
+  // controller exists.
+  LatLngBounds? get _routeBounds {
+    if (_routePoints.isEmpty) return null;
+    var minLat = _routePoints.first.latitude, maxLat = _routePoints.first.latitude;
+    var minLon = _routePoints.first.longitude, maxLon = _routePoints.first.longitude;
+    for (final p in _routePoints) {
+      minLat = p.latitude < minLat ? p.latitude : minLat;
+      maxLat = p.latitude > maxLat ? p.latitude : maxLat;
+      minLon = p.longitude < minLon ? p.longitude : minLon;
+      maxLon = p.longitude > maxLon ? p.longitude : maxLon;
+    }
+    return LatLngBounds(southwest: LatLng(minLat, minLon), northeast: LatLng(maxLat, maxLon));
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    final bounds = _routeBounds;
+    if (bounds != null) {
+      controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 32));
+    }
   }
 
   Future<void> _accept() async {
@@ -104,41 +126,28 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         children: [
           Expanded(
             flex: 3,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCameraFit: _routePoints.isEmpty
-                    ? null
-                    : CameraFit.bounds(bounds: LatLngBounds.fromPoints(_routePoints), padding: const EdgeInsets.all(32)),
-                initialCenter: _routePoints.isEmpty ? const LatLng(44.5, 20.5) : _routePoints.first,
-                initialZoom: 7,
-                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.hvr_mobile',
-                ),
+            child: GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(target: _routePoints.isEmpty ? const LatLng(44.5, 20.5) : _routePoints.first, zoom: 7),
+              rotateGesturesEnabled: false,
+              polylines: {
                 if (_routePoints.isNotEmpty)
-                  PolylineLayer(polylines: [
-                    Polyline(points: _routePoints, strokeWidth: 4, color: NocturneColors.accent),
-                  ]),
-                MarkerLayer(markers: [
-                  if (_routePoints.isNotEmpty)
-                    Marker(
-                      point: _routePoints.first,
-                      width: 32,
-                      height: 32,
-                      child: const Icon(Icons.trip_origin, color: Colors.green),
-                    ),
-                  if (_routePoints.isNotEmpty)
-                    Marker(
-                      point: _routePoints.last,
-                      width: 32,
-                      height: 32,
-                      child: const Icon(Icons.flag, color: Colors.red),
-                    ),
-                ]),
-              ],
+                  Polyline(polylineId: const PolylineId('route'), points: _routePoints, width: 4, color: NocturneColors.accent),
+              },
+              markers: {
+                if (_routePoints.isNotEmpty)
+                  Marker(
+                    markerId: const MarkerId('origin'),
+                    position: _routePoints.first,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                  ),
+                if (_routePoints.isNotEmpty)
+                  Marker(
+                    markerId: const MarkerId('destination'),
+                    position: _routePoints.last,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                  ),
+              },
             ),
           ),
           Expanded(

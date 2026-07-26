@@ -7,6 +7,7 @@ class RouteCandidate {
   final bool hasFerry;
   final bool hasToll;
   final bool chosen;
+  final String shape;
 
   const RouteCandidate({
     required this.distanceKm,
@@ -17,6 +18,7 @@ class RouteCandidate {
     required this.hasFerry,
     required this.hasToll,
     required this.chosen,
+    required this.shape,
   });
 
   factory RouteCandidate.fromJson(Map<String, dynamic> json) => RouteCandidate(
@@ -28,5 +30,6 @@ class RouteCandidate {
         hasFerry: json['has_ferry'] as bool,
         hasToll: json['has_toll'] as bool,
         chosen: json['chosen'] as bool,
+        shape: json['shape'] as String? ?? '',
       );
 }

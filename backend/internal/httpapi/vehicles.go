@@ -55,12 +55,17 @@ type vehicleResponse struct {
 	ID            int64    `json:"id"`
 	FuelPercent   float64  `json:"fuel_percent"`
 	NextServiceKm *float64 `json:"next_service_km,omitempty"`
+	// IsFleet distinguishes a dispatcher's fleet vehicle from a driver's
+	// personal one - lets a client group/label a mixed list (e.g. the
+	// dispatcher create-trip picker, see documentations/features/ entry).
+	IsFleet bool `json:"is_fleet"`
 	vehicleProfile
 }
 
 func toVehicleResponse(v store.Vehicle) vehicleResponse {
 	return vehicleResponse{
 		ID: v.ID, FuelPercent: v.FuelPercent, NextServiceKm: v.NextServiceKm,
+		IsFleet:        v.DispatcherID != nil,
 		vehicleProfile: fromStoreVehicle(v),
 	}
 }
@@ -138,6 +143,58 @@ func (s *Server) handleListVehicles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// handleListDriverVehiclesForDispatcher lets a dispatcher see a managed
+// driver's OWN personal vehicles too, not just their own fleet - the
+// dispatcher's create-trip picker only offered fleet vehicles before (see
+// documentations/features/ entry), even though POST /trips already accepted
+// a driver's personal vehicle for an assigned trip.
+func (s *Server) handleListDriverVehiclesForDispatcher(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := driverIDFromContext(r.Context())
+	if _, ok := s.requireDispatcher(w, r, callerID); !ok {
+		return
+	}
+
+	targetID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid driver id")
+		return
+	}
+
+	target, err := s.Drivers.Get(r.Context(), targetID)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "driver not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load driver: "+err.Error())
+		return
+	}
+	if target.DispatcherID == nil || *target.DispatcherID != callerID {
+		writeError(w, http.StatusForbidden, "driver is not managed by you")
+		return
+	}
+
+	fleet, err := s.Vehicles.ListFleet(r.Context(), callerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list fleet vehicles: "+err.Error())
+		return
+	}
+	personal, err := s.Vehicles.List(r.Context(), targetID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list driver vehicles: "+err.Error())
+		return
+	}
+
+	out := make([]vehicleResponse, 0, len(fleet)+len(personal))
+	for _, v := range fleet {
+		out = append(out, toVehicleResponse(v))
+	}
+	for _, v := range personal {
+		out = append(out, toVehicleResponse(v))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (s *Server) handleGetVehicle(w http.ResponseWriter, r *http.Request) {
 	driverID, _ := driverIDFromContext(r.Context())
 
@@ -168,6 +225,103 @@ func (s *Server) handleGetVehicle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, toVehicleResponse(v))
+}
+
+// handleUpdateVehicle edits a vehicle's physical dimensions - same ownership
+// check as handleUpdateVehicleStatus, but for the profile fields instead of
+// the fuel/service status fields.
+func (s *Server) handleUpdateVehicle(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid vehicle id")
+		return
+	}
+
+	v, err := s.Vehicles.Get(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "vehicle not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+		return
+	}
+
+	account, err := s.loadAccount(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
+		return
+	}
+	if !vehicleAccessible(v, account) {
+		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
+		return
+	}
+
+	var req vehicleProfile
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if err := (vehicleProfileValidator{}).Validate(req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	updated := toStoreVehicle(req)
+	if err := s.Vehicles.Update(r.Context(), id, updated); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update vehicle: "+err.Error())
+		return
+	}
+
+	v.HeightM, v.WidthM, v.LengthM = req.HeightM, req.WidthM, req.LengthM
+	v.WeightKg, v.AxleLoadKg, v.Hazmat = req.WeightKg, req.AxleLoadKg, req.Hazmat
+	writeJSON(w, http.StatusOK, toVehicleResponse(v))
+}
+
+// handleDeleteVehicle removes a vehicle - 409 if any trip still references it
+// (store.ErrVehicleInUse; trips are an append-only historical record, so
+// deleting a vehicle never cascades into deleting trips).
+func (s *Server) handleDeleteVehicle(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid vehicle id")
+		return
+	}
+
+	v, err := s.Vehicles.Get(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "vehicle not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+		return
+	}
+
+	account, err := s.loadAccount(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
+		return
+	}
+	if !vehicleAccessible(v, account) {
+		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
+		return
+	}
+
+	if err := s.Vehicles.Delete(r.Context(), id); err != nil {
+		if err == store.ErrVehicleInUse {
+			writeError(w, http.StatusConflict, "vehicle has trips associated with it and cannot be deleted")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete vehicle: "+err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type updateVehicleStatusRequest struct {

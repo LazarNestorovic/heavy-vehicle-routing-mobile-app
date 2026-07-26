@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/driver_preferences.dart';
 import '../models/favorite_stop.dart';
 import '../services/api_client.dart';
 import '../theme/nocturne_theme.dart';
+import '../widgets/address_search_field.dart';
 
 /// Driver preference sliders (1-5, see documentations/features/2026-07-21-driver-preference-scoring.md)
 /// plus preferred fuel brand and saved favorite stops (documentations/features/
@@ -79,7 +79,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Future<void> _addFavorite() async {
     final picked = await Navigator.of(context).push<_PickedStop>(
-      MaterialPageRoute(builder: (_) => const _FavoriteStopPickerScreen()),
+      MaterialPageRoute(builder: (_) => _FavoriteStopPickerScreen(api: widget.api)),
     );
     if (picked == null) return;
 
@@ -201,9 +201,10 @@ class _PickedStop {
   _PickedStop(this.point, this.name);
 }
 
-/// Minimal tap-to-place picker for a new favorite stop.
+/// Tap-to-place (or search-to-place) picker for a new favorite stop.
 class _FavoriteStopPickerScreen extends StatefulWidget {
-  const _FavoriteStopPickerScreen();
+  final ApiClient api;
+  const _FavoriteStopPickerScreen({required this.api});
 
   @override
   State<_FavoriteStopPickerScreen> createState() => _FavoriteStopPickerScreenState();
@@ -211,12 +212,18 @@ class _FavoriteStopPickerScreen extends StatefulWidget {
 
 class _FavoriteStopPickerScreenState extends State<_FavoriteStopPickerScreen> {
   final _nameCtrl = TextEditingController();
+  GoogleMapController? _mapController;
   LatLng? _point;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     super.dispose();
+  }
+
+  void _setPoint(LatLng point) {
+    setState(() => _point = point);
+    _mapController?.animateCamera(CameraUpdate.newLatLng(point));
   }
 
   @override
@@ -226,29 +233,32 @@ class _FavoriteStopPickerScreenState extends State<_FavoriteStopPickerScreen> {
       body: Column(
         children: [
           Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: AddressSearchField(
+              api: widget.api,
+              onSelected: (r) => _setPoint(LatLng(r.lat, r.lon)),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
-              _point == null ? 'Dodirni mapu da izabereš lokaciju.' : 'Lokacija izabrana.',
+              _point == null ? 'Dodirni mapu ili pretraži adresu da izabereš lokaciju.' : 'Lokacija izabrana.',
               textAlign: TextAlign.center,
             ),
           ),
           Expanded(
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: const LatLng(44.5, 20.5),
-                initialZoom: 7,
-                onTap: (tapPos, point) => setState(() => _point = point),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.hvr_mobile',
-                ),
-                MarkerLayer(markers: [
-                  if (_point != null)
-                    Marker(point: _point!, width: 40, height: 40, child: const Icon(Icons.star, color: Colors.amber)),
-                ]),
-              ],
+            child: GoogleMap(
+              initialCameraPosition: const CameraPosition(target: LatLng(44.5, 20.5), zoom: 7),
+              onMapCreated: (c) => _mapController = c,
+              onTap: _setPoint,
+              markers: {
+                if (_point != null)
+                  Marker(
+                    markerId: const MarkerId('favorite'),
+                    position: _point!,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+                  ),
+              },
             ),
           ),
           Padding(

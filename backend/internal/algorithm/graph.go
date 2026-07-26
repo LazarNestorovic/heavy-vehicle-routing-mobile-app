@@ -15,10 +15,18 @@ var (
 	errNoPath  = errors.New("algorithm: no path found for the given vehicle profile")
 )
 
+// Node's MaxHeightM/MaxWeightT are 0 unless this node carries a real OSM
+// barrier restriction (barrier=height_restrictor/lift_gate/... together with
+// a maxheight/maxweight tag on the SAME node) - see LoadOSMXML and
+// documentations/guides/extract-osm-corridor.md for how rare a genuinely
+// connected, height-tagged barrier node turned out to be on this bounded
+// major-roads-only extract.
 type Node struct {
-	ID  int64
-	Lat float64
-	Lon float64
+	ID         int64
+	Lat        float64
+	Lon        float64
+	MaxHeightM float64
+	MaxWeightT float64
 }
 
 // Edge is one directed road segment between two consecutive nodes of an OSM way.
@@ -30,6 +38,7 @@ type Edge struct {
 	MaxWeightT float64
 	Hazmat     bool // true if this edge forbids hazardous-materials transport (hazmat=no)
 	Surface    string
+	RoadClass  string // OSM highway=* value (motorway, trunk, primary, ...)
 }
 
 type Graph struct {
@@ -88,4 +97,15 @@ func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*math.Sin(dLon/2)*math.Sin(dLon/2)
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 	return earthRadiusM * c
+}
+
+// bearing returns the initial compass bearing (0-360 degrees, 0 = north) from
+// point 1 to point 2 - used by turnAngle (cost.go) to approximate how sharp a
+// turn is at a node.
+func bearing(lat1, lon1, lat2, lon2 float64) float64 {
+	toRad := func(deg float64) float64 { return deg * math.Pi / 180 }
+	y := math.Sin(toRad(lon2-lon1)) * math.Cos(toRad(lat2))
+	x := math.Cos(toRad(lat1))*math.Sin(toRad(lat2)) - math.Sin(toRad(lat1))*math.Cos(toRad(lat2))*math.Cos(toRad(lon2-lon1))
+	theta := math.Atan2(y, x) * 180 / math.Pi
+	return math.Mod(theta+360, 360)
 }

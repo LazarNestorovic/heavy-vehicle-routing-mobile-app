@@ -111,3 +111,57 @@ func TestFinder_NearestPreferred_FallsBackWhenNothingInRadius(t *testing.T) {
 		t.Errorf("expected fallback to match plain Nearest (id=%d), got id=%d", plain.ID, stop.ID)
 	}
 }
+
+func TestFinder_NearestOnRoute_FiltersToCorridor(t *testing.T) {
+	// Closer to the target point in a straight line, but nowhere near the
+	// route itself (e.g. down a side road into a village).
+	offCorridor := Stop{ID: 1, Lat: 45.001, Lon: 20.001, Amenity: "fuel"}
+	// Farther from the target point, but sits right on the route.
+	onCorridorStop := Stop{ID: 2, Lat: 45.05, Lon: 20.05, Amenity: "fuel"}
+	finder := NewFinder([]Stop{offCorridor, onCorridorStop})
+
+	// Sanity check: plain Nearest would pick the off-corridor one.
+	if plain, _, _ := finder.Nearest(45.0, 20.0); plain.ID != offCorridor.ID {
+		t.Fatalf("test setup broken: expected plain Nearest to pick id=%d, got id=%d", offCorridor.ID, plain.ID)
+	}
+
+	routePoints := []Point{{Lat: 45.05, Lon: 20.05}}
+	stop, _, found := finder.NearestOnRoute(45.0, 20.0, "", nil, DefaultPreferredRadiusM, routePoints, 500, false)
+	if !found {
+		t.Fatal("expected a stop to be found")
+	}
+	if stop.ID != onCorridorStop.ID {
+		t.Errorf("expected the on-corridor stop (id=%d) to win over the closer off-corridor one, got id=%d", onCorridorStop.ID, stop.ID)
+	}
+}
+
+func TestFinder_NearestOnRoute_FallsBackWhenCorridorEmpty(t *testing.T) {
+	only := Stop{ID: 1, Lat: 45.0, Lon: 20.0, Amenity: "fuel"}
+	finder := NewFinder([]Stop{only})
+	routePoints := []Point{{Lat: 50.0, Lon: 30.0}} // nowhere near `only`
+
+	stop, _, found := finder.NearestOnRoute(45.0, 20.0, "", nil, DefaultPreferredRadiusM, routePoints, 500, false)
+	if !found {
+		t.Fatal("expected fallback to plain NearestPreferred to still find a stop when nothing is on the corridor")
+	}
+	if stop.ID != only.ID {
+		t.Errorf("expected fallback to the only stop available (id=%d), got id=%d", only.ID, stop.ID)
+	}
+}
+
+func TestFinder_NearestOnRoute_HazmatPrefersFuelOverSlightlyCloserParking(t *testing.T) {
+	parking := Stop{ID: 1, Lat: 45.0001, Lon: 20.0, Amenity: "parking"} // closest
+	fuel := Stop{ID: 2, Lat: 45.02, Lon: 20.0, Amenity: "fuel"}         // ~2.2km farther, within hazmat tolerance
+	finder := NewFinder([]Stop{parking, fuel})
+	routePoints := []Point{{Lat: 45.0, Lon: 20.0}}
+
+	nonHazmat, _, found := finder.NearestOnRoute(45.0, 20.0, "", nil, DefaultPreferredRadiusM, routePoints, 5000, false)
+	if !found || nonHazmat.ID != parking.ID {
+		t.Errorf("non-hazmat: expected plain nearest (parking, id=%d), got %+v", parking.ID, nonHazmat)
+	}
+
+	hazmatChoice, _, found := finder.NearestOnRoute(45.0, 20.0, "", nil, DefaultPreferredRadiusM, routePoints, 5000, true)
+	if !found || hazmatChoice.ID != fuel.ID {
+		t.Errorf("hazmat: expected the fuel station (id=%d) preferred over closer parking, got %+v", fuel.ID, hazmatChoice)
+	}
+}

@@ -14,9 +14,19 @@ type osmXML struct {
 }
 
 type osmNode struct {
-	ID  int64   `xml:"id,attr"`
-	Lat float64 `xml:"lat,attr"`
-	Lon float64 `xml:"lon,attr"`
+	ID   int64    `xml:"id,attr"`
+	Lat  float64  `xml:"lat,attr"`
+	Lon  float64  `xml:"lon,attr"`
+	Tags []osmTag `xml:"tag"`
+}
+
+func (n osmNode) tag(key string) (string, bool) {
+	for _, t := range n.Tags {
+		if t.K == key {
+			return t.V, true
+		}
+	}
+	return "", false
 }
 
 type osmWay struct {
@@ -85,7 +95,22 @@ func LoadOSMXML(path string) (*Graph, error) {
 
 	g := NewGraph()
 	for _, n := range doc.Nodes {
-		g.Nodes[n.ID] = Node{ID: n.ID, Lat: n.Lat, Lon: n.Lon}
+		node := Node{ID: n.ID, Lat: n.Lat, Lon: n.Lon}
+		// Only treat this as a routing restriction when the node is BOTH a
+		// barrier AND carries its own maxheight/maxweight tag - the standard
+		// OSM convention for barrier=height_restrictor/lift_gate/etc (see
+		// documentations/guides/extract-osm-corridor.md). A bare barrier=gate
+		// with no dimension tag isn't something we can turn into a vehicle
+		// exclusion, so it's deliberately left unrestricted.
+		if _, isBarrier := n.tag("barrier"); isBarrier {
+			if v, ok := n.tag("maxheight"); ok {
+				node.MaxHeightM = parseMeters(v)
+			}
+			if v, ok := n.tag("maxweight"); ok {
+				node.MaxWeightT = parseTons(v)
+			}
+		}
+		g.Nodes[n.ID] = node
 	}
 
 	for _, w := range doc.Ways {
@@ -123,9 +148,9 @@ func LoadOSMXML(path string) (*Graph, error) {
 			}
 			length := haversineMeters(fromNode.Lat, fromNode.Lon, toNode.Lat, toNode.Lon)
 
-			g.addEdge(from, Edge{To: to, LengthM: length, MaxHeightM: maxHeight, MaxWeightT: maxWeight, Hazmat: hazmat, Surface: surface})
+			g.addEdge(from, Edge{To: to, LengthM: length, MaxHeightM: maxHeight, MaxWeightT: maxWeight, Hazmat: hazmat, Surface: surface, RoadClass: highway})
 			if !oneway {
-				g.addEdge(to, Edge{To: from, LengthM: length, MaxHeightM: maxHeight, MaxWeightT: maxWeight, Hazmat: hazmat, Surface: surface})
+				g.addEdge(to, Edge{To: from, LengthM: length, MaxHeightM: maxHeight, MaxWeightT: maxWeight, Hazmat: hazmat, Surface: surface, RoadClass: highway})
 			}
 		}
 	}

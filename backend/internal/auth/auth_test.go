@@ -23,17 +23,20 @@ func TestHashAndCheckPassword(t *testing.T) {
 func TestIssueAndParseToken(t *testing.T) {
 	m := New("test-secret")
 
-	token, err := m.IssueToken(42, "lazar")
+	token, err := m.IssueToken(42, "lazar", 3)
 	if err != nil {
 		t.Fatalf("issue: %v", err)
 	}
 
-	driverID, err := m.ParseToken(token)
+	driverID, tokenVersion, err := m.ParseToken(token)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 	if driverID != 42 {
 		t.Errorf("expected driver_id 42, got %d", driverID)
+	}
+	if tokenVersion != 3 {
+		t.Errorf("expected token_version 3, got %d", tokenVersion)
 	}
 }
 
@@ -41,12 +44,12 @@ func TestParseToken_WrongSecretRejected(t *testing.T) {
 	issuer := New("secret-a")
 	verifier := New("secret-b")
 
-	token, err := issuer.IssueToken(1, "lazar")
+	token, err := issuer.IssueToken(1, "lazar", 0)
 	if err != nil {
 		t.Fatalf("issue: %v", err)
 	}
 
-	if _, err := verifier.ParseToken(token); err == nil {
+	if _, _, err := verifier.ParseToken(token); err == nil {
 		t.Error("expected token signed with a different secret to be rejected")
 	}
 }
@@ -68,14 +71,14 @@ func TestParseToken_ExpiredRejected(t *testing.T) {
 		t.Fatalf("sign: %v", err)
 	}
 
-	if _, err := m.ParseToken(signed); err == nil {
+	if _, _, err := m.ParseToken(signed); err == nil {
 		t.Error("expected expired token to be rejected")
 	}
 }
 
 func TestParseToken_GarbageRejected(t *testing.T) {
 	m := New("test-secret")
-	if _, err := m.ParseToken("not-a-real-token"); err == nil {
+	if _, _, err := m.ParseToken("not-a-real-token"); err == nil {
 		t.Error("expected garbage input to be rejected")
 	}
 }

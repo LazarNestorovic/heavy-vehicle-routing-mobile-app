@@ -1,4 +1,4 @@
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Decodes Valhalla's default shape encoding (Google's polyline algorithm at
 /// 1e-6 precision, "polyline6"). Mirrors backend/internal/valhalla/polyline.go -

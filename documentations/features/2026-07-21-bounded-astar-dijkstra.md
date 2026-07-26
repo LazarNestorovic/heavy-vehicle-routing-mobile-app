@@ -52,6 +52,25 @@ Zbog ovoga je test za ekskluziju prebačen na drugi, stvaran `maxheight=4.3` slu
 ## Šta namerno NIJE urađeno
 
 - **Nije deo produkcionog `/routes` puta.** Ostaje eksperimentalni/evaluacioni modul za rad, kako je i planirano u `SPECIFIKACIJA.md` 3.3.2.
-- **Node-level barijere se ne čitaju** (samo way tagovi) — vidi nalaz iznad.
+- ~~Node-level barijere se ne čitaju (samo way tagovi)~~ — zatvoreno 2026-07-26, vidi ispod.
 - **`NearestNode` je linearna pretraga** (35K čvorova, dovoljno brzo za bounded graf) — ne bi skalirala na nacionalni nivo bez prostornog indeksa (grid/k-d tree); nije problem jer ovaj modul namerno ostaje bounded.
-- **Cost funkcija je namerno prosta** (dužina + surface penalty) — nema turn penalty, road-class preferencu, hazmat-proximity itd.; poređenje sa Valhalla-inim bogatijim modelom je deo priče u radu, ne nedostatak koji treba ispraviti ovde.
+- ~~Cost funkcija je namerno prosta (nema turn penalty, road-class preferencu)~~ — delimično zatvoreno 2026-07-26 (road-class + turn penalty dodati), vidi ispod. Hazmat-proximity i dalje nedostaje.
+
+## Dopuna 2026-07-26 — node-level barijere + bogatija cost funkcija
+
+Korisnik je posle prve odbrane/pregleda dokumentacije zatražio da se zatvore preostali "namerno NIJE urađeno" stavovi kroz projekat, uz eksplicitnu potvrdu da menjanje algoritamske priče u radu (uključujući ponovnu evaluaciju Novi Banovci slučaja) nije problem.
+
+### Node-level barijere
+
+`LoadOSMXML` (`loader.go`) sada čita i node tagove. Kada node ima `barrier` tag ZAJEDNO sa `maxheight`/`maxweight` (standardna OSM konvencija za `barrier=height_restrictor`/`lift_gate`), ta ograničenja se upisuju u `Node.MaxHeightM`/`MaxWeightT` i primenjuju preko novog `nodeAllowed()` (cost.go) — vozilo se sada može isključiti i zbog prepreke NA čvoru, ne samo na ivici.
+
+**Ekstrakcija je regenerisana** (`documentations/guides/extract-osm-corridor.md` korak 2 dobio `n/barrier` pravilo) — `osm-data/filtered/serbia-hvt.osm.pbf` je već imao node barrier tagove (iz [osmium fix-a](../fixes/2026-07-21-osmium-filter-node-tags.md)), ali koridorska ekstrakcija ih je do sada odbacivala u drugom filter prolazu.
+
+**Pošten nalaz nad regenerisanim podacima**: od 2808 `barrier`-tagovanih node-ova u koridoru, samo 21 je zaista povezano na way ivicu koja je zadržana ovim filterom (motorway/trunk/primary/secondary) — i svih 21 su `toll_booth`/`jersey_barrier`, nijedan sa `maxheight`/`maxweight`. Tri barrier+maxheight node-a postoje u širem bbox-u, ali sva tri su na way-ovima van ove klase puteva (parking ulaz, pešačka prepreka). **Novi Banovci slučaj i dalje nije reprodukovan** — realan, dokumentovan nalaz (fizičke visinske barijere se u praksi retko postavljaju direktno na magistralu), ne bag. Mehanizam ekskluzije je ipak dokazan sintetičkim testom (`TestDijkstra_NodeBarrierExcludesTallVehicle`) i parsiranje potvrđeno nad stvarnim podatkom (`TestRealCorridor_ParsesNodeBarrierHeightTag`, node `11742525355` kod centra Beograda, `maxheight=2.2`).
+
+### Bogatija cost funkcija
+
+- **Road-class preferenca** — `Edge.RoadClass` (iz way `highway` taga, ranije parsiran ali odbačen) sad ulazi u `cost()` preko `roadClassMultiplier` mape (motorway 0.85× ... secondary_link 1.2×) — direktna paralela Valhalla-inom `highway_ratio` signalu, samo kao multiplikator umesto post-hoc score člana.
+- **Turn penalty** — aproksimacija preko već postojećeg `prev` pokazivača u Dijkstra/A* (`search()`, dijkstra.go): ugao skretanja između `bearing(prev[current]→current)` i `bearing(current→edge.To)` (nov `bearing()` helper, graph.go) dodaje penalty (0/15/60/120 "metara-ekvivalenta", zavisno od oštrine ugla). **Svesno pojednostavljenje**: koristi trenutno najbolji poznat put do `current`, ne pun edge-based graf — redak slučaj gde bi suboptimalan put do `current` dao bolji ukupan trošak skretanja nije pokriven; isti stil iskrenog kompromisa kao `PointAtFraction`-ova pretpostavka konstantne brzine.
+
+**Verifikacija**: 14 testova u `internal/algorithm` (9 postojećih + 5 novih: node barijera dozvoljava/isključuje, road-class preferenca, turn penalty, real-data node tag parsing), svi prolaze. `go build`/`vet`/`test` čisto za ceo backend.

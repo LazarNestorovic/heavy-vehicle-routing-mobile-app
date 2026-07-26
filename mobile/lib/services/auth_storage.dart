@@ -9,6 +9,8 @@ class AuthStorage {
   static const _keyUsername = 'auth_username';
   static const _keyRole = 'auth_role';
   static const _keyDispatcherId = 'auth_dispatcher_id';
+  static const _keyEmail = 'auth_email';
+  static const _keyEmailVerified = 'auth_email_verified';
 
   Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -38,13 +40,35 @@ class AuthStorage {
     return prefs.getInt(_keyDispatcherId);
   }
 
-  Future<void> save(String token, int driverId, String username, String role, int? dispatcherId) async {
+  Future<String?> loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyEmail);
+  }
+
+  Future<bool> loadEmailVerified() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyEmailVerified) ?? false;
+  }
+
+  Future<void> save(
+    String token,
+    int driverId,
+    String username,
+    String role,
+    int? dispatcherId, {
+    String? email,
+    bool emailVerified = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyToken, token);
     await prefs.setInt(_keyDriverId, driverId);
     await prefs.setString(_keyUsername, username);
     await prefs.setString(_keyRole, role);
     await saveDispatcherId(dispatcherId);
+    if (email != null) {
+      await prefs.setString(_keyEmail, email);
+    }
+    await prefs.setBool(_keyEmailVerified, emailVerified);
   }
 
   /// Updates just the dispatcher link, without touching the rest of the saved
@@ -66,5 +90,7 @@ class AuthStorage {
     await prefs.remove(_keyUsername);
     await prefs.remove(_keyRole);
     await prefs.remove(_keyDispatcherId);
+    await prefs.remove(_keyEmail);
+    await prefs.remove(_keyEmailVerified);
   }
 }

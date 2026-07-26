@@ -4,6 +4,7 @@ import '../models/trip.dart';
 import '../services/api_client.dart';
 import '../services/auth_storage.dart';
 import '../theme/nocturne_theme.dart';
+import '../widgets/email_verification_banner.dart';
 import 'dispatcher_requests_screen.dart';
 import 'login_screen.dart';
 import 'preferences_screen.dart';
@@ -55,6 +56,8 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
     widget.api.username = null;
     widget.api.role = null;
     widget.api.dispatcherId = null;
+    widget.api.email = null;
+    widget.api.emailVerified = false;
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: widget.api)),
@@ -85,49 +88,56 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
           IconButton(icon: const Icon(Icons.logout), tooltip: 'Odjava', onPressed: _logout),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _reload(),
-        child: FutureBuilder<List<Trip>>(
-          future: _tripsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Greška: ${snapshot.error}', style: const TextStyle(color: NocturneColors.error)));
-            }
-            final trips = snapshot.data ?? [];
-            if (trips.isEmpty) {
-              return ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('Nema ponuđenih tura trenutno. Povuci na dole za osvežavanje.')),
-                  ),
-                ],
-              );
-            }
-            return ListView.builder(
-              itemCount: trips.length,
-              itemBuilder: (context, i) {
-                final t = trips[i];
-                final isAccepted = t.status == 'accepted';
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    leading: Icon(isAccepted ? Icons.check_circle_outline : Icons.local_shipping),
-                    title: Text('${t.distanceKm.toStringAsFixed(1)} km · ${t.durationMin.toStringAsFixed(0)} min'),
-                    subtitle: Text(isAccepted
-                        ? '${t.cargoDescription ?? "Bez opisa tovara"} · prihvaćena, spremna za polazak'
-                        : t.cargoDescription ?? 'Bez opisa tovara'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openDetail(t),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+      body: Column(
+        children: [
+          EmailVerificationBanner(api: widget.api),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _reload(),
+              child: FutureBuilder<List<Trip>>(
+                future: _tripsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Greška: ${snapshot.error}', style: const TextStyle(color: NocturneColors.error)));
+                  }
+                  final trips = snapshot.data ?? [];
+                  if (trips.isEmpty) {
+                    return ListView(
+                      children: const [
+                        Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: Text('Nema ponuđenih tura trenutno. Povuci na dole za osvežavanje.')),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    itemCount: trips.length,
+                    itemBuilder: (context, i) {
+                      final t = trips[i];
+                      final isAccepted = t.status == 'accepted';
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: ListTile(
+                          leading: Icon(isAccepted ? Icons.check_circle_outline : Icons.local_shipping),
+                          title: Text('${t.distanceKm.toStringAsFixed(1)} km · ${t.durationMin.toStringAsFixed(0)} min'),
+                          subtitle: Text(isAccepted
+                              ? '${t.cargoDescription ?? "Bez opisa tovara"} · prihvaćena, spremna za polazak'
+                              : t.cargoDescription ?? 'Bez opisa tovara'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _openDetail(t),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

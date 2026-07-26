@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // Vehicle belongs to EITHER a driver (personal) OR a dispatcher (fleet) -
@@ -108,6 +109,62 @@ func (s *VehicleStore) ListFleet(ctx context.Context, dispatcherID int64) ([]Veh
 		vehicles = append(vehicles, v)
 	}
 	return vehicles, rows.Err()
+}
+
+// Update overwrites a vehicle's physical dimensions - ownership
+// (driver_id/dispatcher_id) and status (fuel_percent/next_service_km) are
+// untouched, same split as Create/UpdateStatus.
+func (s *VehicleStore) Update(ctx context.Context, id int64, v Vehicle) error {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE vehicles SET height_m = $2, width_m = $3, length_m = $4, weight_kg = $5, axle_load_kg = $6, hazmat = $7
+		WHERE id = $1`,
+		id, v.HeightM, v.WidthM, v.LengthM, v.WeightKg, v.AxleLoadKg, v.Hazmat)
+	if err != nil {
+		return fmt.Errorf("update vehicle: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update vehicle: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ErrVehicleInUse means the vehicle couldn't be deleted because one or more
+// trips still reference it (trips.vehicle_id has no ON DELETE CASCADE - trips
+// are an append-only historical record, see documentations/features/ entry).
+var ErrVehicleInUse = fmt.Errorf("store: vehicle is referenced by existing trips")
+
+// Delete removes a vehicle - fails with ErrVehicleInUse if any trip still
+// references it (translated from Postgres' own foreign key violation rather
+// than checked separately beforehand, avoiding a race between the check and
+// the delete).
+func (s *VehicleStore) Delete(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM vehicles WHERE id = $1`, id)
+	if err != nil {
+		if isForeignKeyViolation(err) {
+			return ErrVehicleInUse
+		}
+		return fmt.Errorf("delete vehicle: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete vehicle: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func isForeignKeyViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "23503") || strings.Contains(msg, "foreign key constraint")
 }
 
 // UpdateStatus sets the manually-reported fuel/service fields (see comment on

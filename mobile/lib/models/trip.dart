@@ -1,4 +1,5 @@
 import 'rest_stop.dart';
+import 'route_candidate.dart';
 
 /// Response of POST /api/v1/trips and GET /api/v1/trips/{id} - the persisted trip.
 class Trip {
@@ -11,6 +12,7 @@ class Trip {
   final double durationMin;
   final String shape;
   final double riskScore;
+  final List<RouteCandidate> candidates;
   final String? explanation;
   final double? nextRestSuggestionMin;
   final RestStop? restStop;
@@ -30,6 +32,7 @@ class Trip {
     required this.durationMin,
     required this.shape,
     required this.riskScore,
+    this.candidates = const [],
     this.explanation,
     this.nextRestSuggestionMin,
     this.restStop,
@@ -50,6 +53,9 @@ class Trip {
         durationMin: (json['duration_min'] as num).toDouble(),
         shape: json['shape'] as String,
         riskScore: (json['risk_score'] as num).toDouble(),
+        candidates: (json['candidates'] as List<dynamic>? ?? [])
+            .map((c) => RouteCandidate.fromJson(c as Map<String, dynamic>))
+            .toList(),
         explanation: json['explanation'] as String?,
         nextRestSuggestionMin: (json['next_rest_suggestion_min'] as num?)?.toDouble(),
         restStop: json['rest_stop'] != null ? RestStop.fromJson(json['rest_stop'] as Map<String, dynamic>) : null,

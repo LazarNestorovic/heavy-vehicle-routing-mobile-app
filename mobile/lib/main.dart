@@ -16,6 +16,8 @@ Future<void> main() async {
   api.driverId = await authStorage.loadDriverId();
   api.role = await authStorage.loadRole();
   api.dispatcherId = await authStorage.loadDispatcherId();
+  api.email = await authStorage.loadEmail();
+  api.emailVerified = await authStorage.loadEmailVerified();
 
   runApp(HvrApp(api: api));
 }

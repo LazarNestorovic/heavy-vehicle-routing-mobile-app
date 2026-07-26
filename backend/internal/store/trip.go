@@ -45,6 +45,7 @@ const (
 	TripStatusRejected   = "rejected"
 	TripStatusCreated    = "created"
 	TripStatusInProgress = "in_progress"
+	TripStatusCompleted  = "completed"
 )
 
 // RestStopSuggestion is what the trip.started worker computes and persists.
@@ -155,6 +156,20 @@ func (s *TripStore) MarkRejected(ctx context.Context, id int64) error {
 // 'created' (the driver actually departs) - see httpapi handleStartTrip.
 func (s *TripStore) MarkStarted(ctx context.Context, id int64) error {
 	return s.markStatusTransition(ctx, id, TripStatusAccepted, TripStatusCreated)
+}
+
+// MarkCompleted transitions an active trip to 'completed' - the driver
+// explicitly confirmed arrival (see httpapi handleCompleteTrip; live GPS has
+// no reliable auto-arrival the way the simulated WS playback's
+// progress_fraction=1 does). Tries 'in_progress' first (the common case - the
+// trip.started worker has already run) and falls back to 'created' (a real
+// GPS ping/complete can in principle race ahead of the worker).
+func (s *TripStore) MarkCompleted(ctx context.Context, id int64) error {
+	err := s.markStatusTransition(ctx, id, TripStatusInProgress, TripStatusCompleted)
+	if err == ErrNotFound {
+		err = s.markStatusTransition(ctx, id, TripStatusCreated, TripStatusCompleted)
+	}
+	return err
 }
 
 // ListForOwner lists trips belonging to ownerID. byAssigner=false filters by

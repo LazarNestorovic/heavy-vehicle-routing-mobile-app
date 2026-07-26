@@ -53,10 +53,22 @@ func search(g *Graph, start, goal int64, profile VehicleProfile, heuristic func(
 		}
 
 		for _, edge := range g.AdjList[current] {
-			if !allowed(edge, profile) || visited[edge.To] {
+			if !allowed(edge, profile) || !nodeAllowed(g.Nodes[edge.To], profile) || visited[edge.To] {
 				continue
 			}
-			newDist := dist[current] + cost(edge)
+			edgeCost := cost(edge)
+			// Turn penalty approximation: uses the predecessor already fixed
+			// by the best-known path to `current` (prev[current]) as a stand-in
+			// for the arriving heading, rather than a full edge-based search
+			// state. Cheaper and simpler than tracking (node, incoming-edge)
+			// pairs, at the cost of not being globally optimal in the rare case
+			// where a locally-suboptimal path to `current` would have yielded a
+			// better total turn cost - an honest, documented simplification
+			// (see documentations/features/2026-07-21-bounded-astar-dijkstra.md).
+			if p, ok := prev[current]; ok {
+				edgeCost += turnPenaltyMeters(turnAngle(g, p, current, edge.To))
+			}
+			newDist := dist[current] + edgeCost
 			if old, ok := dist[edge.To]; !ok || newDist < old {
 				dist[edge.To] = newDist
 				prev[edge.To] = current

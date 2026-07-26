@@ -3,3 +3,7 @@
 valhalla/custom_files/
 valhalla/tiles/
 *.log
+
+# Real secrets (JWT signing key, SMTP credentials, Google client ID) - see
+# .env.example for the template. docker-compose.yml reads this automatically.
+.env

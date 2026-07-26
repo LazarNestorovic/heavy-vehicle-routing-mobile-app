@@ -8,6 +8,7 @@ class VehicleProfile {
   final bool hazmat;
   final double fuelPercent;
   final double? nextServiceKm;
+  final bool isFleet;
 
   const VehicleProfile({
     this.id,
@@ -19,6 +20,7 @@ class VehicleProfile {
     required this.hazmat,
     this.fuelPercent = 100,
     this.nextServiceKm,
+    this.isFleet = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +42,7 @@ class VehicleProfile {
         hazmat: json['hazmat'] as bool,
         fuelPercent: (json['fuel_percent'] as num?)?.toDouble() ?? 100,
         nextServiceKm: (json['next_service_km'] as num?)?.toDouble(),
+        isFleet: json['is_fleet'] as bool? ?? false,
       );
 
   VehicleProfile copyWith({int? id}) => VehicleProfile(

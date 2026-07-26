@@ -52,6 +52,11 @@ type RouteCandidate struct {
 	HasFerry           bool
 	HasToll            bool
 	StreetNames        []string // one entry per maneuver: its primary street name, or "" if unnamed
+	// ManeuverPoints is StreetNames' parallel array: each maneuver's starting
+	// coordinate (decoded from Shape at its begin_shape_index) - lets callers
+	// (internal/explain) find the maneuver nearest a given point on the route,
+	// instead of only being able to compare maneuvers by list position.
+	ManeuverPoints []LatLon
 }
 
 type routeRequest struct {
@@ -81,10 +86,11 @@ type tripData struct {
 	Legs []struct {
 		Shape     string `json:"shape"`
 		Maneuvers []struct {
-			Length      float64  `json:"length"` // kilometers
-			Highway     bool     `json:"highway"`
-			Type        int      `json:"type"` // Valhalla maneuver type code
-			StreetNames []string `json:"street_names"`
+			Length          float64  `json:"length"` // kilometers
+			Highway         bool     `json:"highway"`
+			Type            int      `json:"type"` // Valhalla maneuver type code
+			StreetNames     []string `json:"street_names"`
+			BeginShapeIndex int      `json:"begin_shape_index"` // index into this leg's decoded shape - see RouteCandidate.ManeuverPoints
 		} `json:"maneuvers"`
 	} `json:"legs"`
 }
@@ -117,8 +123,10 @@ func toCandidate(t tripData) RouteCandidate {
 		HasFerry:    t.Summary.HasFerry,
 		HasToll:     t.Summary.HasToll,
 	}
+	var shapePoints []LatLon
 	if len(t.Legs) > 0 {
 		c.Shape = t.Legs[0].Shape
+		shapePoints = DecodePolyline6(c.Shape)
 	}
 
 	var highwayKm float64
@@ -136,6 +144,12 @@ func toCandidate(t tripData) RouteCandidate {
 				name = m.StreetNames[0]
 			}
 			c.StreetNames = append(c.StreetNames, name)
+
+			var point LatLon
+			if m.BeginShapeIndex >= 0 && m.BeginShapeIndex < len(shapePoints) {
+				point = shapePoints[m.BeginShapeIndex]
+			}
+			c.ManeuverPoints = append(c.ManeuverPoints, point)
 		}
 	}
 	if c.DistanceKm > 0 {
