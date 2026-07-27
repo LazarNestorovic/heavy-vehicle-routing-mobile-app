@@ -144,23 +144,45 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                   itemCount: vehicles.length,
                   itemBuilder: (context, i) {
                     final v = vehicles[i];
+                    // A managed driver's list mixes their own personal
+                    // vehicles with their dispatcher's fleet (see
+                    // documentations/features/ dispatcher/driver roles entry)
+                    // - two vehicles can easily look identical (same demo
+                    // default profile) without this label, and only the
+                    // OWNER (self for personal, the dispatcher for fleet) may
+                    // edit/delete (backend: vehicleMutable, stricter than the
+                    // read-only vehicleAccessible).
+                    final canManage = !v.isFleet || widget.api.role == 'dispatcher';
                     return ListTile(
-                      leading: const Icon(Icons.local_shipping),
+                      leading: Icon(v.isFleet ? Icons.warehouse_outlined : Icons.local_shipping),
                       title: Text('${v.heightM}m / ${v.widthM}m / ${v.lengthM}m'),
-                      subtitle: Text('${v.weightKg.toStringAsFixed(0)}kg${v.hazmat ? " · hazmat" : ""}'),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (action) {
-                          if (action == 'edit') _editVehicle(v);
-                          if (action == 'delete') _deleteVehicle(v);
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Izmeni')),
-                          PopupMenuItem(value: 'delete', child: Text('Obriši')),
-                        ],
+                      subtitle: Text(
+                        '${v.weightKg.toStringAsFixed(0)}kg${v.hazmat ? " · hazmat" : ""}${v.isFleet ? " · Flota" : ""}',
                       ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
-                      ),
+                      trailing: canManage
+                          ? PopupMenuButton<String>(
+                              onSelected: (action) {
+                                if (action == 'edit') _editVehicle(v);
+                                if (action == 'delete') _deleteVehicle(v);
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(value: 'edit', child: Text('Izmeni')),
+                                PopupMenuItem(value: 'delete', child: Text('Obriši')),
+                              ],
+                            )
+                          : null,
+                      // A managed driver's dispatcher creates trips for them
+                      // (backend rejects self-service POST /trips for a
+                      // managed driver) - this screen reached via
+                      // OfferedTripsScreen's "Moja vozila" icon is then only
+                      // for vehicle CRUD, not route planning.
+                      onTap: widget.api.dispatcherId != null
+                          ? () => ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
+                              )
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
+                              ),
                     );
                   },
                 );

@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
+import '../models/account_status.dart';
 import '../models/auth_result.dart';
 import '../models/chat_message.dart';
 import '../models/dispatcher_request.dart';
@@ -128,23 +129,40 @@ class ApiClient {
     return AuthResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
-  /// Refreshes email/emailVerified/role/dispatcherId from the server (GET
-  /// /api/v1/auth/me) and persists the update - picks up an email
-  /// verification that happened outside the app (clicking the emailed link
-  /// in a browser) without requiring a full re-login. See
-  /// widgets/email_verification_banner.dart, which calls this on app resume.
-  Future<void> refreshAccountStatus() async {
+  Future<AccountStatus> fetchAccountStatus() async {
     final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/auth/me'), headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    email = body['email'] as String?;
-    emailVerified = body['email_verified'] as bool? ?? false;
-    role = body['role'] as String?;
-    dispatcherId = body['dispatcher_id'] as int?;
+    return AccountStatus.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Refreshes email/emailVerified/role/dispatcherId from the server and
+  /// persists the update - picks up an email verification that happened
+  /// outside the app (clicking the emailed link in a browser) without
+  /// requiring a full re-login. See widgets/email_verification_banner.dart,
+  /// which calls this on app resume.
+  Future<void> refreshAccountStatus() async {
+    final status = await fetchAccountStatus();
+    email = status.email;
+    emailVerified = status.emailVerified;
+    role = status.role;
+    dispatcherId = status.dispatcherId;
     await AuthStorage().saveEmailVerified(emailVerified);
     await AuthStorage().saveDispatcherId(dispatcherId);
+  }
+
+  /// Ends the caller's dispatcher relationship (driver-initiated - see
+  /// documentations/fixes/2026-07-26-*.md). Fleet vehicles become
+  /// inaccessible immediately; the driver's own personal vehicles and past
+  /// trips are unaffected.
+  Future<void> leaveDispatcher() async {
+    final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/driver/leave-dispatcher'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    dispatcherId = null;
+    await AuthStorage().saveDispatcherId(null);
   }
 
   Future<void> resendVerificationEmail() async {

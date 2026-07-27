@@ -10,6 +10,7 @@ import 'login_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
 import 'trip_detail_screen.dart';
+import 'vehicle_list_screen.dart';
 
 /// Home screen for a MANAGED driver (has a dispatcher) - see
 /// documentations/features/ entry for the dispatcher/driver roles feature.
@@ -70,6 +71,13 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
             tooltip: 'Profil',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.local_shipping_outlined),
+            tooltip: 'Moja vozila',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => VehicleListScreen(api: widget.api)),
             ),
           ),
           IconButton(

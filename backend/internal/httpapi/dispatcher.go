@@ -156,6 +156,30 @@ func (s *Server) handleListDriverRequests(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, out)
 }
 
+// handleLeaveDispatcher lets a managed driver end the relationship
+// themselves (the driver-initiated counterpart to approving a
+// DispatcherRequest, which only the dispatcher can start) - see
+// documentations/fixes/ entry. 400 if the caller isn't currently managed.
+func (s *Server) handleLeaveDispatcher(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := driverIDFromContext(r.Context())
+
+	account, err := s.loadAccount(r.Context(), callerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
+		return
+	}
+	if account.DispatcherID == nil {
+		writeError(w, http.StatusBadRequest, "not currently managed by a dispatcher")
+		return
+	}
+
+	if err := s.Drivers.ClearDispatcher(r.Context(), callerID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to leave dispatcher: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "left"})
+}
+
 type respondDispatcherRequestRequest struct {
 	Approve bool `json:"approve"`
 }

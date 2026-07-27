@@ -93,6 +93,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/dispatcher/requests", s.RequireAuth(s.handleListDispatcherRequests))
 	mux.HandleFunc("GET /api/v1/driver/requests", s.RequireAuth(s.handleListDriverRequests))
 	mux.HandleFunc("POST /api/v1/driver/requests/{id}/respond", s.RequireAuth(s.handleRespondDispatcherRequest))
+	mux.HandleFunc("POST /api/v1/driver/leave-dispatcher", s.RequireAuth(s.handleLeaveDispatcher))
 	mux.HandleFunc("GET /api/v1/preferences", s.RequireAuth(s.handleGetPreferences))
 	mux.HandleFunc("PUT /api/v1/preferences", s.RequireAuth(s.handleUpdatePreferences))
 	mux.HandleFunc("POST /api/v1/favorite-stops", s.RequireAuth(s.handleCreateFavoriteStop))

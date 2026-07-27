@@ -254,7 +254,7 @@ func (s *Server) handleUpdateVehicle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
 		return
 	}
-	if !vehicleAccessible(v, account) {
+	if !vehicleMutable(v, account) {
 		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
 		return
 	}
@@ -307,7 +307,7 @@ func (s *Server) handleDeleteVehicle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
 		return
 	}
-	if !vehicleAccessible(v, account) {
+	if !vehicleMutable(v, account) {
 		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
 		return
 	}

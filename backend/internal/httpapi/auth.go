@@ -284,19 +284,22 @@ func writeHTML(w http.ResponseWriter, status int, message string) {
 }
 
 type meResponse struct {
-	DriverID      int64   `json:"driver_id"`
-	Username      string  `json:"username"`
-	Role          string  `json:"role"`
-	DispatcherID  *int64  `json:"dispatcher_id,omitempty"`
-	Email         *string `json:"email,omitempty"`
-	EmailVerified bool    `json:"email_verified"`
+	DriverID           int64   `json:"driver_id"`
+	Username           string  `json:"username"`
+	Role               string  `json:"role"`
+	DispatcherID       *int64  `json:"dispatcher_id,omitempty"`
+	DispatcherUsername string  `json:"dispatcher_username,omitempty"`
+	Email              *string `json:"email,omitempty"`
+	EmailVerified      bool    `json:"email_verified"`
 }
 
 // handleMe returns the caller's current account state - notably email_verified,
 // which can change outside the app (the driver clicks the emailed link in a
 // browser) with nothing pushing the update back to a running session. Lets
 // the client refresh that (see EmailVerificationBanner) without a full
-// re-login, which was previously the only way to pick it up.
+// re-login, which was previously the only way to pick it up. Also used to
+// show the current dispatcher's name on the "leave dispatcher" screen (see
+// documentations/fixes/ entry) - a second lookup, only when DispatcherID is set.
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	driverID, _ := driverIDFromContext(r.Context())
 
@@ -306,10 +309,16 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, meResponse{
+	resp := meResponse{
 		DriverID: driver.ID, Username: driver.Username, Role: driver.Role,
 		DispatcherID: driver.DispatcherID, Email: driver.Email, EmailVerified: driver.EmailVerified,
-	})
+	}
+	if driver.DispatcherID != nil {
+		if dispatcher, err := s.Drivers.Get(r.Context(), *driver.DispatcherID); err == nil {
+			resp.DispatcherUsername = dispatcher.Username
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleResendVerification re-sends the verification email for the caller's

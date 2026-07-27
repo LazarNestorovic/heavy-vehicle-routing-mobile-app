@@ -195,6 +195,20 @@ func (s *DriverStore) SetDispatcher(ctx context.Context, driverID, dispatcherID 
 	return nil
 }
 
+// ClearDispatcher removes driverID's dispatcher link - the driver-initiated
+// counterpart to SetDispatcher (see handleLeaveDispatcher). Fleet vehicles
+// and any already-created trips are untouched: vehicleAccessible/
+// tripAccessible check the CURRENT dispatcher_id, so access to the former
+// dispatcher's fleet simply ends naturally, while past trips (keyed by
+// driver_id/assigned_by_id, not the live dispatcher_id) remain in history.
+func (s *DriverStore) ClearDispatcher(ctx context.Context, driverID int64) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE drivers SET dispatcher_id = NULL WHERE id = $1`, driverID)
+	if err != nil {
+		return fmt.Errorf("clear dispatcher: %w", err)
+	}
+	return nil
+}
+
 // ListManaged returns every driver managed by dispatcherID.
 func (s *DriverStore) ListManaged(ctx context.Context, dispatcherID int64) ([]Driver, error) {
 	rows, err := s.db.QueryContext(ctx, `
