@@ -29,6 +29,22 @@ Future<void> applySession(ApiClient api, AuthResult result) async {
   );
 }
 
+/// Clears the local session (AuthStorage + every ApiClient field) - shared by
+/// every screen's own "Odjava" action AND main.dart's global
+/// ApiClient.onUnauthorized handler, which fires when the server rejects a
+/// token (expired, or invalidated via "Odjavi sve uređaje" from another
+/// device/session - see documentations/fixes/ entry).
+Future<void> clearSession(ApiClient api) async {
+  await AuthStorage().clear();
+  api.token = null;
+  api.driverId = null;
+  api.username = null;
+  api.role = null;
+  api.dispatcherId = null;
+  api.email = null;
+  api.emailVerified = false;
+}
+
 /// Picks the right "home" screen after login/register/cold-start, based on
 /// role and whether the driver is managed by a dispatcher (see
 /// documentations/features/ entry for the dispatcher/driver roles feature):

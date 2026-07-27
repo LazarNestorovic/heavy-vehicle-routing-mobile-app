@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../models/driver.dart';
 import '../services/api_client.dart';
-import '../services/auth_storage.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/email_verification_banner.dart';
 import 'dispatcher_available_drivers_screen.dart';
 import 'dispatcher_create_trip_screen.dart';
 import 'dispatcher_live_map_screen.dart';
 import 'dispatcher_trips_screen.dart';
+import 'entry_router.dart';
 import 'login_screen.dart';
 import 'preferences_screen.dart';
+import 'profile_screen.dart';
 import 'vehicle_profile_screen.dart';
 
 /// Home screen for the dispatcher role - roster of managed drivers, fleet
@@ -40,14 +41,7 @@ class _DispatcherHomeScreenState extends State<DispatcherHomeScreen> {
   }
 
   Future<void> _logout() async {
-    await AuthStorage().clear();
-    widget.api.token = null;
-    widget.api.driverId = null;
-    widget.api.username = null;
-    widget.api.role = null;
-    widget.api.dispatcherId = null;
-    widget.api.email = null;
-    widget.api.emailVerified = false;
+    await clearSession(widget.api);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: widget.api)),
@@ -61,6 +55,13 @@ class _DispatcherHomeScreenState extends State<DispatcherHomeScreen> {
       appBar: AppBar(
         title: const Text('Moji vozači'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profil',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Preference',

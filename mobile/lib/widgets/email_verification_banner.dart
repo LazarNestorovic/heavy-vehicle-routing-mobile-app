@@ -5,10 +5,12 @@ import '../theme/nocturne_theme.dart';
 
 /// Shown on every role's home screen when the account has an email on file
 /// that hasn't been verified yet (see documentations/features/ entry).
-/// Renders nothing otherwise. The only way the app currently learns
-/// verification happened is a fresh login, since the emailed link opens in a
-/// browser, not back into the app (no deep-linking - a deliberate scope cut,
-/// noted directly in the success message below).
+/// Renders nothing otherwise. The emailed link opens in a browser, not back
+/// into the app (no deep-linking - a deliberate scope cut) - so this widget
+/// picks up a verification that happened there by refreshing account status
+/// (GET /api/v1/auth/me, see ApiClient.refreshAccountStatus) whenever the app
+/// resumes from the background, which is exactly the moment a driver
+/// switches back after clicking the link.
 class EmailVerificationBanner extends StatefulWidget {
   final ApiClient api;
   const EmailVerificationBanner({super.key, required this.api});
@@ -17,9 +19,40 @@ class EmailVerificationBanner extends StatefulWidget {
   State<EmailVerificationBanner> createState() => _EmailVerificationBannerState();
 }
 
-class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
+class _EmailVerificationBannerState extends State<EmailVerificationBanner> with WidgetsBindingObserver {
   bool _sending = false;
   String? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshStatus();
+  }
+
+  Future<void> _refreshStatus() async {
+    // Only worth a network round-trip while the banner could actually be
+    // showing - avoids polling the server every time the app resumes once
+    // the email is already verified.
+    if (widget.api.email == null || widget.api.emailVerified) return;
+    try {
+      await widget.api.refreshAccountStatus();
+      if (!mounted) return;
+      setState(() {}); // widget.api.emailVerified may have just flipped to true
+    } catch (_) {
+      // Silent - banner just stays until the next resume/manual resend.
+    }
+  }
 
   Future<void> _resend() async {
     setState(() {
@@ -29,7 +62,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
     try {
       await widget.api.resendVerificationEmail();
       if (!mounted) return;
-      setState(() => _status = 'Poslato! Klikni link u email-u, pa se ponovo uloguj da se status osveži.');
+      setState(() => _status = 'Poslato! Klikni link u email-u - traka će nestati čim se vratiš u aplikaciju.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _status = 'Greška: $e');

@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../models/trip.dart';
 import '../services/api_client.dart';
-import '../services/auth_storage.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/email_verification_banner.dart';
 import 'dispatcher_requests_screen.dart';
+import 'entry_router.dart';
 import 'login_screen.dart';
 import 'preferences_screen.dart';
+import 'profile_screen.dart';
 import 'trip_detail_screen.dart';
 
 /// Home screen for a MANAGED driver (has a dispatcher) - see
@@ -50,14 +51,7 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
   }
 
   Future<void> _logout() async {
-    await AuthStorage().clear();
-    widget.api.token = null;
-    widget.api.driverId = null;
-    widget.api.username = null;
-    widget.api.role = null;
-    widget.api.dispatcherId = null;
-    widget.api.email = null;
-    widget.api.emailVerified = false;
+    await clearSession(widget.api);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: widget.api)),
@@ -71,6 +65,13 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
       appBar: AppBar(
         title: const Text('Ponuđene ture'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profil',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Preference',

@@ -19,8 +19,8 @@ type credentialsRequest struct {
 	// "driver"); ignored on login. The dispatcher<->driver link is never set
 	// here - see dispatcher_requests / handleRespondDispatcherRequest.
 	Role string `json:"role,omitempty"`
-	// Email is optional at registration - if set, a verification link is sent
-	// (see internal/mailer and handleVerifyEmail).
+	// Email is required at registration (see validate()) - a verification
+	// link is always sent (see internal/mailer and handleVerifyEmail).
 	Email *string `json:"email,omitempty"`
 }
 
@@ -51,8 +51,8 @@ func (req credentialsRequest) validate() error {
 	if req.Role != "" && req.Role != store.RoleDriver && req.Role != store.RoleDispatcher {
 		return errValidation("role must be 'driver' or 'dispatcher'")
 	}
-	if req.Email != nil && !strings.Contains(*req.Email, "@") {
-		return errValidation("email is not valid")
+	if req.Email == nil || !strings.Contains(*req.Email, "@") {
+		return errValidation("email is required and must be valid")
 	}
 	return nil
 }
@@ -281,6 +281,35 @@ func writeHTML(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	fmt.Fprintf(w, "<!DOCTYPE html><html><body style=\"font-family:sans-serif;text-align:center;padding:48px\"><h2>%s</h2></body></html>", message)
+}
+
+type meResponse struct {
+	DriverID      int64   `json:"driver_id"`
+	Username      string  `json:"username"`
+	Role          string  `json:"role"`
+	DispatcherID  *int64  `json:"dispatcher_id,omitempty"`
+	Email         *string `json:"email,omitempty"`
+	EmailVerified bool    `json:"email_verified"`
+}
+
+// handleMe returns the caller's current account state - notably email_verified,
+// which can change outside the app (the driver clicks the emailed link in a
+// browser) with nothing pushing the update back to a running session. Lets
+// the client refresh that (see EmailVerificationBanner) without a full
+// re-login, which was previously the only way to pick it up.
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	driver, err := s.Drivers.Get(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, meResponse{
+		DriverID: driver.ID, Username: driver.Username, Role: driver.Role,
+		DispatcherID: driver.DispatcherID, Email: driver.Email, EmailVerified: driver.EmailVerified,
+	})
 }
 
 // handleResendVerification re-sends the verification email for the caller's

@@ -17,9 +17,10 @@ class AuthStorage {
     return prefs.getString(_keyToken);
   }
 
-  /// There's no GET /api/v1/me - the username is only known at login/register
-  /// time (the driver typed it), so it's persisted here alongside the token
-  /// rather than re-fetched.
+  /// The username is known at login/register time (the driver typed it), so
+  /// it's persisted here alongside the token rather than re-fetched on every
+  /// cold start (GET /api/v1/auth/me exists now, but only for refreshing
+  /// account state mid-session - see ApiClient.refreshAccountStatus).
   Future<String?> loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyUsername);
@@ -81,6 +82,14 @@ class AuthStorage {
     } else {
       await prefs.setInt(_keyDispatcherId, dispatcherId);
     }
+  }
+
+  /// Updates just the email verification flag - used after GET /api/v1/auth/me
+  /// picks up that the driver verified their email outside the app (see
+  /// ApiClient.refreshAccountStatus), without a full re-login.
+  Future<void> saveEmailVerified(bool verified) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyEmailVerified, verified);
   }
 
   Future<void> clear() async {

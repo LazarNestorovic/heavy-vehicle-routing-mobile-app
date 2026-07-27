@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
-import '../services/auth_storage.dart';
 import '../theme/nocturne_theme.dart';
+import 'entry_router.dart';
 import 'login_screen.dart';
 
 /// Mock-up's "Profile" panel: driver identity + sign out. No shift-tracking
@@ -13,14 +13,7 @@ class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.api});
 
   Future<void> _logout(BuildContext context) async {
-    await AuthStorage().clear();
-    api.token = null;
-    api.driverId = null;
-    api.username = null;
-    api.role = null;
-    api.dispatcherId = null;
-    api.email = null;
-    api.emailVerified = false;
+    await clearSession(api);
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => LoginScreen(api: api)),

@@ -43,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   String? _validateEmail(String? v) {
-    if (v == null || v.isEmpty) return null; // optional
+    if (v == null || v.isEmpty) return 'Obavezno polje';
     if (!v.contains('@')) return 'Nevažeća email adresa';
     return null;
   }
@@ -58,7 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final username = _usernameCtrl.text.trim();
       final email = _emailCtrl.text.trim();
-      final result = await widget.api.register(username, _passwordCtrl.text, role: _role, email: email.isEmpty ? null : email);
+      final result = await widget.api.register(username, _passwordCtrl.text, role: _role, email: email);
       await applySession(widget.api, result);
 
       if (!mounted) return;
@@ -136,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Email (opciono)',
+                    labelText: 'Email',
                     hintText: 'Za potvrdu naloga - poslaćemo link',
                     border: OutlineInputBorder(),
                   ),

@@ -16,6 +16,7 @@ import '../models/trip.dart';
 import '../models/trip_event.dart';
 import '../models/vehicle_hours.dart';
 import '../models/vehicle_profile.dart';
+import 'auth_storage.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -24,13 +25,37 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Wraps the real http.Client to detect a 401 response to an AUTHENTICATED
+/// request (one that carried an Authorization header) and report it via
+/// [onUnauthorized] - see ApiClient.onUnauthorized. A 401 from an
+/// unauthenticated call (wrong password on /auth/login, which never sends
+/// Authorization) must NOT trigger this - there's no session to invalidate
+/// in that case.
+class _AuthAwareClient extends http.BaseClient {
+  final http.Client _inner;
+  final void Function() _onUnauthorized;
+  _AuthAwareClient(this._inner, this._onUnauthorized);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    if (response.statusCode == 401 && request.headers.containsKey('Authorization')) {
+      _onUnauthorized();
+    }
+    return response;
+  }
+
+  @override
+  void close() => _inner.close();
+}
+
 /// Thin wrapper around the backend REST API (see backend/internal/httpapi).
 /// Every endpoint except /auth/register and /auth/login requires a token
 /// (backend/internal/httpapi/middleware.go RequireAuth) - set [token] after
 /// login/register (or after loading one from AuthStorage) before calling
 /// anything else.
 class ApiClient {
-  final http.Client _client;
+  late final http.Client _client;
   String? token;
   int? driverId;
   String? username;
@@ -39,14 +64,27 @@ class ApiClient {
   String? email;
   bool emailVerified;
 
-  ApiClient({http.Client? client, this.token, this.emailVerified = false}) : _client = client ?? http.Client();
+  /// Fires whenever an authenticated request gets a 401 back - the token was
+  /// rejected (expired, or invalidated by "Odjavi sve uređaje" on another
+  /// device/session, see documentations/fixes/ entry). Set once at app
+  /// startup (main.dart) to force the user back to the login screen - without
+  /// this, a stale session just surfaced as a raw ApiException on whatever
+  /// screen happened to be open, with no way to recover except manually
+  /// restarting the app.
+  void Function()? onUnauthorized;
+
+  ApiClient({http.Client? client, this.token, this.emailVerified = false}) {
+    _client = _AuthAwareClient(client ?? http.Client(), () => onUnauthorized?.call());
+  }
 
   Map<String, String> get _authHeaders => {
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-  Future<AuthResult> register(String username, String password, {String role = 'driver', String? email}) async {
+  // email is required (see backend/internal/httpapi/auth.go validate()) -
+  // registration always sends a verification link.
+  Future<AuthResult> register(String username, String password, {String role = 'driver', required String email}) async {
     final resp = await _client.post(
       Uri.parse('$apiBaseUrl/api/v1/auth/register'),
       headers: {'Content-Type': 'application/json'},
@@ -54,7 +92,7 @@ class ApiClient {
         'username': username,
         'password': password,
         'role': role,
-        if (email != null && email.isNotEmpty) 'email': email,
+        'email': email,
       }),
     );
     if (resp.statusCode != 201) {
@@ -88,6 +126,25 @@ class ApiClient {
       throw ApiException(_errorMessage(resp));
     }
     return AuthResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Refreshes email/emailVerified/role/dispatcherId from the server (GET
+  /// /api/v1/auth/me) and persists the update - picks up an email
+  /// verification that happened outside the app (clicking the emailed link
+  /// in a browser) without requiring a full re-login. See
+  /// widgets/email_verification_banner.dart, which calls this on app resume.
+  Future<void> refreshAccountStatus() async {
+    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/auth/me'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    email = body['email'] as String?;
+    emailVerified = body['email_verified'] as bool? ?? false;
+    role = body['role'] as String?;
+    dispatcherId = body['dispatcher_id'] as int?;
+    await AuthStorage().saveEmailVerified(emailVerified);
+    await AuthStorage().saveDispatcherId(dispatcherId);
   }
 
   Future<void> resendVerificationEmail() async {
