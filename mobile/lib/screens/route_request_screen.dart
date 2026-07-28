@@ -7,11 +7,15 @@ import '../services/api_client.dart';
 import '../services/polyline.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/address_search_field.dart';
+import '../widgets/start_proximity_status.dart';
 import 'active_trip_screen.dart';
 
 /// Map + route request screen (SPECIFIKACIJA.md 3.9): tap once for origin,
-/// again for destination, then preview or start the trip. No address search/
-/// geocoding in this MVP - tap-to-pick only.
+/// again for destination, then preview or start the trip. Previewing works
+/// from anywhere; actually STARTING requires being at the origin (see
+/// widgets/start_proximity_status.dart) - mirrors turn-by-turn navigation
+/// apps, added after live GPS tracking made a mismatch between the planned
+/// origin and the driver's real position visibly confusing.
 class RouteRequestScreen extends StatefulWidget {
   final ApiClient api;
   final VehicleProfile vehicle;
@@ -27,6 +31,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
   LatLng? _destination;
   RouteResult? _routeResult;
   List<LatLng> _routePoints = [];
+  bool _canStart = false;
 
   final _cargoDescriptionCtrl = TextEditingController();
   final _cargoWeightCtrl = TextEditingController();
@@ -74,12 +79,14 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       _error = null;
       if (_origin == null) {
         _origin = point;
+        _canStart = false; // re-checked by StartProximityStatus below once built
       } else if (_destination == null) {
         _destination = point;
       } else {
         // Third tap starts over.
         _origin = point;
         _destination = null;
+        _canStart = false;
       }
     });
   }
@@ -99,6 +106,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       _routeResult = null;
       _routePoints = [];
       _error = null;
+      _canStart = false;
     });
   }
 
@@ -231,6 +239,13 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                       child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
                     ),
                   if (_routeResult != null) _RouteSummaryCard(result: _routeResult!),
+                  if (_origin != null)
+                    StartProximityStatus(
+                      key: ValueKey('${_origin!.latitude},${_origin!.longitude}'),
+                      originLat: _origin!.latitude,
+                      originLon: _origin!.longitude,
+                      onCanStartChanged: (canStart) => setState(() => _canStart = canStart),
+                    ),
                   Theme(
                     data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
@@ -280,7 +295,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: FilledButton(
-                            onPressed: (_origin != null && _destination != null && !_loading) ? _startTrip : null,
+                            onPressed: (_origin != null && _destination != null && !_loading && _canStart) ? _startTrip : null,
                             child: _loading
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                                 : const Text('Kreni na put'),

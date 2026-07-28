@@ -57,14 +57,25 @@ var upgrader = websocket.Upgrader{
 
 // liveTrip fans a real GPS ping out to every WS connection currently watching
 // one trip (the driver's own screen and, potentially, their dispatcher's live
-// map - both connect to the same GET /ws/trips/{id}).
+// map - both connect to the same GET /ws/trips/{id}). A liveTrip object is
+// created the moment EITHER side shows up first (a WS connection opening, or
+// ReportPosition landing before anyone's watching) - hasData distinguishes
+// "the object exists as a rendezvous point" from "it has actually carried a
+// real GPS ping", since only the latter should count as "live" (see isLive).
 type liveTrip struct {
 	mu          sync.Mutex
 	subscribers map[chan positionUpdate]struct{}
+	hasData     bool
 }
 
 func newLiveTrip() *liveTrip {
 	return &liveTrip{subscribers: make(map[chan positionUpdate]struct{})}
+}
+
+func (lt *liveTrip) isLive() bool {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	return lt.hasData
 }
 
 func (lt *liveTrip) subscribe() chan positionUpdate {
@@ -105,13 +116,31 @@ func New(trips *store.TripStore, tripEvents *store.TripEventStore) *Gateway {
 	return &Gateway{Trips: trips, TripEvents: tripEvents, live: make(map[int64]*liveTrip)}
 }
 
-func (g *Gateway) liveTripFor(tripID int64, create bool) *liveTrip {
+// liveTripFor always returns tripID's shared liveTrip object, creating it if
+// this is the first time anyone (a WS connection or ReportPosition) has
+// touched this trip. See liveTrip's doc comment for why existence alone
+// isn't the same as "live" - callers that need that distinction use isLive().
+func (g *Gateway) liveTripFor(tripID int64) *liveTrip {
 	g.liveMu.Lock()
 	defer g.liveMu.Unlock()
 	lt, ok := g.live[tripID]
-	if !ok && create {
+	if !ok {
 		lt = newLiveTrip()
 		g.live[tripID] = lt
+	}
+	return lt
+}
+
+// liveTripIfLive returns tripID's liveTrip only if it has actually received a
+// real GPS ping - a shared object can exist purely because a WS connection is
+// holding it open while it waits (see HandleTripStream), and that must not be
+// mistaken for "live" by simulate()'s handoff check.
+func (g *Gateway) liveTripIfLive(tripID int64) *liveTrip {
+	g.liveMu.Lock()
+	lt, ok := g.live[tripID]
+	g.liveMu.Unlock()
+	if !ok || !lt.isLive() {
+		return nil
 	}
 	return lt
 }
@@ -124,7 +153,10 @@ func (g *Gateway) liveTripFor(tripID int64, create bool) *liveTrip {
 // of honest simplification as PointAtFraction's constant-speed assumption
 // (documentations/features/2026-07-21-rest-stop-locations.md).
 func (g *Gateway) ReportPosition(trip store.Trip, lat, lon float64) {
-	lt := g.liveTripFor(trip.ID, true)
+	lt := g.liveTripFor(trip.ID)
+	lt.mu.Lock()
+	lt.hasData = true
+	lt.mu.Unlock()
 
 	remainingKm := haversineKm(lat, lon, trip.DestinationLat, trip.DestinationLon)
 	progress := 0.0
@@ -194,17 +226,66 @@ func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	if lt := g.liveTripFor(trip.ID, false); lt != nil {
-		g.relayLive(r.Context(), conn, lt)
+	// Subscribe to this trip's shared fan-out BEFORE deciding whether to wait
+	// for live data or fall back to simulating - subscribing only AFTER a poll
+	// detects real data exists would lose any ping broadcast in the gap between
+	// the check and the subscribe (a liveTrip's broadcast() is non-blocking and
+	// unbuffered: a send with no subscriber yet is silently dropped forever).
+	lt := g.liveTripFor(trip.ID)
+	ch := lt.subscribe()
+
+	if lt.isLive() {
+		// Real pings are already flowing (e.g. a dispatcher's live map joining
+		// mid-trip, or this driver's own screen reconnecting) - relay right
+		// away, no grace-period timeout.
+		g.relayLiveChannel(r.Context(), conn, lt, ch)
 		return
 	}
-	g.simulate(r.Context(), conn, trip)
+
+	// No real data yet - give ReportPosition a brief window to arrive before
+	// falling back to the simulated walk. Without this grace period, the WS
+	// connection (opened the instant ActiveTripScreen loads) would start
+	// simulating immediately - and since a phone's first GPS fix commonly
+	// takes a second or two even with permission already granted, the driver
+	// would see 1-2 simulated ticks visibly move the marker before the real
+	// position took over. A driver reported exactly this as a "jump" - see
+	// documentations/fixes/2026-07-26-*.md.
+	select {
+	case update, ok := <-ch:
+		if !ok {
+			lt.unsubscribe(ch)
+			return
+		}
+		if err := conn.WriteJSON(update); err != nil {
+			lt.unsubscribe(ch)
+			return
+		}
+		if update.Status == "arrived" {
+			lt.unsubscribe(ch)
+			return
+		}
+		g.relayLiveChannel(r.Context(), conn, lt, ch)
+	case <-time.After(liveGraceDuration):
+		lt.unsubscribe(ch)
+		g.simulate(r.Context(), conn, trip)
+	case <-r.Context().Done():
+		lt.unsubscribe(ch)
+	}
 }
 
-// relayLive just forwards whatever ReportPosition/CompleteTrip broadcast to
-// this one connection, until the trip arrives or the client disconnects.
+const liveGraceDuration = 3 * time.Second
+
+// relayLive subscribes to lt fresh and relays to conn - used when simulate()
+// hands off after detecting a real ping arrived mid-playback, where no
+// subscription is already held.
 func (g *Gateway) relayLive(ctx context.Context, conn *websocket.Conn, lt *liveTrip) {
-	ch := lt.subscribe()
+	g.relayLiveChannel(ctx, conn, lt, lt.subscribe())
+}
+
+// relayLiveChannel forwards whatever arrives on an ALREADY-subscribed ch to
+// conn, until the trip arrives, the client disconnects, or ctx is done. Always
+// unsubscribes ch before returning.
+func (g *Gateway) relayLiveChannel(ctx context.Context, conn *websocket.Conn, lt *liveTrip, ch chan positionUpdate) {
 	defer lt.unsubscribe(ch)
 
 	for {
@@ -245,7 +326,7 @@ func (g *Gateway) simulate(ctx context.Context, conn *websocket.Conn, trip store
 		// A real GPS ping may have arrived mid-simulation (driver's app caught
 		// up to the trip after starting the WS connection) - hand off to live
 		// relaying rather than keep simulating alongside real pings.
-		if lt := g.liveTripFor(trip.ID, false); lt != nil {
+		if lt := g.liveTripIfLive(trip.ID); lt != nil {
 			g.relayLive(ctx, conn, lt)
 			return
 		}

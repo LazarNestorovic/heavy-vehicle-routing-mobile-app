@@ -6,6 +6,7 @@ import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/polyline.dart';
 import '../theme/nocturne_theme.dart';
+import '../widgets/start_proximity_status.dart';
 import 'active_trip_screen.dart';
 
 /// Shows a dispatcher-assigned trip's route, cargo, and vehicle before the
@@ -14,7 +15,8 @@ import 'active_trip_screen.dart';
 /// all three points in the offered->accepted->started state machine (see
 /// documentations/features/ entry for the dispatcher/driver roles feature):
 ///   - "offered": [Odbij] [Prihvati]
-///   - "accepted": [Kreni]
+///   - "accepted": [Kreni] - gated on being at the route's origin (see
+///     widgets/start_proximity_status.dart), same as RouteRequestScreen.
 class TripDetailScreen extends StatefulWidget {
   final ApiClient api;
   final Trip trip;
@@ -29,6 +31,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   late Future<VehicleProfile> _vehicleFuture;
   Trip? _updatedTrip;
   bool _acting = false;
+  bool _canStart = false;
   String? _error;
 
   Trip get _trip => _updatedTrip ?? widget.trip;
@@ -233,11 +236,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _buildActions(BuildContext context) {
     if (_trip.status == 'accepted') {
-      return FilledButton(
-        onPressed: _acting ? null : _start,
-        child: _acting
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('Kreni'),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_routePoints.isNotEmpty)
+            StartProximityStatus(
+              originLat: _routePoints.first.latitude,
+              originLon: _routePoints.first.longitude,
+              onCanStartChanged: (canStart) => setState(() => _canStart = canStart),
+            ),
+          FilledButton(
+            onPressed: (_acting || !_canStart) ? null : _start,
+            child: _acting
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Kreni'),
+          ),
+        ],
       );
     }
     return Row(

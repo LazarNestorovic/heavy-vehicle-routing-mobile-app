@@ -49,6 +49,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   final _locationService = LocationService();
   StreamSubscription<Position>? _positionSub;
   bool _liveGpsActive = false;
+  GpsStatus? _gpsStatus;
   GoogleMapController? _mapController;
 
   late final List<LatLng> _routePoints;
@@ -83,18 +84,24 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
 
   // Starts reporting real GPS fixes to the backend if the user grants
   // location permission - see services/location_service.dart and
-  // backend/internal/ws/gateway.go. If permission is denied (or location
-  // services are off), this simply does nothing and the existing WS-driven
-  // simulated playback (via _listen/_onUpdate) keeps working exactly as
-  // before - a deliberate, silent fallback, not an error.
+  // backend/internal/ws/gateway.go. If permission ISN'T granted (denied,
+  // denied forever, or the phone's location toggle is off), the existing
+  // WS-driven simulated playback (via _listen/_onUpdate) keeps working as a
+  // fallback - but unlike an earlier version of this screen, that fallback
+  // is no longer SILENT: _gpsStatus drives a banner (see build()) telling
+  // the driver exactly why and offering a one-tap fix, instead of leaving
+  // them wondering why the map is still "just simulating" (see
+  // documentations/fixes/ entry).
   //
   // Note: the map may briefly show two different positions right after the
   // trip starts - this device's own GPS fix (immediate) vs. the server's
   // simulated position (until the first real ping flips the WS gateway from
   // simulated to live) - a one-time transition, not a bug.
   Future<void> _startLiveGps() async {
-    final granted = await _locationService.ensurePermission();
-    if (!granted || !mounted) return;
+    final status = await _locationService.ensurePermission();
+    if (!mounted) return;
+    setState(() => _gpsStatus = status);
+    if (status != GpsStatus.granted) return;
 
     setState(() => _liveGpsActive = true);
     _positionSub = _locationService.positionStream().listen((position) {
@@ -173,6 +180,47 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     }
   }
 
+  // Explains why the map is showing simulated (not real GPS) movement, with
+  // a one-tap fix where one exists - see _startLiveGps's doc comment.
+  Widget _gpsStatusBanner() {
+    late final String message;
+    late final String actionLabel;
+    late final Future<void> Function() action;
+    switch (_gpsStatus!) {
+      case GpsStatus.serviceDisabled:
+        message = 'GPS je isključen na telefonu - prikazuje se simulirano kretanje.';
+        actionLabel = 'Uključi lokaciju';
+        action = _locationService.openLocationSettings;
+        break;
+      case GpsStatus.deniedForever:
+        message = 'Dozvola za lokaciju je trajno odbijena - prikazuje se simulirano kretanje.';
+        actionLabel = 'Podešavanja';
+        action = _locationService.openAppSettings;
+        break;
+      case GpsStatus.denied:
+        message = 'Dozvola za lokaciju nije data - prikazuje se simulirano kretanje.';
+        actionLabel = 'Pokušaj ponovo';
+        action = _startLiveGps;
+        break;
+      case GpsStatus.granted:
+        return const SizedBox.shrink(); // unreachable (guarded by the caller), keeps the switch exhaustive
+    }
+
+    return Container(
+      width: double.infinity,
+      color: NocturneColors.accent800,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.gps_off, size: 18, color: NocturneColors.accent300),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+          TextButton(onPressed: () => action(), child: Text(actionLabel)),
+        ],
+      ),
+    );
+  }
+
   void _showExplanationBanner(String explanation) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(explanation), duration: const Duration(seconds: 6)),
@@ -238,6 +286,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               padding: const EdgeInsets.all(8),
               child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
             ),
+          if (_gpsStatus != null && _gpsStatus != GpsStatus.granted) _gpsStatusBanner(),
           _StatusBar(
             progressFraction: _progressFraction,
             etaMin: _etaMin,
