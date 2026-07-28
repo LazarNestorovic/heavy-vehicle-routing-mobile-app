@@ -17,7 +17,6 @@ o vozacima koji su na putu.
 -Takodje treba poraditi na UI-u da bude kao kada se pokrene tura ili da bude organizovan u menu.
 
 Bug-ovi:
-- Drugi bug, kada sam pritisnuo kreni na put i dalje mi simulira kretanje, ne koristi pravi GPS.
 - Zelim da se meni koji se nalazi prilikom pokretanja ture, nalazi uvek u aplikaciji i da se svemu pristupa preko njega kako bi ekran bio cistiji.
 - Takodje zelim da se moze izaci iz ekrana za rutiranje, a da se moze ponovo vratiti na mapu sa istom rutom
 - Kada se vozac pokrece zelim da se tako pokrece i i ikonica, a da se oznaka rute puta brise iza vozaca.

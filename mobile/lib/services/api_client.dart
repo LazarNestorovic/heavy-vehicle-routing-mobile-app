@@ -352,10 +352,10 @@ class ApiClient {
     return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
-  /// Reports a real GPS fix for an active trip (driver-only) - switches every
-  /// WS watcher of this trip (this screen, and any dispatcher watching the
-  /// fleet map) from the simulated route playback to live relaying. See
-  /// services/location_service.dart and backend/internal/ws/gateway.go.
+  /// Reports a real GPS fix for an active trip (driver-only) - broadcast to
+  /// every WS watcher of this trip (this screen, and any dispatcher watching
+  /// the fleet map). See services/location_service.dart and
+  /// backend/internal/ws/gateway.go.
   Future<void> reportPosition(int tripId, double lat, double lon) async {
     final resp = await _client.post(
       Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/position'),
@@ -367,9 +367,8 @@ class ApiClient {
     }
   }
 
-  /// Explicitly confirms arrival (driver-only) - needed for live-GPS trips,
-  /// which have no reliable auto-arrival signal the way the simulated WS
-  /// playback's progress_fraction=1 does.
+  /// Explicitly confirms arrival (driver-only) - live GPS has no reliable
+  /// auto-arrival signal on its own.
   Future<Trip> completeTrip(int tripId) async {
     final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/complete'), headers: _authHeaders);
     if (resp.statusCode != 200) {
@@ -388,6 +387,19 @@ class ApiClient {
     }
     final list = jsonDecode(resp.body) as List<dynamic>;
     return list.map((r) => GeocodeResult.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  /// Mirror of [geocodeSearch] for a point instead of a text query - GET
+  /// /api/v1/geocode/reverse - used to fill an address field with a readable
+  /// name after a map tap instead of leaving it showing raw coordinates.
+  Future<GeocodeResult> reverseGeocode(double lat, double lon) async {
+    final uri = Uri.parse('$apiBaseUrl/api/v1/geocode/reverse')
+        .replace(queryParameters: {'lat': lat.toString(), 'lon': lon.toString()});
+    final resp = await _client.get(uri, headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return GeocodeResult.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
   Future<DriverPreferences> getPreferences() async {

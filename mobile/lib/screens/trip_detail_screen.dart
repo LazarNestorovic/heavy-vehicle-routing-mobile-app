@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
+import '../services/location_service.dart';
 import '../services/polyline.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/start_proximity_status.dart';
@@ -27,6 +31,10 @@ class TripDetailScreen extends StatefulWidget {
 }
 
 class _TripDetailScreenState extends State<TripDetailScreen> {
+  final _locationService = LocationService();
+  StreamSubscription<Position>? _positionSub;
+  LatLng? _myPosition;
+
   late final List<LatLng> _routePoints;
   late Future<VehicleProfile> _vehicleFuture;
   Trip? _updatedTrip;
@@ -41,6 +49,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     super.initState();
     _routePoints = decodePolyline6(widget.trip.shape);
     _vehicleFuture = widget.api.getVehicle(widget.trip.vehicleId);
+    // Shows the driver's own position on the map even before starting the
+    // trip (not just once live-tracking kicks in on ActiveTripScreen) - the
+    // driver asked to always see themselves on the map, not only mid-route.
+    unawaited(_watchPosition());
+  }
+
+  Future<void> _watchPosition() async {
+    if (await _locationService.ensurePermission() != GpsStatus.granted) return;
+    _positionSub = _locationService.positionStream().listen((p) {
+      if (!mounted) return;
+      setState(() => _myPosition = LatLng(p.latitude, p.longitude));
+    });
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    super.dispose();
   }
 
   // GoogleMap has no declarative "fit these points" option (unlike flutter_map's
@@ -138,6 +164,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   Polyline(polylineId: const PolylineId('route'), points: _routePoints, width: 4, color: NocturneColors.accent),
               },
               markers: {
+                if (_myPosition != null)
+                  Marker(
+                    markerId: const MarkerId('my_position'),
+                    position: _myPosition!,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                    anchor: const Offset(0.5, 0.5),
+                    flat: true,
+                    zIndex: 2,
+                    infoWindow: const InfoWindow(title: 'Vaša pozicija'),
+                  ),
                 if (_routePoints.isNotEmpty)
                   Marker(
                     markerId: const MarkerId('origin'),

@@ -1,12 +1,12 @@
 import 'package:geolocator/geolocator.dart';
 
 /// Why live GPS isn't active - surfaced to the driver (see
-/// active_trip_screen.dart) instead of silently falling back to the
-/// simulated WS playback with no explanation. That silence was itself a
-/// reported bug: a driver whose permission was denied (or denied forever
-/// from an earlier test, or whose device location toggle is off) had no way
-/// to tell "GPS isn't working" apart from "this app doesn't have real GPS at
-/// all" - see documentations/fixes/ entry.
+/// active_trip_screen.dart) instead of silently showing nothing with no
+/// explanation. That silence was itself a reported bug: a driver whose
+/// permission was denied (or denied forever from an earlier test, or whose
+/// device location toggle is off) had no way to tell "GPS isn't working"
+/// apart from "this app doesn't have real GPS at all" - see
+/// documentations/fixes/ entry.
 enum GpsStatus {
   granted,
   serviceDisabled, // the phone's location toggle is off
@@ -20,10 +20,9 @@ enum GpsStatus {
 /// ActiveTripScreen is open, matching this project's "keep permissions
 /// minimal" approach and avoiding Play Store background-location review.
 class LocationService {
-  /// Requests location permission if needed - callers fall back to the
-  /// existing simulated WS playback for any non-[GpsStatus.granted] result,
-  /// but (unlike before) should tell the driver why, with a way to fix it
-  /// (see [openLocationSettings]/[openAppSettings]).
+  /// Requests location permission if needed - callers should tell the driver
+  /// why for any non-[GpsStatus.granted] result, with a way to fix it (see
+  /// [openLocationSettings]/[openAppSettings]).
   Future<GpsStatus> ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       return GpsStatus.serviceDisabled;
@@ -61,6 +60,20 @@ class LocationService {
   /// where the in-app permission dialog won't show again.
   Future<void> openAppSettings() => Geolocator.openAppSettings();
 
+  /// One-shot current position, or null if permission isn't granted or the
+  /// position can't be determined - used to prefill a route's origin with
+  /// "where the driver already is" (see route_request_screen.dart).
+  Future<Position?> getCurrentPosition() async {
+    if (await ensurePermission() != GpsStatus.granted) return null;
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// One-shot distance (meters) from the phone's current position to
   /// (lat, lon) - used to gate actually STARTING a trip on being at its
   /// origin (see widgets/start_proximity_status.dart), mirroring turn-by-turn
@@ -68,14 +81,8 @@ class LocationService {
   /// position can't be determined - callers should treat that as "can't
   /// verify" (offer a retry), not as "far away".
   Future<double?> distanceToCurrentPosition(double lat, double lon) async {
-    if (await ensurePermission() != GpsStatus.granted) return null;
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      return Geolocator.distanceBetween(position.latitude, position.longitude, lat, lon);
-    } catch (_) {
-      return null;
-    }
+    final position = await getCurrentPosition();
+    if (position == null) return null;
+    return Geolocator.distanceBetween(position.latitude, position.longitude, lat, lon);
   }
 }

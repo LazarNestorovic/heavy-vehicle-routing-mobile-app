@@ -12,21 +12,32 @@ class AddressSearchField extends StatefulWidget {
   final ApiClient api;
   final ValueChanged<GeocodeResult> onSelected;
   final String hintText;
-  const AddressSearchField({super.key, required this.api, required this.onSelected, this.hintText = 'Pretraga adrese (opciono)'});
+  // Optional externally-owned controller - lets a parent screen programmatically
+  // set the displayed text (e.g. a reverse-geocoded address after a map tap,
+  // see route_request_screen.dart) without this widget losing its own typing/
+  // search state. Caller owns disposal when provided.
+  final TextEditingController? controller;
+  const AddressSearchField({
+    super.key,
+    required this.api,
+    required this.onSelected,
+    this.hintText = 'Pretraga adrese (opciono)',
+    this.controller,
+  });
 
   @override
   State<AddressSearchField> createState() => _AddressSearchFieldState();
 }
 
 class _AddressSearchFieldState extends State<AddressSearchField> {
-  final _ctrl = TextEditingController();
+  late final TextEditingController _ctrl = widget.controller ?? TextEditingController();
   List<GeocodeResult> _results = [];
   bool _loading = false;
   String? _error;
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    if (widget.controller == null) _ctrl.dispose();
     super.dispose();
   }
 

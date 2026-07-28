@@ -68,7 +68,7 @@ func main() {
 	passwordResets := store.NewPasswordResetTokenStore(conn)
 	geocoder := geocode.New(cfg.NominatimBaseURL, cfg.NominatimUserAgent)
 	explainer := explain.New(vhClient)
-	wsGateway := ws.New(trips, tripEvents)
+	wsGateway := ws.New(trips)
 	chatWS := ws.NewChat(publisherQueue)
 	authManager := auth.New(cfg.JWTSecret)
 	mailerClient := mailer.New(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)

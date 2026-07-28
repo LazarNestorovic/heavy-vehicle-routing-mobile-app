@@ -1,13 +1,15 @@
-// Package ws is the WebSocket gateway from SPECIFIKACIJA.md 3.7: pushes a
-// vehicle's position along a trip's route to a connected client. Two modes:
-//   - Simulated (default): no real GPS ping has arrived yet for this trip, so
-//     position is simulated by walking the route's decoded shape at a fixed
-//     wall-clock pace - the original substitute for live GPS in a thesis demo
-//     (documentations/features/2026-07-21-websocket-gateway.md).
-//   - Live: once the driver's phone reports a real position (ReportPosition,
-//     called from POST /api/v1/trips/{id}/position), all WS watchers for that
-//     trip switch to relaying real pings instead - see documentations/features/
-//     for the live-GPS feature entry.
+// Package ws is the WebSocket gateway from SPECIFIKACIJA.md 3.7: relays a
+// vehicle's real GPS position to every connected client for a trip (the
+// driver's own screen and, potentially, their dispatcher's live map). A
+// connection simply waits for the driver's phone to report a position
+// (ReportPosition, called from POST /api/v1/trips/{id}/position) - there is
+// no simulated fallback; an earlier version of this gateway synthesized a
+// walk along the route's shape when no real ping had arrived yet, but that
+// produced a visible "jump" whenever the real first GPS fix landed a moment
+// later than the fallback kicked in (documentations/fixes/2026-07-26-*.md),
+// and by this stage of the app a real GPS fix is already required to start a
+// trip at all (see widgets/start_proximity_status.dart) - see
+// documentations/fixes/2026-07-28-remove-simulated-fallback.md.
 package ws
 
 import (
@@ -17,20 +19,10 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 
 	"heavy-vehicle-routing/backend/internal/store"
-	"heavy-vehicle-routing/backend/internal/valhalla"
-)
-
-// simDuration is how long, in wall-clock time, a full simulated trip playback
-// takes - independent of the trip's real DurationMin, so watching a demo trip
-// doesn't take an hour. tickInterval is how often a position update is sent.
-const (
-	simDuration  = 60 * time.Second
-	tickInterval = 500 * time.Millisecond
 )
 
 type positionUpdate struct {
@@ -56,26 +48,16 @@ var upgrader = websocket.Upgrader{
 }
 
 // liveTrip fans a real GPS ping out to every WS connection currently watching
-// one trip (the driver's own screen and, potentially, their dispatcher's live
-// map - both connect to the same GET /ws/trips/{id}). A liveTrip object is
-// created the moment EITHER side shows up first (a WS connection opening, or
-// ReportPosition landing before anyone's watching) - hasData distinguishes
-// "the object exists as a rendezvous point" from "it has actually carried a
-// real GPS ping", since only the latter should count as "live" (see isLive).
+// one trip. Created the moment EITHER side shows up first - a WS connection
+// opening (which must subscribe before it can wait for anything, see
+// HandleTripStream) or ReportPosition landing before anyone's watching yet.
 type liveTrip struct {
 	mu          sync.Mutex
 	subscribers map[chan positionUpdate]struct{}
-	hasData     bool
 }
 
 func newLiveTrip() *liveTrip {
 	return &liveTrip{subscribers: make(map[chan positionUpdate]struct{})}
-}
-
-func (lt *liveTrip) isLive() bool {
-	lt.mu.Lock()
-	defer lt.mu.Unlock()
-	return lt.hasData
 }
 
 func (lt *liveTrip) subscribe() chan positionUpdate {
@@ -105,21 +87,19 @@ func (lt *liveTrip) broadcast(update positionUpdate) {
 }
 
 type Gateway struct {
-	Trips      *store.TripStore
-	TripEvents *store.TripEventStore
+	Trips *store.TripStore
 
 	liveMu sync.Mutex
 	live   map[int64]*liveTrip
 }
 
-func New(trips *store.TripStore, tripEvents *store.TripEventStore) *Gateway {
-	return &Gateway{Trips: trips, TripEvents: tripEvents, live: make(map[int64]*liveTrip)}
+func New(trips *store.TripStore) *Gateway {
+	return &Gateway{Trips: trips, live: make(map[int64]*liveTrip)}
 }
 
 // liveTripFor always returns tripID's shared liveTrip object, creating it if
 // this is the first time anyone (a WS connection or ReportPosition) has
-// touched this trip. See liveTrip's doc comment for why existence alone
-// isn't the same as "live" - callers that need that distinction use isLive().
+// touched this trip.
 func (g *Gateway) liveTripFor(tripID int64) *liveTrip {
 	g.liveMu.Lock()
 	defer g.liveMu.Unlock()
@@ -131,32 +111,15 @@ func (g *Gateway) liveTripFor(tripID int64) *liveTrip {
 	return lt
 }
 
-// liveTripIfLive returns tripID's liveTrip only if it has actually received a
-// real GPS ping - a shared object can exist purely because a WS connection is
-// holding it open while it waits (see HandleTripStream), and that must not be
-// mistaken for "live" by simulate()'s handoff check.
-func (g *Gateway) liveTripIfLive(tripID int64) *liveTrip {
-	g.liveMu.Lock()
-	lt, ok := g.live[tripID]
-	g.liveMu.Unlock()
-	if !ok || !lt.isLive() {
-		return nil
-	}
-	return lt
-}
-
 // ReportPosition is called from the driver's phone (POST /api/v1/trips/{id}/position)
-// with a real GPS fix. The first call for a trip switches every WS watcher of
-// that trip from the simulated walk to live relaying (see HandleTripStream).
-// Progress/ETA are approximated from the remaining haversine distance to the
-// destination at the trip's originally-planned average pace - the same kind
-// of honest simplification as PointAtFraction's constant-speed assumption
+// with a real GPS fix, and broadcasts it to every WS watcher of that trip
+// (see HandleTripStream). Progress/ETA are approximated from the remaining
+// haversine distance to the destination at the trip's originally-planned
+// average pace - the same kind of honest simplification as
+// valhalla.PointAtFraction's constant-speed assumption
 // (documentations/features/2026-07-21-rest-stop-locations.md).
 func (g *Gateway) ReportPosition(trip store.Trip, lat, lon float64) {
 	lt := g.liveTripFor(trip.ID)
-	lt.mu.Lock()
-	lt.hasData = true
-	lt.mu.Unlock()
 
 	remainingKm := haversineKm(lat, lon, trip.DestinationLat, trip.DestinationLon)
 	progress := 0.0
@@ -188,9 +151,8 @@ func (g *Gateway) ReportPosition(trip store.Trip, lat, lon float64) {
 
 // CompleteTrip marks a live-tracked trip as arrived: sends a final message to
 // every watcher and tears down its live state. Real GPS has no reliable
-// auto-arrival signal the way the simulated walk's progress_fraction=1 does,
-// so this is driven by an explicit POST /api/v1/trips/{id}/complete from the
-// driver instead.
+// auto-arrival signal, so this is driven by an explicit
+// POST /api/v1/trips/{id}/complete from the driver instead.
 func (g *Gateway) CompleteTrip(tripID int64) {
 	g.liveMu.Lock()
 	lt, ok := g.live[tripID]
@@ -202,6 +164,12 @@ func (g *Gateway) CompleteTrip(tripID int64) {
 	lt.broadcast(positionUpdate{Status: "arrived", ProgressFraction: 1})
 }
 
+// HandleTripStream subscribes the caller to trip id's live position feed and
+// relays every update until the trip arrives or the client disconnects.
+// Subscribing happens before anything else so no ReportPosition broadcast
+// can land in a gap between "check if live data exists" and "start
+// listening" - liveTrip.broadcast() is non-blocking and unbuffered, so a
+// send with no subscriber yet would otherwise be silently dropped forever.
 func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -226,66 +194,13 @@ func (g *Gateway) HandleTripStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Subscribe to this trip's shared fan-out BEFORE deciding whether to wait
-	// for live data or fall back to simulating - subscribing only AFTER a poll
-	// detects real data exists would lose any ping broadcast in the gap between
-	// the check and the subscribe (a liveTrip's broadcast() is non-blocking and
-	// unbuffered: a send with no subscriber yet is silently dropped forever).
-	lt := g.liveTripFor(trip.ID)
-	ch := lt.subscribe()
-
-	if lt.isLive() {
-		// Real pings are already flowing (e.g. a dispatcher's live map joining
-		// mid-trip, or this driver's own screen reconnecting) - relay right
-		// away, no grace-period timeout.
-		g.relayLiveChannel(r.Context(), conn, lt, ch)
-		return
-	}
-
-	// No real data yet - give ReportPosition a brief window to arrive before
-	// falling back to the simulated walk. Without this grace period, the WS
-	// connection (opened the instant ActiveTripScreen loads) would start
-	// simulating immediately - and since a phone's first GPS fix commonly
-	// takes a second or two even with permission already granted, the driver
-	// would see 1-2 simulated ticks visibly move the marker before the real
-	// position took over. A driver reported exactly this as a "jump" - see
-	// documentations/fixes/2026-07-26-*.md.
-	select {
-	case update, ok := <-ch:
-		if !ok {
-			lt.unsubscribe(ch)
-			return
-		}
-		if err := conn.WriteJSON(update); err != nil {
-			lt.unsubscribe(ch)
-			return
-		}
-		if update.Status == "arrived" {
-			lt.unsubscribe(ch)
-			return
-		}
-		g.relayLiveChannel(r.Context(), conn, lt, ch)
-	case <-time.After(liveGraceDuration):
-		lt.unsubscribe(ch)
-		g.simulate(r.Context(), conn, trip)
-	case <-r.Context().Done():
-		lt.unsubscribe(ch)
-	}
+	g.relayLive(r.Context(), conn, g.liveTripFor(trip.ID))
 }
 
-const liveGraceDuration = 3 * time.Second
-
-// relayLive subscribes to lt fresh and relays to conn - used when simulate()
-// hands off after detecting a real ping arrived mid-playback, where no
-// subscription is already held.
+// relayLive subscribes to lt and forwards every broadcast to conn until the
+// trip arrives, the client disconnects, or ctx is done.
 func (g *Gateway) relayLive(ctx context.Context, conn *websocket.Conn, lt *liveTrip) {
-	g.relayLiveChannel(ctx, conn, lt, lt.subscribe())
-}
-
-// relayLiveChannel forwards whatever arrives on an ALREADY-subscribed ch to
-// conn, until the trip arrives, the client disconnects, or ctx is done. Always
-// unsubscribes ch before returning.
-func (g *Gateway) relayLiveChannel(ctx context.Context, conn *websocket.Conn, lt *liveTrip, ch chan positionUpdate) {
+	ch := lt.subscribe()
 	defer lt.unsubscribe(ch)
 
 	for {
@@ -302,78 +217,6 @@ func (g *Gateway) relayLiveChannel(ctx context.Context, conn *websocket.Conn, lt
 			if update.Status == "arrived" {
 				return
 			}
-		}
-	}
-}
-
-func (g *Gateway) simulate(ctx context.Context, conn *websocket.Conn, trip store.Trip) {
-	points := valhalla.DecodePolyline6(trip.Shape)
-	if len(points) == 0 {
-		_ = conn.WriteJSON(map[string]string{"error": "route has no geometry to simulate"})
-		return
-	}
-
-	steps := int(simDuration / tickInterval)
-	if steps < 1 {
-		steps = 1
-	}
-	ticker := time.NewTicker(tickInterval)
-	defer ticker.Stop()
-
-	restStopSent := false
-
-	for i := 0; i <= steps; i++ {
-		// A real GPS ping may have arrived mid-simulation (driver's app caught
-		// up to the trip after starting the WS connection) - hand off to live
-		// relaying rather than keep simulating alongside real pings.
-		if lt := g.liveTripIfLive(trip.ID); lt != nil {
-			g.relayLive(ctx, conn, lt)
-			return
-		}
-
-		fraction := float64(i) / float64(steps)
-		point := valhalla.PointAtFraction(points, fraction)
-
-		update := positionUpdate{
-			Lat:              point.Lat,
-			Lon:              point.Lon,
-			ProgressFraction: fraction,
-			ETAMin:           trip.DurationMin * (1 - fraction),
-			Status:           "in_progress",
-		}
-		if fraction >= 1 {
-			update.Status = "arrived"
-		}
-
-		// Check once whether the trip.started worker has attached a rest-stop
-		// suggestion yet, and surface it the first time it's there - avoids
-		// re-sending it on every single tick once it exists.
-		if !restStopSent {
-			if current, err := g.Trips.Get(ctx, trip.ID); err == nil && current.RestStopLat != nil {
-				update.RestStop = &restStopPayload{
-					Lat:     *current.RestStopLat,
-					Lon:     *current.RestStopLon,
-					Amenity: derefOr(current.RestStopAmenity, ""),
-					Name:    derefOr(current.RestStopName, ""),
-				}
-				restStopSent = true
-			}
-		}
-
-		if err := conn.WriteJSON(update); err != nil {
-			return // client disconnected
-		}
-		if fraction >= 1 {
-			if _, err := g.TripEvents.Create(ctx, trip.ID, "arrived", "Arrived at destination"); err != nil {
-				log.Printf("ws: log arrived event for trip %d: %v", trip.ID, err)
-			}
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
 		}
 	}
 }

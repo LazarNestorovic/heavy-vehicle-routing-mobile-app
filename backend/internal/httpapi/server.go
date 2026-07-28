@@ -69,6 +69,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("POST /api/v1/routes", s.RequireAuth(s.handleCreateRoute))
 	mux.HandleFunc("GET /api/v1/geocode", s.RequireAuth(s.handleGeocode))
+	mux.HandleFunc("GET /api/v1/geocode/reverse", s.RequireAuth(s.handleReverseGeocode))
 	mux.HandleFunc("POST /api/v1/vehicles", s.RequireAuth(s.handleCreateVehicle))
 	mux.HandleFunc("GET /api/v1/vehicles", s.RequireAuth(s.handleListVehicles))
 	mux.HandleFunc("GET /api/v1/vehicles/{id}", s.RequireAuth(s.handleGetVehicle))

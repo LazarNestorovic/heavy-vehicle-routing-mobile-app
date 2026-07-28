@@ -20,9 +20,11 @@ import 'profile_screen.dart';
 import 'trip_log_screen.dart';
 import 'truck_status_screen.dart';
 
-/// Active trip screen (SPECIFIKACIJA.md 3.7/3.9/3.10): live simulated position
-/// over WebSocket, ETA, and a rest-stop alert the first time the worker
-/// attaches one. See documentations/features/2026-07-21-websocket-gateway.md.
+/// Active trip screen (SPECIFIKACIJA.md 3.7/3.9/3.10): live GPS position over
+/// WebSocket, ETA, and a rest-stop alert the first time the worker attaches
+/// one. See documentations/fixes/2026-07-28-remove-simulated-fallback.md -
+/// there's no simulated fallback if GPS isn't available, only the
+/// [_gpsStatusBanner] explaining why and offering a fix.
 /// The WS endpoint now requires auth too (?token= query param, since browsers'
 /// WebSocket API can't set custom headers - see backend/internal/httpapi/middleware.go
 /// RequireAuthQuery), hence `api` is needed here just for its token.
@@ -85,18 +87,13 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   // Starts reporting real GPS fixes to the backend if the user grants
   // location permission - see services/location_service.dart and
   // backend/internal/ws/gateway.go. If permission ISN'T granted (denied,
-  // denied forever, or the phone's location toggle is off), the existing
-  // WS-driven simulated playback (via _listen/_onUpdate) keeps working as a
-  // fallback - but unlike an earlier version of this screen, that fallback
-  // is no longer SILENT: _gpsStatus drives a banner (see build()) telling
-  // the driver exactly why and offering a one-tap fix, instead of leaving
-  // them wondering why the map is still "just simulating" (see
-  // documentations/fixes/ entry).
-  //
-  // Note: the map may briefly show two different positions right after the
-  // trip starts - this device's own GPS fix (immediate) vs. the server's
-  // simulated position (until the first real ping flips the WS gateway from
-  // simulated to live) - a one-time transition, not a bug.
+  // denied forever, or the phone's location toggle is off), there is no
+  // fallback anymore (see documentations/fixes/2026-07-28-remove-simulated-
+  // fallback.md) - _gpsStatus instead drives a banner (see build()) telling
+  // the driver exactly why their position isn't showing and offering a
+  // one-tap fix. In practice GPS permission is already required to start a
+  // trip at all (see widgets/start_proximity_status.dart), so this mainly
+  // covers permission being revoked mid-trip.
   Future<void> _startLiveGps() async {
     final status = await _locationService.ensurePermission();
     if (!mounted) return;
@@ -180,25 +177,25 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     }
   }
 
-  // Explains why the map is showing simulated (not real GPS) movement, with
-  // a one-tap fix where one exists - see _startLiveGps's doc comment.
+  // Explains why the driver's position isn't being shown/reported, with a
+  // one-tap fix where one exists - see _startLiveGps's doc comment.
   Widget _gpsStatusBanner() {
     late final String message;
     late final String actionLabel;
     late final Future<void> Function() action;
     switch (_gpsStatus!) {
       case GpsStatus.serviceDisabled:
-        message = 'GPS je isključen na telefonu - prikazuje se simulirano kretanje.';
+        message = 'GPS je isključen na telefonu - vaša pozicija se ne prikazuje.';
         actionLabel = 'Uključi lokaciju';
         action = _locationService.openLocationSettings;
         break;
       case GpsStatus.deniedForever:
-        message = 'Dozvola za lokaciju je trajno odbijena - prikazuje se simulirano kretanje.';
+        message = 'Dozvola za lokaciju je trajno odbijena - vaša pozicija se ne prikazuje.';
         actionLabel = 'Podešavanja';
         action = _locationService.openAppSettings;
         break;
       case GpsStatus.denied:
-        message = 'Dozvola za lokaciju nije data - prikazuje se simulirano kretanje.';
+        message = 'Dozvola za lokaciju nije data - vaša pozicija se ne prikazuje.';
         actionLabel = 'Pokušaj ponovo';
         action = _startLiveGps;
         break;

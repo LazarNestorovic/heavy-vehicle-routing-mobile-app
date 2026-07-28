@@ -336,9 +336,9 @@ type positionRequest struct {
 }
 
 // handleReportPosition is called by the driver's own phone with a real GPS
-// fix (see documentations/features/ live-GPS entry) - switches this trip's WS
-// watchers (the driver's own screen, and any dispatcher watching the fleet
-// map) from the simulated route playback to relaying real positions.
+// fix (see documentations/features/ live-GPS entry) - broadcasts it to this
+// trip's WS watchers (the driver's own screen, and any dispatcher watching
+// the fleet map).
 func (s *Server) handleReportPosition(w http.ResponseWriter, r *http.Request) {
 	driverID, _ := driverIDFromContext(r.Context())
 
@@ -362,8 +362,7 @@ func (s *Server) handleReportPosition(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCompleteTrip lets the driver explicitly confirm arrival - real GPS
-// tracking has no reliable auto-arrival signal, unlike the simulated WS
-// playback which knows when progress_fraction reaches 1.
+// tracking has no reliable auto-arrival signal on its own.
 func (s *Server) handleCompleteTrip(w http.ResponseWriter, r *http.Request) {
 	driverID, _ := driverIDFromContext(r.Context())
 

@@ -56,6 +56,10 @@ type nominatimResult struct {
 	DisplayName string `json:"display_name"`
 }
 
+type nominatimReverseResult struct {
+	DisplayName string `json:"display_name"`
+}
+
 // Search queries Nominatim for query, returning up to limit results ordered
 // by Nominatim's own relevance ranking.
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result, error) {
@@ -94,6 +98,41 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result,
 		out = append(out, Result{Lat: lat, Lon: lon, DisplayName: r.DisplayName})
 	}
 	return out, nil
+}
+
+// Reverse looks up a human-readable address for (lat, lon) - the mirror of
+// Search, used when a point comes from a map tap or GPS fix rather than a
+// typed query, so the UI can show something readable instead of raw
+// coordinates.
+func (c *Client) Reverse(ctx context.Context, lat, lon float64) (string, error) {
+	c.throttle()
+
+	u := c.baseURL + "/reverse?" + url.Values{
+		"lat":    {strconv.FormatFloat(lat, 'f', -1, 64)},
+		"lon":    {strconv.FormatFloat(lon, 'f', -1, 64)},
+		"format": {"jsonv2"},
+	}.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return "", fmt.Errorf("build nominatim request: %w", err)
+	}
+	req.Header.Set("User-Agent", c.userAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("call nominatim: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var parsed nominatimReverseResult
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return "", fmt.Errorf("decode nominatim response: %w", err)
+	}
+	if parsed.DisplayName == "" {
+		return "", fmt.Errorf("no address found for this location")
+	}
+	return parsed.DisplayName, nil
 }
 
 // throttle blocks until at least minRequestInterval has passed since the

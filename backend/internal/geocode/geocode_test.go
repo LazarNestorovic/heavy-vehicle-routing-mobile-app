@@ -67,6 +67,28 @@ func TestSearch_SkipsMalformedCoordinates(t *testing.T) {
 	}
 }
 
+func TestReverse_ParsesDisplayName(t *testing.T) {
+	srv, _ := fakeNominatimServer(t, `{"display_name":"Trg Nikole Pašića, Beograd, Srbija"}`)
+	c := New(srv.URL, "test-agent/1.0")
+
+	name, err := c.Reverse(context.Background(), 44.8125, 20.4612)
+	if err != nil {
+		t.Fatalf("reverse: %v", err)
+	}
+	if name != "Trg Nikole Pašića, Beograd, Srbija" {
+		t.Errorf("unexpected display name: %q", name)
+	}
+}
+
+func TestReverse_ErrorsOnEmptyDisplayName(t *testing.T) {
+	srv, _ := fakeNominatimServer(t, `{"error":"Unable to geocode"}`)
+	c := New(srv.URL, "test-agent/1.0")
+
+	if _, err := c.Reverse(context.Background(), 0, 0); err == nil {
+		t.Fatal("expected an error for a point with no address, got nil")
+	}
+}
+
 func TestThrottle_EnforcesMinimumInterval(t *testing.T) {
 	srv, _ := fakeNominatimServer(t, `[]`)
 	c := New(srv.URL, "test-agent/1.0")

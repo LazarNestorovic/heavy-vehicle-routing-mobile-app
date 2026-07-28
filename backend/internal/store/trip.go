@@ -160,8 +160,7 @@ func (s *TripStore) MarkStarted(ctx context.Context, id int64) error {
 
 // MarkCompleted transitions an active trip to 'completed' - the driver
 // explicitly confirmed arrival (see httpapi handleCompleteTrip; live GPS has
-// no reliable auto-arrival the way the simulated WS playback's
-// progress_fraction=1 does). Tries 'in_progress' first (the common case - the
+// no reliable auto-arrival signal on its own). Tries 'in_progress' first (the common case - the
 // trip.started worker has already run) and falls back to 'created' (a real
 // GPS ping/complete can in principle race ahead of the worker).
 func (s *TripStore) MarkCompleted(ctx context.Context, id int64) error {

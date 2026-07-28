@@ -12,7 +12,8 @@ import '../theme/nocturne_theme.dart';
 /// documentations/features/ entry for why this is client-side aggregation
 /// rather than a new server-side broadcast gateway). Only shows drivers
 /// currently on an active trip; there's no idle-position tracking in this
-/// project (position is simulated per-trip, not a standing GPS feed).
+/// project (position is only reported per-trip while one is active, not a
+/// standing GPS feed).
 class DispatcherLiveMapScreen extends StatefulWidget {
   final ApiClient api;
   const DispatcherLiveMapScreen({super.key, required this.api});
