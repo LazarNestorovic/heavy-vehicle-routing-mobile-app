@@ -53,6 +53,11 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
   List<LatLng> _routePoints = [];
   bool _canStart = false;
 
+  // Drives the bottom panel's height (see _bottomPanel) - collapsed by
+  // default so the map gets most of the screen, grows to overlay the map
+  // while the driver is filling in cargo details.
+  bool _cargoExpanded = false;
+
   final _destinationCtrl = TextEditingController();
   final _cargoDescriptionCtrl = TextEditingController();
   final _cargoWeightCtrl = TextEditingController();
@@ -350,7 +355,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             child: Column(
               children: [
                 InkWell(
@@ -379,73 +384,91 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              _pickingOriginOnMap
-                  ? 'Dodirni mapu da postaviš polaznu tačku.'
-                  : _destination == null
-                      ? 'Dodirni mapu ili unesi adresu da postaviš odredište.'
-                      : 'Polazna i odredišna tačka su postavljene.',
-              textAlign: TextAlign.center,
+          // The map fills essentially the whole remaining screen; the panel
+          // below floats OVER it (Stack, not a flex sibling) so the map isn't
+          // permanently squeezed to make room for cargo details that are only
+          // relevant while expanded - see _bottomPanel.
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
+                    onMapCreated: _handleMapCreated,
+                    onTap: _handleTap,
+                    polylines: {
+                      ..._alternatePolylines,
+                      if (_routePoints.isNotEmpty)
+                        Polyline(
+                          polylineId: const PolylineId('route'),
+                          points: _routePoints,
+                          width: 4,
+                          color: NocturneColors.accent,
+                          zIndex: 1,
+                        ),
+                    },
+                    markers: {
+                      if (_myPosition != null)
+                        Marker(
+                          markerId: const MarkerId('my_position'),
+                          position: _myPosition!,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                          anchor: const Offset(0.5, 0.5),
+                          flat: true,
+                          zIndex: 2,
+                          infoWindow: const InfoWindow(title: 'Vaša pozicija'),
+                        ),
+                      if (_effectiveOrigin != null)
+                        Marker(
+                          markerId: const MarkerId('origin'),
+                          position: _effectiveOrigin!,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                        ),
+                      if (_destination != null)
+                        Marker(
+                          markerId: const MarkerId('destination'),
+                          position: _destination!,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                        ),
+                    },
+                  ),
+                ),
+                Positioned(left: 0, right: 0, bottom: 0, child: _bottomPanel(context)),
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // Compact by default (error/summary/proximity/collapsed cargo header) so
+  // the map stays visible above it; grows to overlay much more of the map
+  // while the cargo section is expanded, so there's room to comfortably fill
+  // in cargo details instead of fighting a cramped, fixed-size strip. Buttons
+  // stay pinned to the bottom of the panel either way (see the inner
+  // Expanded+SingleChildScrollView, same sticky-footer pattern as before).
+  Widget _bottomPanel(BuildContext context) {
+    final expandedHeight = MediaQuery.sizeOf(context).height * 0.6;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      constraints: BoxConstraints(maxHeight: _cargoExpanded ? expandedHeight : 200),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, -2))],
+      ),
+      child: Column(
+        children: [
           Expanded(
-            flex: 3,
-            child: GoogleMap(
-              initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
-              onMapCreated: _handleMapCreated,
-              onTap: _handleTap,
-              polylines: {
-                ..._alternatePolylines,
-                if (_routePoints.isNotEmpty)
-                  Polyline(
-                    polylineId: const PolylineId('route'),
-                    points: _routePoints,
-                    width: 4,
-                    color: NocturneColors.accent,
-                    zIndex: 1,
-                  ),
-              },
-              markers: {
-                if (_myPosition != null)
-                  Marker(
-                    markerId: const MarkerId('my_position'),
-                    position: _myPosition!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                    anchor: const Offset(0.5, 0.5),
-                    flat: true,
-                    zIndex: 2,
-                    infoWindow: const InfoWindow(title: 'Vaša pozicija'),
-                  ),
-                if (_effectiveOrigin != null)
-                  Marker(
-                    markerId: const MarkerId('origin'),
-                    position: _effectiveOrigin!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-                  ),
-                if (_destination != null)
-                  Marker(
-                    markerId: const MarkerId('destination'),
-                    position: _destination!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-                  ),
-              },
-            ),
-          ),
-          // Own Scrollable (not the map) so a focused cargo field scrolls into
-          // view above the keyboard instead of staying hidden under it - the
-          // map keeps its own Expanded region so panning it doesn't fight the
-          // page scroll gesture.
-          Expanded(
-            flex: 2,
             child: SingleChildScrollView(
               child: Column(
                 children: [
                   if (_error != null)
                     Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Text(_error!, style: const TextStyle(color: NocturneColors.error, fontSize: 13)),
                     ),
                   if (_routeResult != null) _RouteSummaryCard(result: _routeResult!),
                   if (_effectiveOrigin != null)
@@ -461,6 +484,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                       title: const Text('Podaci o tovaru (opciono)'),
                       leading: const Icon(Icons.inventory_2_outlined),
                       childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      onExpansionChanged: (expanded) => setState(() => _cargoExpanded = expanded),
                       children: [
                         TextField(
                           controller: _cargoDescriptionCtrl,
@@ -475,7 +499,8 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                         const SizedBox(height: 8),
                         TextField(
                           controller: _cargoTempRangeCtrl,
-                          decoration: const InputDecoration(labelText: 'Temperaturni opseg', hintText: 'npr. -18°C do -15°C'),
+                          decoration:
+                              const InputDecoration(labelText: 'Temperaturni opseg', hintText: 'npr. -18°C do -15°C'),
                         ),
                         const SizedBox(height: 8),
                         TextField(
@@ -491,33 +516,32 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed:
-                                (_effectiveOrigin != null && _destination != null && !_loading) ? _previewRoute : null,
-                            child: const Text('Pregled rute'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: (_effectiveOrigin != null && _destination != null && !_loading && _canStart)
-                                ? _startTrip
-                                : null,
-                            child: _loading
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Text('Kreni na put'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: (_effectiveOrigin != null && _destination != null && !_loading) ? _previewRoute : null,
+                    child: const Text('Pregled rute'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: (_effectiveOrigin != null && _destination != null && !_loading && _canStart)
+                        ? _startTrip
+                        : null,
+                    child: _loading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Kreni na put'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -533,23 +557,28 @@ class _RouteSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${result.distanceKm.toStringAsFixed(1)} km · ${result.durationMin.toStringAsFixed(0)} min',
-                style: Theme.of(context).textTheme.titleMedium),
-            Text('Risk score: ${result.riskScore.toStringAsFixed(1)}'),
+                style: Theme.of(context).textTheme.titleSmall),
+            Text('Risk score: ${result.riskScore.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12)),
             if (result.explanation != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: NocturneColors.accent300),
+                  const Icon(Icons.info_outline, size: 16, color: NocturneColors.accent300),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(result.explanation!, style: const TextStyle(fontStyle: FontStyle.italic))),
+                  Expanded(
+                    child: Text(result.explanation!,
+                        style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                  ),
                 ],
               ),
             ],
