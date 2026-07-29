@@ -16,11 +16,15 @@ da koristi i svoj kamion kao sto postoji da koristi dispecerom(firmin).
 o vozacima koji su na putu.
 -Takodje treba poraditi na UI-u da bude kao kada se pokrene tura ili da bude organizovan u menu.
 
+29.07. - Mozda mogu dodati i kalendar u kom bi mogao planirati rute...
+
 Bug-ovi:
+- Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
 - Zelim da se meni koji se nalazi prilikom pokretanja ture, nalazi uvek u aplikaciji i da se svemu pristupa preko njega kako bi ekran bio cistiji.
 - Takodje zelim da se moze izaci iz ekrana za rutiranje, a da se moze ponovo vratiti na mapu sa istom rutom
 - Kada se vozac pokrece zelim da se tako pokrece i i ikonica, a da se oznaka rute puta brise iza vozaca.
 - Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
-- Zelim da uvedem da se automatski za polaznu tacku uzima trenutna pozicija vozaca, ali da on to kasnije moze da promeni.
-- Takodje zelim da se pozicija vozaca stalno prikazuje na mapi, iako ruta nije pokrenuta.
 - Ruta treba da bude prikazana uocljivijom bojom.
+- Dispecer ekran kada se pravi ruta za vozaca ima nekog preklapanja u UI.
+- Treba napraviti listu tura (pokrenute, zavrsene, predstojece)
+- *Isto napraviti dizajn pocetnog prozora i za dispecera i za vozaca koji je u floti(veza sa dispecerom)

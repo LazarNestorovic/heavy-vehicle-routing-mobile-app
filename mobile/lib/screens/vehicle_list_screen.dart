@@ -3,18 +3,31 @@ import 'package:flutter/material.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../widgets/email_verification_banner.dart';
+import '../widgets/radial_fab_menu.dart';
 import 'dispatcher_requests_screen.dart';
-import 'entry_router.dart';
-import 'login_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
 import 'route_request_screen.dart';
 import 'vehicle_profile_screen.dart';
 
-/// Hub screen after login (SPECIFIKACIJA.md 3.9 + Faza 2/6 of the driver-preference
-/// plan): lists the driver's own vehicles (1:N, see documentations/features/
-/// 2026-07-21-driver-preference-scoring.md), pick one to start planning a route,
-/// or add a new one.
+/// Hub screen after login for a SELF-SERVICE driver (SPECIFIKACIJA.md 3.9 +
+/// Faza 2/6 of the driver-preference plan): lists the driver's own vehicles
+/// (1:N, see documentations/features/2026-07-21-driver-preference-scoring.md),
+/// pick one to start planning a route, or add a new one. Also reused, as a
+/// SECONDARY destination, by:
+///   - a MANAGED driver (has a dispatcher), from the "Moja vozila" item on
+///     OfferedTripsScreen's own menu - for vehicle CRUD only, no route
+///     planning (their dispatcher assigns trips).
+///   - a DISPATCHER, from the "Vozila" item on DispatcherHomeScreen's own
+///     menu - lists/manages their fleet (GET /vehicles already returns the
+///     fleet for a dispatcher account, see backend handleListVehicles).
+/// The RadialFabMenu below is shown ONLY for the self-service case (this
+/// screen IS their home there); both secondary cases already have an
+/// identical Profil/Preference/... menu on the screen they came from, so a
+/// second one here would be a confusing duplicate. "Odjava" lives on
+/// ProfileScreen, not duplicated here; "Dodaj vozilo" stays a plain,
+/// always-visible FAB for all three cases since it's this screen's primary
+/// action, not a secondary one.
 class VehicleListScreen extends StatefulWidget {
   final ApiClient api;
   const VehicleListScreen({super.key, required this.api});
@@ -75,123 +88,138 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await clearSession(widget.api);
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => LoginScreen(api: widget.api)),
-      (route) => false,
-    );
-  }
+  bool get _isDispatcher => widget.api.role == 'dispatcher';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Moja vozila'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Profil',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Preference',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => PreferencesScreen(api: widget.api)),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.business),
-            tooltip: 'Zahtevi dispečera',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => DispatcherRequestsScreen(api: widget.api)),
-            ),
-          ),
-          IconButton(icon: const Icon(Icons.logout), tooltip: 'Odjava', onPressed: _logout),
-        ],
-      ),
-      body: Column(
+      appBar: AppBar(title: Text(_isDispatcher ? 'Vozila u floti' : 'Moja vozila')),
+      body: Stack(
         children: [
-          EmailVerificationBanner(api: widget.api),
-          Expanded(
-            child: FutureBuilder<List<VehicleProfile>>(
-              future: _vehiclesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Greška: ${snapshot.error}'));
-                }
-                final vehicles = snapshot.data ?? [];
-                if (vehicles.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Nemaš još sačuvano vozilo.'),
-                        const SizedBox(height: 12),
-                        FilledButton(onPressed: _addVehicle, child: const Text('Dodaj vozilo')),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  itemCount: vehicles.length,
-                  itemBuilder: (context, i) {
-                    final v = vehicles[i];
-                    // A managed driver's list mixes their own personal
-                    // vehicles with their dispatcher's fleet (see
-                    // documentations/features/ dispatcher/driver roles entry)
-                    // - two vehicles can easily look identical (same demo
-                    // default profile) without this label, and only the
-                    // OWNER (self for personal, the dispatcher for fleet) may
-                    // edit/delete (backend: vehicleMutable, stricter than the
-                    // read-only vehicleAccessible).
-                    final canManage = !v.isFleet || widget.api.role == 'dispatcher';
-                    return ListTile(
-                      leading: Icon(v.isFleet ? Icons.warehouse_outlined : Icons.local_shipping),
-                      title: Text('${v.heightM}m / ${v.widthM}m / ${v.lengthM}m'),
-                      subtitle: Text(
-                        '${v.weightKg.toStringAsFixed(0)}kg${v.hazmat ? " · hazmat" : ""}${v.isFleet ? " · Flota" : ""}',
-                      ),
-                      trailing: canManage
-                          ? PopupMenuButton<String>(
-                              onSelected: (action) {
-                                if (action == 'edit') _editVehicle(v);
-                                if (action == 'delete') _deleteVehicle(v);
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(value: 'edit', child: Text('Izmeni')),
-                                PopupMenuItem(value: 'delete', child: Text('Obriši')),
-                              ],
-                            )
-                          : null,
-                      // A managed driver's dispatcher creates trips for them
-                      // (backend rejects self-service POST /trips for a
-                      // managed driver) - this screen reached via
-                      // OfferedTripsScreen's "Moja vozila" icon is then only
-                      // for vehicle CRUD, not route planning.
-                      onTap: widget.api.dispatcherId != null
-                          ? () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
-                              )
-                          : () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
-                              ),
+          Column(
+            children: [
+              EmailVerificationBanner(api: widget.api),
+              Expanded(
+                child: FutureBuilder<List<VehicleProfile>>(
+                  future: _vehiclesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Greška: ${snapshot.error}'));
+                    }
+                    final vehicles = snapshot.data ?? [];
+                    if (vehicles.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_isDispatcher ? 'Nemate još nijedno vozilo u floti.' : 'Nemaš još sačuvano vozilo.'),
+                            const SizedBox(height: 12),
+                            FilledButton(onPressed: _addVehicle, child: const Text('Dodaj vozilo')),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: vehicles.length,
+                      itemBuilder: (context, i) {
+                        final v = vehicles[i];
+                        // A managed driver's list mixes their own personal
+                        // vehicles with their dispatcher's fleet (see
+                        // documentations/features/ dispatcher/driver roles entry)
+                        // - two vehicles can easily look identical (same demo
+                        // default profile) without this label, and only the
+                        // OWNER (self for personal, the dispatcher for fleet) may
+                        // edit/delete (backend: vehicleMutable, stricter than the
+                        // read-only vehicleAccessible).
+                        final canManage = !v.isFleet || widget.api.role == 'dispatcher';
+                        return ListTile(
+                          leading: Icon(v.isFleet ? Icons.warehouse_outlined : Icons.local_shipping),
+                          title: Text('${v.heightM}m / ${v.widthM}m / ${v.lengthM}m'),
+                          subtitle: Text(
+                            '${v.weightKg.toStringAsFixed(0)}kg${v.hazmat ? " · hazmat" : ""}${v.isFleet ? " · Flota" : ""}',
+                          ),
+                          trailing: canManage
+                              ? PopupMenuButton<String>(
+                                  onSelected: (action) {
+                                    if (action == 'edit') _editVehicle(v);
+                                    if (action == 'delete') _deleteVehicle(v);
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(value: 'edit', child: Text('Izmeni')),
+                                    PopupMenuItem(value: 'delete', child: Text('Obriši')),
+                                  ],
+                                )
+                              : null,
+                          // A managed driver's dispatcher creates trips for them
+                          // (backend rejects self-service POST /trips for a
+                          // managed driver) - this screen reached via
+                          // OfferedTripsScreen's "Moja vozila" icon is then only
+                          // for vehicle CRUD, not route planning. A dispatcher
+                          // doesn't drive either - tapping a fleet vehicle just
+                          // opens edit, the same action as the popup menu's
+                          // "Izmeni" (a plain, common tap-to-edit convenience).
+                          onTap: _isDispatcher
+                              ? () => _editVehicle(v)
+                              : widget.api.dispatcherId != null
+                                  ? () => ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
+                                      )
+                                  : () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                            builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
+                                      ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
+          // A managed driver or a dispatcher reaches this screen as a
+          // SECONDARY destination (an item inside their own home screen's
+          // RadialFabMenu, which already offers Profil/Preference/...) -
+          // showing a second, identical menu here would just be a confusing
+          // duplicate. Only a self-service driver (no dispatcher, not a
+          // dispatcher account), for whom this screen IS the main hub, gets one.
+          if (!_isDispatcher && widget.api.dispatcherId == null)
+            RadialFabMenu(
+              initialCorner: FabCorner.bottomLeft,
+              draggable: false,
+              closedIcon: Icons.menu,
+              items: [
+                RadialFabMenuItem(
+                  icon: Icons.person_outline,
+                  tooltip: 'Profil',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ProfileScreen(api: widget.api)),
+                  ),
+                ),
+                RadialFabMenuItem(
+                  icon: Icons.tune,
+                  tooltip: 'Preference',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => PreferencesScreen(api: widget.api)),
+                  ),
+                ),
+                RadialFabMenuItem(
+                  icon: Icons.business,
+                  tooltip: 'Zahtevi dispečera',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => DispatcherRequestsScreen(api: widget.api)),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _addVehicle, child: const Icon(Icons.add)),
+      floatingActionButton:
+          FloatingActionButton(onPressed: _addVehicle, tooltip: 'Dodaj vozilo', child: const Icon(Icons.add)),
     );
   }
 }

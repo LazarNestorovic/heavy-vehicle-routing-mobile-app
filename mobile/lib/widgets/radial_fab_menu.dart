@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/nocturne_theme.dart';
 
-enum _FabCorner { topLeft, topRight, bottomLeft, bottomRight }
+/// Which corner the FAB is docked in - public so callers can pin a menu to a
+/// specific corner via [RadialFabMenu.initialCorner] (e.g. vehicle_list_screen
+/// pins it to the left instead of the default bottom-right).
+enum FabCorner { topLeft, topRight, bottomLeft, bottomRight }
 
 class RadialFabMenuItem {
   final IconData icon;
@@ -17,17 +20,29 @@ class RadialFabMenuItem {
 
 /// Draggable radial FAB menu - a direct port of the Claude Design mock-up's
 /// `arcOffset`/`CORNERS`/pointer-drag-and-snap script (`Cargo Routing App.dc.html`,
-/// see documentations/features/2026-07-21-nocturne-redesign.md). The FAB can be
-/// dragged to any of the four screen corners; releasing it snaps to the nearest
-/// one. A tap (no drag) toggles a 5-item arc of sub-buttons fanned out at
-/// 78/60/42/24/6 degrees from the FAB, away from whichever corner it's docked in
-/// - same angles, same radius (100px), same corner-sign table as the original.
+/// see documentations/features/2026-07-21-nocturne-redesign.md). By default the
+/// FAB can be dragged to any of the four screen corners, snapping to the
+/// nearest one on release; set [draggable] to false to pin it at
+/// [initialCorner] instead (tapping still opens/closes the menu). A tap (no
+/// drag) toggles an arc of sub-buttons fanned out away from whichever corner
+/// it's docked in - angles are spread evenly across [items] (see _anglesFor),
+/// not a fixed 5-slot table, so the spacing stays generous (no overlapping
+/// sub-buttons) regardless of how many items are passed.
 ///
 /// Meant to wrap a full-screen body (e.g. the map in ActiveTripScreen) via
-/// `Stack`; [items] must have exactly 5 entries, one per arc position.
+/// `Stack`.
 class RadialFabMenu extends StatefulWidget {
   final List<RadialFabMenuItem> items;
-  const RadialFabMenu({super.key, required this.items});
+  final FabCorner initialCorner;
+  final bool draggable;
+  final IconData closedIcon;
+  const RadialFabMenu({
+    super.key,
+    required this.items,
+    this.initialCorner = FabCorner.bottomRight,
+    this.draggable = true,
+    this.closedIcon = Icons.add,
+  });
 
   @override
   State<RadialFabMenu> createState() => _RadialFabMenuState();
@@ -36,46 +51,65 @@ class RadialFabMenu extends StatefulWidget {
 class _RadialFabMenuState extends State<RadialFabMenu> {
   static const _fabSize = 58.0;
   static const _fabRadius = _fabSize / 2;
-  static const _subSize = 48.0;
+  static const _subSize = 58.0;
   static const _edgeMargin = 53.0;
-  static const _arcRadius = 100.0;
-  static const _arcAngles = [78.0, 60.0, 42.0, 24.0, 6.0];
+  // Wide enough that even 5 sub-buttons (see _anglesFor) don't overlap -
+  // a driver reported the previous radius (100) as visibly overlapping.
+  static const _arcRadius = 150.0;
+  static const _arcSweepStart = 95.0;
+  static const _arcSweepEnd = 0.0;
   static const _dragSlop = 6.0;
   static const _snapDuration = Duration(milliseconds: 280);
   // Mirrors the mock-up's CSS `cubic-bezier(.34,1.3,.64,1)` - the y1 > 1
   // control point is what gives the snap its slight overshoot "bounce".
   static const _snapCurve = Cubic(0.34, 1.3, 0.64, 1.0);
 
-  _FabCorner _corner = _FabCorner.bottomRight;
+  late FabCorner _corner;
   bool _menuOpen = false;
   bool _dragging = false;
   Offset? _dragPosition;
   Offset? _dragStart;
 
-  Offset _cornerCenter(_FabCorner corner, Size size) {
+  @override
+  void initState() {
+    super.initState();
+    _corner = widget.initialCorner;
+  }
+
+  // Spreads count sub-buttons evenly across the sweep [_arcSweepEnd,
+  // _arcSweepStart] instead of picking from a fixed 5-slot table - keeps
+  // spacing between adjacent buttons generous whether there are 3 items or 5.
+  List<double> _anglesFor(int count) {
+    if (count <= 0) return const [];
+    if (count == 1) return const [(_arcSweepStart + _arcSweepEnd) / 2];
+    final step = (_arcSweepStart - _arcSweepEnd) / (count - 1);
+    return [for (var i = 0; i < count; i++) _arcSweepStart - step * i];
+  }
+
+  Offset _cornerCenter(FabCorner corner, Size size) {
     switch (corner) {
-      case _FabCorner.topLeft:
+      case FabCorner.topLeft:
         return const Offset(_edgeMargin, _edgeMargin);
-      case _FabCorner.topRight:
+      case FabCorner.topRight:
         return Offset(size.width - _edgeMargin, _edgeMargin);
-      case _FabCorner.bottomLeft:
+      case FabCorner.bottomLeft:
         return Offset(_edgeMargin, size.height - _edgeMargin);
-      case _FabCorner.bottomRight:
+      case FabCorner.bottomRight:
         return Offset(size.width - _edgeMargin, size.height - _edgeMargin);
     }
   }
 
   /// h/v sign multipliers so the sub-button arc always sweeps away from the
   /// docked corner - same table as the mock-up's `CORNERS`.
-  (double, double) _arcSign(_FabCorner corner) {
+  (double, double) _arcSign(FabCorner corner) {
     switch (corner) {
-      case _FabCorner.bottomRight:
+      case FabCorner.bottomRight:
         return (-1, -1);
-      case _FabCorner.bottomLeft:
+      case FabCorner.bottomLeft:
         return (1, -1);
-      case _FabCorner.topRight:
+      case FabCorner.topRight:
         return (-1, 1);
-      case _FabCorner.topLeft:
+      case FabCorner.topLeft:
         return (1, 1);
     }
   }
@@ -126,8 +160,8 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
       final isTop = pos.dy < size.height / 2;
       setState(() {
         _corner = isTop
-            ? (isLeft ? _FabCorner.topLeft : _FabCorner.topRight)
-            : (isLeft ? _FabCorner.bottomLeft : _FabCorner.bottomRight);
+            ? (isLeft ? FabCorner.topLeft : FabCorner.topRight)
+            : (isLeft ? FabCorner.bottomLeft : FabCorner.bottomRight);
         _dragging = false;
         _dragPosition = null;
       });
@@ -148,6 +182,7 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
         final center = _dragging && _dragPosition != null ? _dragPosition! : _cornerCenter(_corner, size);
         final (h, v) = _arcSign(_corner);
         final duration = _dragging ? Duration.zero : _snapDuration;
+        final angles = _anglesFor(widget.items.length);
 
         return Stack(
           key: _containerKey,
@@ -159,8 +194,8 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
                   onTap: () => setState(() => _menuOpen = false),
                 ),
               ),
-            for (var i = 0; i < widget.items.length && i < _arcAngles.length; i++)
-              _buildSubButton(i, widget.items[i], _arcOffset(_arcAngles[i], h, v) + center, duration),
+            for (var i = 0; i < widget.items.length; i++)
+              _buildSubButton(i, widget.items[i], _arcOffset(angles[i], h, v) + center, duration),
             _buildFab(center, size, duration),
           ],
         );
@@ -213,7 +248,8 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
                             alignment: Alignment.center,
                             child: Text(
                               '${item.badgeCount}',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: NocturneColors.bg),
+                              style:
+                                  const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: NocturneColors.bg),
                             ),
                           ),
                         ),
@@ -229,6 +265,23 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
   }
 
   Widget _buildFab(Offset center, Size size, Duration duration) {
+    final fab = Material(
+      color: NocturneColors.surface,
+      shape: const CircleBorder(side: BorderSide(color: NocturneColors.accent)),
+      elevation: 8,
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          child: Icon(
+            _menuOpen ? Icons.close : widget.closedIcon,
+            key: ValueKey(_menuOpen),
+            color: NocturneColors.accent,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+
     return AnimatedPositioned(
       duration: duration,
       curve: _snapCurve,
@@ -236,23 +289,17 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
       top: center.dy - _fabRadius,
       width: _fabSize,
       height: _fabSize,
-      child: GestureDetector(
-        onPanStart: _onPanStart,
-        onPanUpdate: (details) => _onPanUpdate(details, size),
-        onPanEnd: (_) => _onPanEnd(size),
-        child: Material(
-          color: NocturneColors.surface,
-          shape: const CircleBorder(side: BorderSide(color: NocturneColors.accent)),
-          elevation: 8,
-          child: Center(
-            child: AnimatedRotation(
-              turns: _menuOpen ? 0.125 : 0, // 45deg, matches the mock-up's plus-to-cross rotation
-              duration: const Duration(milliseconds: 280),
-              child: const Icon(Icons.add, color: NocturneColors.accent, size: 24),
+      child: widget.draggable
+          ? GestureDetector(
+              onPanStart: _onPanStart,
+              onPanUpdate: (details) => _onPanUpdate(details, size),
+              onPanEnd: (_) => _onPanEnd(size),
+              child: fab,
+            )
+          : GestureDetector(
+              onTap: () => setState(() => _menuOpen = !_menuOpen),
+              child: fab,
             ),
-          ),
-        ),
-      ),
     );
   }
 }
