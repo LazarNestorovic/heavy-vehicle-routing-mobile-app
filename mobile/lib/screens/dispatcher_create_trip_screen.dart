@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/driver.dart';
+import '../models/geocode_result.dart';
 import '../models/route_result.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
@@ -14,6 +17,15 @@ import '../widgets/address_search_field.dart';
 /// entry for the dispatcher/driver roles feature). Vehicle picker offers both
 /// the dispatcher's own fleet AND that driver's personal vehicles (GET
 /// /api/v1/dispatcher/drivers/{id}/vehicles), grouped by label.
+///
+/// Origin/destination picking mirrors RouteRequestScreen's redesign (separate
+/// address fields, map tap, reverse geocoding, map-overlaying cargo panel)
+/// with ONE deliberate difference: origin has NO "trenutna pozicija" GPS mode
+/// and no special bottom-sheet picker - it's a plain address field exactly
+/// like destination, since the dispatcher isn't the one driving (their
+/// phone's GPS has nothing to do with where the driver/truck actually is,
+/// and there's no reason to treat picking it any differently than the
+/// destination).
 class DispatcherCreateTripScreen extends StatefulWidget {
   final ApiClient api;
   final Driver driver;
@@ -28,11 +40,19 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
   VehicleProfile? _selectedVehicle;
 
   GoogleMapController? _mapController;
+
   LatLng? _origin;
   LatLng? _destination;
   RouteResult? _routeResult;
   List<LatLng> _routePoints = [];
 
+  // Drives the bottom panel's height (see _bottomPanel) - collapsed by
+  // default so the map gets most of the screen, grows to overlay the map
+  // while the dispatcher is filling in cargo details.
+  bool _cargoExpanded = false;
+
+  final _originCtrl = TextEditingController();
+  final _destinationCtrl = TextEditingController();
   final _cargoDescriptionCtrl = TextEditingController();
   final _cargoWeightCtrl = TextEditingController();
   final _cargoTempRangeCtrl = TextEditingController();
@@ -69,6 +89,8 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
 
   @override
   void dispose() {
+    _originCtrl.dispose();
+    _destinationCtrl.dispose();
     _cargoDescriptionCtrl.dispose();
     _cargoWeightCtrl.dispose();
     _cargoTempRangeCtrl.dispose();
@@ -77,6 +99,11 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
     super.dispose();
   }
 
+  // A map tap sets the origin first, then the destination on every tap after
+  // that - same simple fallback as before origin/destination had their own
+  // address fields. Either way, the tapped point only has raw coordinates, so
+  // it's reverse-geocoded in the background to fill in a readable address
+  // once one's found (best-effort).
   void _handleTap(LatLng point) {
     setState(() {
       _routeResult = null;
@@ -84,20 +111,78 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
       _error = null;
       if (_origin == null) {
         _origin = point;
-      } else if (_destination == null) {
-        _destination = point;
+        _originCtrl.text = '';
+        unawaited(_reverseGeocodeOrigin(point));
       } else {
-        _origin = point;
-        _destination = null;
+        _destination = point;
+        _destinationCtrl.text = '';
+        unawaited(_reverseGeocodeDestination(point));
       }
     });
   }
 
-  // Same origin/destination sequencing as _handleTap, but from an address
-  // search result instead of a map tap (see widgets/address_search_field.dart).
-  void _handleSearchSelect(LatLng point) {
-    _handleTap(point);
+  // Best-effort: if reverse geocoding fails (offline, no address found for
+  // this point, etc.) the tapped point is still fully usable, it just leaves
+  // the corresponding field empty instead of showing a readable address.
+  Future<void> _reverseGeocodeOrigin(LatLng point) async {
+    try {
+      final result = await widget.api.reverseGeocode(point.latitude, point.longitude);
+      if (!mounted || _origin != point) return; // origin changed again meanwhile - discard
+      _originCtrl.text = result.displayName;
+    } catch (_) {
+      // Leave the field empty - origin point itself is still set and usable.
+    }
+  }
+
+  Future<void> _reverseGeocodeDestination(LatLng point) async {
+    try {
+      final result = await widget.api.reverseGeocode(point.latitude, point.longitude);
+      if (!mounted || _destination != point) return; // destination changed again meanwhile - discard
+      _destinationCtrl.text = result.displayName;
+    } catch (_) {
+      // Leave the field empty - destination point itself is still set and usable.
+    }
+  }
+
+  // Origin address search - always targets the origin, and recenters the map
+  // on the picked point since it may be off-screen. Mirrors
+  // _handleDestinationSelect exactly - origin and destination are picked the
+  // same way (see class doc comment).
+  void _handleOriginSelect(GeocodeResult result) {
+    final point = LatLng(result.lat, result.lon);
+    setState(() {
+      _routeResult = null;
+      _routePoints = [];
+      _error = null;
+      _origin = point;
+    });
     _mapController?.animateCamera(CameraUpdate.newLatLng(point));
+  }
+
+  // Destination address search (see widgets/address_search_field.dart) -
+  // always targets the destination, and recenters the map on the picked
+  // point since it may be off-screen.
+  void _handleDestinationSelect(GeocodeResult result) {
+    final point = LatLng(result.lat, result.lon);
+    setState(() {
+      _routeResult = null;
+      _routePoints = [];
+      _error = null;
+      _destination = point;
+    });
+    _mapController?.animateCamera(CameraUpdate.newLatLng(point));
+  }
+
+  void _reset() {
+    setState(() {
+      _origin = null;
+      _originCtrl.text = '';
+      _destination = null;
+      _destinationCtrl.text = '';
+      _routeResult = null;
+      _routePoints = [];
+      _error = null;
+    });
   }
 
   Future<void> _previewRoute() async {
@@ -107,7 +192,8 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
       _error = null;
     });
     try {
-      final result = await widget.api.previewRoute(origin: _origin!, destination: _destination!, vehicle: _selectedVehicle!);
+      final result =
+          await widget.api.previewRoute(origin: _origin!, destination: _destination!, vehicle: _selectedVehicle!);
       setState(() {
         _routeResult = result;
         _routePoints = decodePolyline6(result.shape);
@@ -157,7 +243,12 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
   Widget build(BuildContext context) {
     final canAssign = _origin != null && _destination != null && _selectedVehicle != null && !_loading;
     return Scaffold(
-      appBar: AppBar(title: Text('Nova tura — ${widget.driver.username}')),
+      appBar: AppBar(
+        title: Text('Nova tura — ${widget.driver.username}'),
+        actions: [
+          IconButton(onPressed: _reset, icon: const Icon(Icons.refresh), tooltip: 'Resetuj tačke'),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -174,6 +265,12 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                 }
                 return DropdownButtonFormField<VehicleProfile>(
                   initialValue: _selectedVehicle,
+                  // Without this, the dropdown sizes itself to its widest
+                  // item's intrinsic width instead of the available space -
+                  // a long item label ("Flota · 4.0m/2.55m/16.5m · 40000kg")
+                  // then overflows past the screen edge instead of wrapping
+                  // to it (reported as "Right overflowed by 6.8 pixels").
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Vozilo', border: OutlineInputBorder()),
                   items: vehicles
                       .map((v) => DropdownMenuItem(
@@ -181,6 +278,7 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                             child: Text(
                               '${v.isFleet ? "Flota" : widget.driver.username} · '
                               '${v.heightM}m/${v.widthM}m/${v.lengthM}m · ${v.weightKg.toStringAsFixed(0)}kg',
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ))
                       .toList(),
@@ -190,72 +288,110 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: AddressSearchField(api: widget.api, onSelected: (r) => _handleSearchSelect(LatLng(r.lat, r.lon))),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              _origin == null
-                  ? 'Dodirni mapu ili pretraži adresu da postaviš polaznu tačku.'
-                  : _destination == null
-                      ? 'Dodirni mapu ili pretraži adresu da postaviš odredište.'
-                      : 'Polazna i odredišna tačka su postavljene.',
-              textAlign: TextAlign.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Column(
+              children: [
+                AddressSearchField(
+                  api: widget.api,
+                  controller: _originCtrl,
+                  hintText: 'Polazna tačka (adresa)',
+                  onSelected: _handleOriginSelect,
+                ),
+                const SizedBox(height: 8),
+                AddressSearchField(
+                  api: widget.api,
+                  controller: _destinationCtrl,
+                  hintText: 'Odredište (adresa)',
+                  onSelected: _handleDestinationSelect,
+                ),
+              ],
             ),
           ),
+          // The map fills essentially the whole remaining screen; the panel
+          // below floats OVER it (Stack, not a flex sibling) so the map isn't
+          // permanently squeezed to make room for cargo details that are only
+          // relevant while expanded - see _bottomPanel.
           Expanded(
-            flex: 3,
-            child: GoogleMap(
-              initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
-              onMapCreated: (c) => _mapController = c,
-              onTap: _handleTap,
-              polylines: {
-                ..._alternatePolylines,
-                if (_routePoints.isNotEmpty)
-                  Polyline(
-                    polylineId: const PolylineId('route'),
-                    points: _routePoints,
-                    width: 4,
-                    color: NocturneColors.accent,
-                    zIndex: 1,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
+                    onMapCreated: (c) => _mapController = c,
+                    onTap: _handleTap,
+                    polylines: {
+                      ..._alternatePolylines,
+                      if (_routePoints.isNotEmpty)
+                        Polyline(
+                          polylineId: const PolylineId('route'),
+                          points: _routePoints,
+                          width: 4,
+                          color: NocturneColors.accent,
+                          zIndex: 1,
+                        ),
+                    },
+                    markers: {
+                      if (_origin != null)
+                        Marker(
+                          markerId: const MarkerId('origin'),
+                          position: _origin!,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                        ),
+                      if (_destination != null)
+                        Marker(
+                          markerId: const MarkerId('destination'),
+                          position: _destination!,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                        ),
+                    },
                   ),
-              },
-              markers: {
-                if (_origin != null)
-                  Marker(
-                    markerId: const MarkerId('origin'),
-                    position: _origin!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-                  ),
-                if (_destination != null)
-                  Marker(
-                    markerId: const MarkerId('destination'),
-                    position: _destination!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-                  ),
-              },
+                ),
+                Positioned(left: 0, right: 0, bottom: 0, child: _bottomPanel(context, canAssign)),
+              ],
             ),
           ),
-          // Own Scrollable (not the map) so a focused cargo field scrolls into
-          // view above the keyboard instead of staying hidden under it.
+        ],
+      ),
+    );
+  }
+
+  // Compact by default (error/summary/collapsed cargo header) so the map
+  // stays visible above it; grows to overlay much more of the map while the
+  // cargo section is expanded, so there's room to comfortably fill in cargo
+  // details instead of fighting a cramped, fixed-size strip. Buttons stay
+  // pinned to the bottom of the panel either way (see the inner
+  // Expanded+SingleChildScrollView, sticky-footer pattern).
+  Widget _bottomPanel(BuildContext context, bool canAssign) {
+    final expandedHeight = MediaQuery.sizeOf(context).height * 0.6;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      constraints: BoxConstraints(maxHeight: _cargoExpanded ? expandedHeight : 120),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, -2))],
+      ),
+      child: Column(
+        children: [
           Expanded(
-            flex: 2,
             child: SingleChildScrollView(
               child: Column(
                 children: [
                   if (_error != null)
                     Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Text(_error!, style: const TextStyle(color: NocturneColors.error, fontSize: 13)),
                     ),
                   if (_routeResult != null)
                     Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child:
-                            Text('${_routeResult!.distanceKm.toStringAsFixed(1)} km · ${_routeResult!.durationMin.toStringAsFixed(0)} min'),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Text(
+                          '${_routeResult!.distanceKm.toStringAsFixed(1)} km · ${_routeResult!.durationMin.toStringAsFixed(0)} min',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                       ),
                     ),
                   Theme(
@@ -264,8 +400,11 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                       title: const Text('Podaci o tovaru (opciono)'),
                       leading: const Icon(Icons.inventory_2_outlined),
                       childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      onExpansionChanged: (expanded) => setState(() => _cargoExpanded = expanded),
                       children: [
-                        TextField(controller: _cargoDescriptionCtrl, decoration: const InputDecoration(labelText: 'Opis tovara')),
+                        TextField(
+                            controller: _cargoDescriptionCtrl,
+                            decoration: const InputDecoration(labelText: 'Opis tovara')),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _cargoWeightCtrl,
@@ -275,40 +414,45 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                         const SizedBox(height: 8),
                         TextField(
                           controller: _cargoTempRangeCtrl,
-                          decoration: const InputDecoration(labelText: 'Temperaturni opseg', hintText: 'npr. -18°C do -15°C'),
+                          decoration:
+                              const InputDecoration(labelText: 'Temperaturni opseg', hintText: 'npr. -18°C do -15°C'),
                         ),
                         const SizedBox(height: 8),
-                        TextField(controller: _pickupLocationCtrl, decoration: const InputDecoration(labelText: 'Mesto preuzimanja')),
+                        TextField(
+                            controller: _pickupLocationCtrl,
+                            decoration: const InputDecoration(labelText: 'Mesto preuzimanja')),
                         const SizedBox(height: 8),
-                        TextField(controller: _dropoffLocationCtrl, decoration: const InputDecoration(labelText: 'Mesto isporuke')),
+                        TextField(
+                            controller: _dropoffLocationCtrl,
+                            decoration: const InputDecoration(labelText: 'Mesto isporuke')),
                         const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: canAssign ? _previewRoute : null,
-                            child: const Text('Pregled rute'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: canAssign ? _assignTrip : null,
-                            child: _loading
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Text('Ponudi turu'),
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: canAssign ? _previewRoute : null,
+                    child: const Text('Pregled rute'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: canAssign ? _assignTrip : null,
+                    child: _loading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Ponudi turu'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

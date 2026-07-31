@@ -518,7 +518,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> with RouteAware
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
-      constraints: BoxConstraints(maxHeight: _cargoExpanded ? expandedHeight : 200),
+      constraints: BoxConstraints(maxHeight: _cargoExpanded ? expandedHeight : 180),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
