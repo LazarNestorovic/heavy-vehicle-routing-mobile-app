@@ -6,10 +6,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/geocode_result.dart';
 import '../models/route_result.dart';
+import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/location_service.dart';
 import '../services/polyline.dart';
+import '../services/route_observer.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/address_search_field.dart';
 import '../widgets/start_proximity_status.dart';
@@ -34,7 +36,7 @@ class RouteRequestScreen extends StatefulWidget {
   State<RouteRequestScreen> createState() => _RouteRequestScreenState();
 }
 
-class _RouteRequestScreenState extends State<RouteRequestScreen> {
+class _RouteRequestScreenState extends State<RouteRequestScreen> with RouteAware {
   final _locationService = LocationService();
   StreamSubscription<Position>? _positionSub;
 
@@ -68,6 +70,11 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
   bool _loading = false;
   String? _error;
 
+  // Blocks planning a new route while another trip is already active - mirrors
+  // the backend's own 409 in handleCreateTrip (see widgets/active_trip_banner.dart
+  // for the other half: a way back to an active trip from the home screen).
+  Trip? _activeTrip;
+
   // The actual point used for preview/start: the explicitly chosen origin if
   // there is one, otherwise the driver's live GPS position.
   LatLng? get _effectiveOrigin => _origin ?? _myPosition;
@@ -82,6 +89,34 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
   void initState() {
     super.initState();
     unawaited(_initLocation());
+    unawaited(_checkActiveTrip());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) routeObserver.subscribe(this, route);
+  }
+
+  // Fires when a route pushed on top of this screen (ActiveTripScreen, after
+  // "Kreni na put") is popped and this screen becomes visible again - Flutter
+  // does NOT call initState() again for it, so without this the screen kept
+  // showing "no active trip" (letting the driver plan/start another one)
+  // right after backing out of the one they just started, until the whole
+  // app was restarted.
+  @override
+  void didPopNext() => _checkActiveTrip();
+
+  Future<void> _checkActiveTrip() async {
+    try {
+      final trip = await widget.api.findActiveTrip();
+      if (!mounted) return;
+      setState(() => _activeTrip = trip);
+    } catch (_) {
+      // Best-effort - if the check itself fails, don't block planning on it;
+      // the backend's own 409 is still the real enforcement either way.
+    }
   }
 
   // Keeps a "you are here" marker updating continuously on the map, even
@@ -110,6 +145,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _positionSub?.cancel();
     _destinationCtrl.dispose();
     _cargoDescriptionCtrl.dispose();
@@ -343,6 +379,34 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
     }
   }
 
+  // Shown when the driver already has another trip "created"/"in_progress" -
+  // previewing a route is still harmless and left available, but starting
+  // one is blocked (see the "Kreni na put" button's onPressed condition) -
+  // backend independently rejects it too (see handleCreateTrip's 409).
+  Widget _activeTripBlockBanner(Trip trip) {
+    return Card(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      color: NocturneColors.accent800,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.local_shipping, color: NocturneColors.accent300),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Već imate aktivnu turu u toku - prvo je završite.')),
+            FilledButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => ActiveTripScreen(api: widget.api, trip: trip, vehicleId: trip.vehicleId)),
+              ),
+              child: const Text('Idi na nju'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -354,6 +418,7 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
       ),
       body: Column(
         children: [
+          if (_activeTrip != null) _activeTripBlockBanner(_activeTrip!),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             child: Column(
@@ -533,7 +598,11 @@ class _RouteRequestScreenState extends State<RouteRequestScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: (_effectiveOrigin != null && _destination != null && !_loading && _canStart)
+                    onPressed: (_effectiveOrigin != null &&
+                            _destination != null &&
+                            !_loading &&
+                            _canStart &&
+                            _activeTrip == null)
                         ? _startTrip
                         : null,
                     child: _loading

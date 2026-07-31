@@ -108,7 +108,8 @@ func (s *Server) startTripSideEffects(ctx context.Context, tripID int64) {
 // handleCreateTrip computes and scores a route (same logic as POST /api/v1/routes)
 // and persists it as a trip. Behavior branches by caller role:
 //   - Independent driver (no dispatcher): unchanged self-service flow, trip starts
-//     immediately (status "created", departed event fires now).
+//     immediately (status "created", departed event fires now) - rejected with
+//     409 if they already have another trip active (see HasActiveTrip).
 //   - Managed driver (has a dispatcher): rejected - their dispatcher creates trips
 //     for them.
 //   - Dispatcher: req.DriverID selects which of their managed drivers this trip is
@@ -160,6 +161,23 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 	} else if caller.DispatcherID != nil {
 		writeError(w, http.StatusForbidden, "your dispatcher creates trips for you")
 		return
+	}
+
+	// Self-service creation starts the trip immediately (status stays "") - a
+	// driver already underway on one trip can't start a second at the same
+	// time. A dispatcher's offer (status "offered") isn't gated here; the
+	// driver hasn't committed to it yet, only actually STARTING one is
+	// blocked (see handleStartTrip for the managed-driver equivalent).
+	if status == "" {
+		active, err := s.Trips.HasActiveTrip(r.Context(), assignedDriverID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check active trip: "+err.Error())
+			return
+		}
+		if active != nil {
+			writeError(w, http.StatusConflict, "you already have an active trip in progress")
+			return
+		}
 	}
 
 	vehicle, err := s.Vehicles.Get(r.Context(), req.VehicleID)
@@ -320,6 +338,16 @@ func (s *Server) handleStartTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	active, err := s.Trips.HasActiveTrip(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check active trip: "+err.Error())
+		return
+	}
+	if active != nil {
+		writeError(w, http.StatusConflict, "you already have an active trip in progress")
+		return
+	}
+
 	if err := s.Trips.MarkStarted(r.Context(), trip.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to start trip: "+err.Error())
 		return
@@ -333,6 +361,86 @@ func (s *Server) handleStartTrip(w http.ResponseWriter, r *http.Request) {
 type positionRequest struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
+}
+
+type rerouteRequest struct {
+	Origin valhalla.LatLon `json:"origin"`
+}
+
+// handleRerouteTrip recalculates and persists a trip's route from a NEW
+// origin (typically the driver's current position, after they've deviated
+// from the planned route - see mobile ActiveTripScreen's off-route
+// detection) to its ORIGINAL, unchanged destination. Reuses the exact same
+// scoring pipeline as handleCreateTrip for consistency, and re-publishes
+// trip.started so the existing worker recomputes a rest-stop suggestion for
+// the new route (Reroute() clears the old one, computed for a path that may
+// no longer apply).
+func (s *Server) handleRerouteTrip(w http.ResponseWriter, r *http.Request) {
+	driverID, _ := driverIDFromContext(r.Context())
+
+	trip, ok := s.loadOwnTrip(w, r, driverID)
+	if !ok {
+		return
+	}
+	if trip.Status != store.TripStatusCreated && trip.Status != store.TripStatusInProgress {
+		writeError(w, http.StatusConflict, "trip is not currently active")
+		return
+	}
+
+	var req rerouteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	vehicle, err := s.Vehicles.Get(r.Context(), trip.VehicleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+		return
+	}
+	prefs, err := s.scoringPreferences(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferences: "+err.Error())
+		return
+	}
+	preferredStops, err := s.resolvePreferredStops(r.Context(), driverID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferred stops: "+err.Error())
+		return
+	}
+
+	destination := valhalla.LatLon{Lat: trip.DestinationLat, Lon: trip.DestinationLon}
+	profile := fromStoreVehicle(vehicle)
+	ranked, err := s.bestRoute(r.Context(), req.Origin, destination, profile, prefs, plainCoords(preferredStops))
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	best := ranked[0]
+	explanation := s.Explain.Explain(r.Context(), req.Origin, destination, toTruckProfile(profile), best.RouteCandidate, prefs, profile.WeightKg, plainCoords(preferredStops))
+	if explanation == nil {
+		explanation = preferredStopMessage(best.Shape, preferredStops)
+	}
+
+	if err := s.Trips.Reroute(r.Context(), trip.ID, req.Origin.Lat, req.Origin.Lon, best.DistanceKm, best.DurationMin, best.RiskScore, best.Shape, explanation); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reroute trip: "+err.Error())
+		return
+	}
+	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "rerouted", "Route recalculated after deviation"); err != nil {
+		log.Printf("log rerouted event for trip %d: %v", trip.ID, err)
+	}
+	if body, err := json.Marshal(queue.TripStartedEvent{TripID: trip.ID}); err != nil {
+		log.Printf("encode trip.started for reroute of trip %d: %v", trip.ID, err)
+	} else if err := s.Queue.Publish(r.Context(), queue.RoutingKeyTripStarted, body); err != nil {
+		log.Printf("publish trip.started for reroute of trip %d: %v", trip.ID, err)
+	}
+
+	updated, err := s.Trips.Get(r.Context(), trip.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload trip: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, toTripResponse(updated, toCandidateResponses(ranked)))
 }
 
 // handleReportPosition is called by the driver's own phone with a real GPS

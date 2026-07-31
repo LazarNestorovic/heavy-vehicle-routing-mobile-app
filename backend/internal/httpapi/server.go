@@ -84,6 +84,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/trips/{id}/reject", s.RequireAuth(s.handleRejectTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/start", s.RequireAuth(s.handleStartTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/position", s.RequireAuth(s.handleReportPosition))
+	mux.HandleFunc("POST /api/v1/trips/{id}/reroute", s.RequireAuth(s.handleRerouteTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/complete", s.RequireAuth(s.handleCompleteTrip))
 	mux.HandleFunc("GET /api/v1/trips/{id}/events", s.RequireAuth(s.handleListTripEvents))
 	mux.HandleFunc("GET /ws/trips/{id}", s.RequireAuthQuery(s.handleTripStream))

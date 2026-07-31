@@ -315,13 +315,26 @@ class ApiClient {
   /// assigned-by-them, for a dispatcher). Optional status filter (e.g.
   /// "offered", "in_progress").
   Future<List<Trip>> listMyTrips({String? status}) async {
-    final uri = Uri.parse('$apiBaseUrl/api/v1/trips').replace(queryParameters: status != null ? {'status': status} : null);
+    final uri =
+        Uri.parse('$apiBaseUrl/api/v1/trips').replace(queryParameters: status != null ? {'status': status} : null);
     final resp = await _client.get(uri, headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }
     final list = jsonDecode(resp.body) as List<dynamic>;
     return list.map((t) => Trip.fromJson(t as Map<String, dynamic>)).toList();
+  }
+
+  /// The driver's currently active trip ("created" or "in_progress"), if any -
+  /// null otherwise. Used to offer "resume" instead of planning a new route
+  /// on the home screens, and to proactively block starting a second trip
+  /// (mirrors the backend's own 409 in handleCreateTrip/handleStartTrip).
+  Future<Trip?> findActiveTrip() async {
+    final created = await listMyTrips(status: 'created');
+    if (created.isNotEmpty) return created.first;
+    final inProgress = await listMyTrips(status: 'in_progress');
+    if (inProgress.isNotEmpty) return inProgress.first;
+    return null;
   }
 
   /// Accepts a dispatcher-assigned "offered" trip -> "accepted" - driver-only.
@@ -371,6 +384,25 @@ class ApiClient {
   /// auto-arrival signal on its own.
   Future<Trip> completeTrip(int tripId) async {
     final resp = await _client.post(Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/complete'), headers: _authHeaders);
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// Recalculates and persists a trip's route from a new origin (typically
+  /// the driver's current position) to its ORIGINAL, unchanged destination -
+  /// called when the driver deviated from the planned route and accepted the
+  /// offered recalculation (see active_trip_screen.dart's off-route
+  /// detection). Driver-only, only while the trip is active.
+  Future<Trip> rerouteTrip(int tripId, LatLng origin) async {
+    final resp = await _client.post(
+      Uri.parse('$apiBaseUrl/api/v1/trips/$tripId/reroute'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'origin': {'lat': origin.latitude, 'lon': origin.longitude},
+      }),
+    );
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }
@@ -459,7 +491,8 @@ class ApiClient {
     return list.map((d) => Driver.fromJson(d as Map<String, dynamic>)).toList();
   }
 
-  Future<VehicleProfile> updateVehicleStatus(int vehicleId, {required double fuelPercent, double? nextServiceKm}) async {
+  Future<VehicleProfile> updateVehicleStatus(int vehicleId,
+      {required double fuelPercent, double? nextServiceKm}) async {
     final resp = await _client.patch(
       Uri.parse('$apiBaseUrl/api/v1/vehicles/$vehicleId/status'),
       headers: _authHeaders,
@@ -501,7 +534,8 @@ class ApiClient {
   }
 
   Future<List<ChatMessage>> getChatMessages(int counterpartId) async {
-    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/chats/$counterpartId/messages'), headers: _authHeaders);
+    final resp =
+        await _client.get(Uri.parse('$apiBaseUrl/api/v1/chats/$counterpartId/messages'), headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }
@@ -525,7 +559,8 @@ class ApiClient {
   /// dispatcher create-trip picker's vehicle list (see documentations/
   /// features/ entry). Dispatcher-only; driverId must be one of theirs.
   Future<List<VehicleProfile>> listDriverVehicles(int driverId) async {
-    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/drivers/$driverId/vehicles'), headers: _authHeaders);
+    final resp =
+        await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/drivers/$driverId/vehicles'), headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }

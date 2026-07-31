@@ -42,6 +42,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _canStart = false;
   String? _error;
 
+  // Blocks starting THIS trip while another one is already active - mirrors
+  // the backend's own 409 in handleStartTrip (see widgets/active_trip_banner.dart
+  // for the other half: a way back to an active trip from the home screen).
+  Trip? _activeTrip;
+
   Trip get _trip => _updatedTrip ?? widget.trip;
 
   @override
@@ -53,6 +58,18 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     // trip (not just once live-tracking kicks in on ActiveTripScreen) - the
     // driver asked to always see themselves on the map, not only mid-route.
     unawaited(_watchPosition());
+    unawaited(_checkActiveTrip());
+  }
+
+  Future<void> _checkActiveTrip() async {
+    try {
+      final trip = await widget.api.findActiveTrip();
+      if (!mounted) return;
+      setState(() => _activeTrip = trip);
+    } catch (_) {
+      // Best-effort - if the check itself fails, don't block on it; the
+      // backend's own 409 is still the real enforcement either way.
+    }
   }
 
   Future<void> _watchPosition() async {
@@ -136,7 +153,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       final started = await widget.api.startTrip(_trip.id);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ActiveTripScreen(api: widget.api, trip: started, vehicleId: started.vehicleId)),
+        MaterialPageRoute(
+            builder: (_) => ActiveTripScreen(api: widget.api, trip: started, vehicleId: started.vehicleId)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -157,11 +175,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             flex: 3,
             child: GoogleMap(
               onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(target: _routePoints.isEmpty ? const LatLng(44.5, 20.5) : _routePoints.first, zoom: 7),
+              initialCameraPosition:
+                  CameraPosition(target: _routePoints.isEmpty ? const LatLng(44.5, 20.5) : _routePoints.first, zoom: 7),
               rotateGesturesEnabled: false,
               polylines: {
                 if (_routePoints.isNotEmpty)
-                  Polyline(polylineId: const PolylineId('route'), points: _routePoints, width: 4, color: NocturneColors.accent),
+                  Polyline(
+                      polylineId: const PolylineId('route'),
+                      points: _routePoints,
+                      width: 4,
+                      color: NocturneColors.accent),
               },
               markers: {
                 if (_myPosition != null)
@@ -202,7 +225,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${_trip.distanceKm.toStringAsFixed(1)} km · ${_trip.durationMin.toStringAsFixed(0)} min',
+                          Text(
+                              '${_trip.distanceKm.toStringAsFixed(1)} km · ${_trip.durationMin.toStringAsFixed(0)} min',
                               style: Theme.of(context).textTheme.titleMedium),
                           if (_trip.explanation != null) ...[
                             const SizedBox(height: 6),
@@ -272,6 +296,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _buildActions(BuildContext context) {
     if (_trip.status == 'accepted') {
+      final activeTrip = _activeTrip;
+      if (activeTrip != null) {
+        return Card(
+          color: NocturneColors.accent800,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Već imate aktivnu turu u toku - prvo je završite.'),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            ActiveTripScreen(api: widget.api, trip: activeTrip, vehicleId: activeTrip.vehicleId)),
+                  ),
+                  child: const Text('Idi na nju'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

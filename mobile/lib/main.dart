@@ -4,6 +4,7 @@ import 'screens/entry_router.dart';
 import 'screens/login_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_storage.dart';
+import 'services/route_observer.dart';
 import 'theme/nocturne_theme.dart';
 
 /// Lets ApiClient.onUnauthorized navigate to LoginScreen without a
@@ -52,6 +53,7 @@ class HvrApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
+      navigatorObservers: [routeObserver],
       title: 'HVR - Vozač',
       theme: buildNocturneTheme(),
       home: api.token != null ? homeScreenFor(api) : LoginScreen(api: api),

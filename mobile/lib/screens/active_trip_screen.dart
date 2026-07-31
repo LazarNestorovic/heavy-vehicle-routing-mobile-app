@@ -54,7 +54,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   GpsStatus? _gpsStatus;
   GoogleMapController? _mapController;
 
-  late final List<LatLng> _routePoints;
+  List<LatLng> _routePoints = [];
   LatLng? _currentPosition;
   double _progressFraction = 0;
   late double _etaMin;
@@ -64,6 +64,14 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   String? _error;
   int _chatUnreadTotal = 0;
   VehicleProfile? _vehicle;
+
+  // Off-route detection (see _checkOffRoute/_offRouteThresholdMeters) - a
+  // driver going their own way gets an automatically recalculated route from
+  // wherever they actually are, straight to the same destination, no
+  // confirmation needed (driving on with a route that no longer matches
+  // reality isn't a real alternative). _rerouting doubles as the guard
+  // against re-triggering while one is already in flight - see _reroute().
+  bool _rerouting = false;
 
   @override
   void initState() {
@@ -106,11 +114,75 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       final point = LatLng(position.latitude, position.longitude);
       setState(() => _currentPosition = point);
       _mapController?.animateCamera(CameraUpdate.newLatLng(point));
+      _checkOffRoute(point);
 
       // Fire-and-forget: a dropped ping just means this update didn't reach
       // the dispatcher's live map, the next one (20m later) will.
       unawaited(widget.api.reportPosition(widget.trip.id, position.latitude, position.longitude).catchError((_) {}));
     });
+  }
+
+  // A driver's own real GPS fix, not a threshold anyone tuned against real
+  // driving data - heuristic in the same spirit as StartProximityStatus's
+  // 500m, chosen generously above typical GPS error/road width so an
+  // occasional bad fix doesn't false-positive, while still catching a real
+  // wrong turn/exit reasonably promptly.
+  static const _offRouteThresholdMeters = 300.0;
+
+  void _checkOffRoute(LatLng point) {
+    if (_status == 'arrived' || _rerouting || _routePoints.isEmpty) return;
+    if (_distanceToRouteMeters(point, _routePoints) > _offRouteThresholdMeters) {
+      _reroute();
+    }
+  }
+
+  // Nearest-vertex approximation (not true point-to-segment projection) -
+  // good enough to tell "clearly off the planned route" from "still on it",
+  // not meant to be precise to the meter. Route polylines from Valhalla are
+  // dense enough that this doesn't meaningfully differ from a proper
+  // projection for this purpose.
+  double _distanceToRouteMeters(LatLng point, List<LatLng> route) {
+    var minDistance = double.infinity;
+    for (final p in route) {
+      final d = Geolocator.distanceBetween(point.latitude, point.longitude, p.latitude, p.longitude);
+      if (d < minDistance) minDistance = d;
+    }
+    return minDistance;
+  }
+
+  // Recalculates the trip's route from wherever the driver actually is now
+  // to the SAME, unchanged destination (backend handleRerouteTrip) and
+  // updates the map/ETA to match - fully automatic, no driver confirmation.
+  // Doubles as its own re-trigger guard two ways: _rerouting blocks
+  // concurrent calls while one's in flight, and once it succeeds the new
+  // route STARTS at the driver's current position, so the very next
+  // _checkOffRoute naturally finds them back "on route".
+  Future<void> _reroute() async {
+    final point = _currentPosition;
+    if (point == null) return;
+    setState(() => _rerouting = true);
+    try {
+      final updated = await widget.api.rerouteTrip(widget.trip.id, point);
+      if (!mounted) return;
+      setState(() {
+        _routePoints = decodePolyline6(updated.shape);
+        _etaMin = updated.durationMin;
+        _progressFraction = 0;
+        _restStop = null;
+        _restStopAlertShown = false;
+      });
+      if (updated.explanation != null) {
+        _showExplanationBanner(updated.explanation!);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Skrenuli ste sa rute - ruta je automatski preračunata.')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Greška pri preračunavanju rute: $e')));
+    } finally {
+      if (mounted) setState(() => _rerouting = false);
+    }
   }
 
   Future<void> _completeTrip() async {
@@ -147,14 +219,14 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
 
   void _listen() {
     _socket.connect(widget.trip.id, widget.api.token ?? '').listen(
-      (update) => _onUpdate(update),
-      onError: (e) => setState(() => _error = 'Konekcija prekinuta: $e'),
-      onDone: () {
-        if (mounted && _status != 'arrived') {
-          setState(() => _error = 'Konekcija zatvorena.');
-        }
-      },
-    );
+          (update) => _onUpdate(update),
+          onError: (e) => setState(() => _error = 'Konekcija prekinuta: $e'),
+          onDone: () {
+            if (mounted && _status != 'arrived') {
+              setState(() => _error = 'Konekcija zatvorena.');
+            }
+          },
+        );
   }
 
   void _onUpdate(PositionUpdate update) {
@@ -213,6 +285,24 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           const SizedBox(width: 8),
           Expanded(child: Text(message)),
           TextButton(onPressed: () => action(), child: Text(actionLabel)),
+        ],
+      ),
+    );
+  }
+
+  // Brief, non-actionable status while an automatic reroute (see
+  // _checkOffRoute/_reroute) is in flight - just so the driver isn't left
+  // wondering if the app froze during the ~1-2s recalculation.
+  Widget _reroutingBanner() {
+    return Container(
+      width: double.infinity,
+      color: NocturneColors.accent800,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: const Row(
+        children: [
+          SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 8),
+          Text('Preračunavam rutu...'),
         ],
       ),
     );
@@ -284,6 +374,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               child: Text(_error!, style: const TextStyle(color: NocturneColors.error)),
             ),
           if (_gpsStatus != null && _gpsStatus != GpsStatus.granted) _gpsStatusBanner(),
+          if (_rerouting) _reroutingBanner(),
           _StatusBar(
             progressFraction: _progressFraction,
             etaMin: _etaMin,
@@ -301,7 +392,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                       polylineId: const PolylineId('route'),
                       points: _routePoints,
                       width: 4,
-                      color: NocturneColors.accent.withValues(alpha: 0.5),
+                      color: NocturneColors.accent,
                     ),
                   },
                   markers: {
@@ -339,7 +430,8 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                         }
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => TruckStatusScreen(api: widget.api, vehicle: _vehicle!, currentTrip: widget.trip),
+                            builder: (_) =>
+                                TruckStatusScreen(api: widget.api, vehicle: _vehicle!, currentTrip: widget.trip),
                           ),
                         );
                       },

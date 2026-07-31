@@ -19,9 +19,7 @@ o vozacima koji su na putu.
 29.07. - Mozda mogu dodati i kalendar u kom bi mogao planirati rute...
 
 Bug-ovi:
-- Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
-- Zelim da se meni koji se nalazi prilikom pokretanja ture, nalazi uvek u aplikaciji i da se svemu pristupa preko njega kako bi ekran bio cistiji.
-- Takodje zelim da se moze izaci iz ekrana za rutiranje, a da se moze ponovo vratiti na mapu sa istom rutom
+- (Zahtevno - resiti kasnije)Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
 - Kada se vozac pokrece zelim da se tako pokrece i i ikonica, a da se oznaka rute puta brise iza vozaca.
 - Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
 - Ruta treba da bude prikazana uocljivijom bojom.

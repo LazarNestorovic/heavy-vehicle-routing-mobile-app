@@ -171,6 +171,36 @@ func (s *TripStore) MarkCompleted(ctx context.Context, id int64) error {
 	return err
 }
 
+// HasActiveTrip returns driverID's currently active trip (status "created" or
+// "in_progress"), or nil if they have none - used to block starting a second
+// trip while one is already underway (see httpapi handleCreateTrip/
+// handleStartTrip), and by the app to offer "resume" instead of planning a
+// new route.
+func (s *TripStore) HasActiveTrip(ctx context.Context, driverID int64) (*Trip, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, driver_id, assigned_by_id, vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
+			distance_km, duration_min, risk_score, shape, status, explanation,
+			next_rest_suggestion_min, rest_stop_lat, rest_stop_lon, rest_stop_name, rest_stop_amenity,
+			cargo_description, cargo_weight_kg, cargo_temp_range, pickup_location, dropoff_location, created_at
+		FROM trips
+		WHERE driver_id = $1 AND status IN ($2, $3)
+		ORDER BY created_at DESC
+		LIMIT 1`, driverID, TripStatusCreated, TripStatusInProgress)
+
+	var t Trip
+	err := row.Scan(&t.ID, &t.DriverID, &t.AssignedByID, &t.VehicleID, &t.OriginLat, &t.OriginLon, &t.DestinationLat, &t.DestinationLon,
+		&t.DistanceKm, &t.DurationMin, &t.RiskScore, &t.Shape, &t.Status, &t.Explanation,
+		&t.NextRestSuggestionMin, &t.RestStopLat, &t.RestStopLon, &t.RestStopName, &t.RestStopAmenity,
+		&t.CargoDescription, &t.CargoWeightKg, &t.CargoTempRange, &t.PickupLocation, &t.DropoffLocation, &t.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("check active trip: %w", err)
+	}
+	return &t, nil
+}
+
 // ListForOwner lists trips belonging to ownerID. byAssigner=false filters by
 // driver_id (a driver's own trips - self-service and assigned alike);
 // byAssigner=true filters by assigned_by_id (a dispatcher's assigned trips).
@@ -211,6 +241,27 @@ func (s *TripStore) ListForOwner(ctx context.Context, ownerID int64, byAssigner 
 		trips = append(trips, t)
 	}
 	return trips, rows.Err()
+}
+
+// Reroute updates a trip's origin and route after the driver deviated from
+// the planned path and accepted a recalculated one (see httpapi
+// handleRerouteTrip) - the destination is unchanged. Clears any rest-stop
+// suggestion tied to the OLD route (computed for a path that may no longer be
+// driven at all) - a fresh one isn't recomputed here; the caller re-publishes
+// trip.started so the existing worker does that, the same way it does for a
+// brand new trip.
+func (s *TripStore) Reroute(ctx context.Context, id int64, originLat, originLon, distanceKm, durationMin, riskScore float64, shape string, explanation *string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE trips SET origin_lat = $2, origin_lon = $3, distance_km = $4, duration_min = $5,
+			risk_score = $6, shape = $7, explanation = $8,
+			next_rest_suggestion_min = NULL, rest_stop_lat = NULL, rest_stop_lon = NULL,
+			rest_stop_name = NULL, rest_stop_amenity = NULL
+		WHERE id = $1`,
+		id, originLat, originLon, distanceKm, durationMin, riskScore, shape, explanation)
+	if err != nil {
+		return fmt.Errorf("reroute trip: %w", err)
+	}
+	return nil
 }
 
 // UpdateAfterProcessing is called by the trip.started worker once it has computed a

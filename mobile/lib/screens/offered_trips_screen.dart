@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/trip.dart';
 import '../services/api_client.dart';
+import '../services/route_observer.dart';
 import '../theme/nocturne_theme.dart';
+import '../widgets/active_trip_banner.dart';
 import '../widgets/email_verification_banner.dart';
 import '../widgets/radial_fab_menu.dart';
 import 'dispatcher_requests_screen.dart';
@@ -29,7 +31,7 @@ class OfferedTripsScreen extends StatefulWidget {
   State<OfferedTripsScreen> createState() => _OfferedTripsScreenState();
 }
 
-class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
+class _OfferedTripsScreenState extends State<OfferedTripsScreen> with RouteAware {
   late Future<List<Trip>> _tripsFuture;
 
   @override
@@ -37,6 +39,26 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
     super.initState();
     _reload();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) routeObserver.subscribe(this, route);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // Fires when a route pushed on top of this screen (e.g. VehicleListScreen
+  // via the "Moja vozila" menu item, whose push isn't awaited/reloaded-after)
+  // is popped and this screen becomes visible again - see the identical
+  // comment in vehicle_list_screen.dart for why this is needed at all.
+  @override
+  void didPopNext() => _reload();
 
   void _reload() {
     setState(() {
@@ -63,6 +85,7 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> {
           Column(
             children: [
               EmailVerificationBanner(api: widget.api),
+              ActiveTripBanner(api: widget.api),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () async => _reload(),

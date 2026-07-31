@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
+import '../services/route_observer.dart';
+import '../widgets/active_trip_banner.dart';
 import '../widgets/email_verification_banner.dart';
 import '../widgets/radial_fab_menu.dart';
+import 'active_trip_screen.dart';
 import 'dispatcher_requests_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
@@ -36,8 +42,16 @@ class VehicleListScreen extends StatefulWidget {
   State<VehicleListScreen> createState() => _VehicleListScreenState();
 }
 
-class _VehicleListScreenState extends State<VehicleListScreen> {
+class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
   late Future<List<VehicleProfile>> _vehiclesFuture;
+
+  // Lets tapping the vehicle that's ON the active trip jump straight to
+  // ActiveTripScreen instead of RouteRequestScreen (where it would just hit
+  // the "already have an active trip" block - see route_request_screen.dart).
+  // Separate from ActiveTripBanner's own internal fetch (that widget stays
+  // self-contained for OfferedTripsScreen's sake) - a second lightweight GET
+  // is an acceptable cost for keeping both independent.
+  Trip? _activeTrip;
 
   @override
   void initState() {
@@ -45,10 +59,45 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     _reload();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) routeObserver.subscribe(this, route);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // Fires when a route pushed on top of this screen (RouteRequestScreen, or
+  // ActiveTripScreen reached via a vehicle tap) is popped and this screen
+  // becomes visible again - Flutter does NOT call initState() again for it,
+  // so without this the vehicle list AND the active-trip tap-routing (see
+  // onTap below) both kept showing stale state until the whole app restarted.
+  @override
+  void didPopNext() => _reload();
+
   void _reload() {
     setState(() {
       _vehiclesFuture = widget.api.listVehicles();
     });
+    unawaited(_loadActiveTrip());
+  }
+
+  Future<void> _loadActiveTrip() async {
+    // A dispatcher account has no trips of their own to resume - see
+    // ActiveTripBanner's identical guard for why.
+    if (_isDispatcher) return;
+    try {
+      final trip = await widget.api.findActiveTrip();
+      if (!mounted) return;
+      setState(() => _activeTrip = trip);
+    } catch (_) {
+      // Best-effort - tap just falls back to normal behavior if this fails.
+    }
   }
 
   Future<void> _addVehicle() async {
@@ -99,6 +148,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           Column(
             children: [
               EmailVerificationBanner(api: widget.api),
+              ActiveTripBanner(api: widget.api),
               Expanded(
                 child: FutureBuilder<List<VehicleProfile>>(
                   future: _vehiclesFuture,
@@ -161,18 +211,31 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                           // doesn't drive either - tapping a fleet vehicle just
                           // opens edit, the same action as the popup menu's
                           // "Izmeni" (a plain, common tap-to-edit convenience).
-                          onTap: _isDispatcher
-                              ? () => _editVehicle(v)
-                              : widget.api.dispatcherId != null
-                                  ? () => ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
-                                      )
-                                  : () => Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                            builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
-                                      ),
+                          // Takes priority over all of that: if THIS vehicle is
+                          // the one on the active trip, go straight to
+                          // ActiveTripScreen instead - RouteRequestScreen would
+                          // just show the "already have an active trip" block.
+                          onTap: (_activeTrip != null && _activeTrip!.vehicleId == v.id)
+                              ? () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            ActiveTripScreen(api: widget.api, trip: _activeTrip!, vehicleId: v.id!)),
+                                  );
+                                  _loadActiveTrip();
+                                }
+                              : _isDispatcher
+                                  ? () => _editVehicle(v)
+                                  : widget.api.dispatcherId != null
+                                      ? () => ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
+                                          )
+                                      : () => Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                                builder: (_) => RouteRequestScreen(api: widget.api, vehicle: v)),
+                                          ),
                         );
                       },
                     );
