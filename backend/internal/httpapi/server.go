@@ -80,6 +80,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/trips", s.RequireAuth(s.handleCreateTrip))
 	mux.HandleFunc("GET /api/v1/trips", s.RequireAuth(s.handleListTrips))
 	mux.HandleFunc("GET /api/v1/trips/{id}", s.RequireAuth(s.handleGetTrip))
+	mux.HandleFunc("PUT /api/v1/trips/{id}", s.RequireAuth(s.handleUpdateTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/accept", s.RequireAuth(s.handleAcceptTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/reject", s.RequireAuth(s.handleRejectTrip))
 	mux.HandleFunc("POST /api/v1/trips/{id}/start", s.RequireAuth(s.handleStartTrip))

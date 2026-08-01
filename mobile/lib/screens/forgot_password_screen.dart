@@ -9,7 +9,12 @@ import '../theme/nocturne_theme.dart';
 /// email verification. See documentations/features/ entry.
 class ForgotPasswordScreen extends StatefulWidget {
   final ApiClient api;
-  const ForgotPasswordScreen({super.key, required this.api});
+  // Pre-fills the email field when opened from a screen that already knows
+  // the caller's address (see ProfileScreen's "Promeni lozinku" button) -
+  // still editable, since the account may not be the one whose password
+  // needs resetting.
+  final String? initialEmail;
+  const ForgotPasswordScreen({super.key, required this.api, this.initialEmail});
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
@@ -17,7 +22,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  late final _emailCtrl = TextEditingController(text: widget.initialEmail);
   bool _loading = false;
   bool _sent = false;
   String? _error;

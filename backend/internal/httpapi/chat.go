@@ -13,8 +13,9 @@ import (
 )
 
 type driverResponse struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
+	ID       int64   `json:"id"`
+	Username string  `json:"username"`
+	Email    *string `json:"email,omitempty"`
 }
 
 // handleListDrivers is the "start a new chat" contact list - every other

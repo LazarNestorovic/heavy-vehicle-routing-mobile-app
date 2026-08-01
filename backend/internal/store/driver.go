@@ -230,10 +230,17 @@ func (s *DriverStore) ListManaged(ctx context.Context, dispatcherID int64) ([]Dr
 }
 
 // ListAvailable returns every unmanaged driver (role='driver', no dispatcher
-// yet) - the dispatcher's "send a request" contact list.
-func (s *DriverStore) ListAvailable(ctx context.Context) ([]Driver, error) {
+// yet) whose username or email contains query as a case-insensitive
+// substring - an empty query matches everyone. This is the dispatcher's
+// "send a request" contact list, now searchable (see documentations/
+// features/ entry).
+func (s *DriverStore) ListAvailable(ctx context.Context, query string) ([]Driver, error) {
+	pattern := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username FROM drivers WHERE role = $1 AND dispatcher_id IS NULL ORDER BY username ASC`, RoleDriver)
+		SELECT id, username, email FROM drivers
+		WHERE role = $1 AND dispatcher_id IS NULL
+		  AND (LOWER(username) LIKE $2 OR LOWER(COALESCE(email, '')) LIKE $2)
+		ORDER BY username ASC`, RoleDriver, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("list available drivers: %w", err)
 	}
@@ -242,7 +249,7 @@ func (s *DriverStore) ListAvailable(ctx context.Context) ([]Driver, error) {
 	drivers := []Driver{}
 	for rows.Next() {
 		var d Driver
-		if err := rows.Scan(&d.ID, &d.Username); err != nil {
+		if err := rows.Scan(&d.ID, &d.Username, &d.Email); err != nil {
 			return nil, fmt.Errorf("scan driver: %w", err)
 		}
 		drivers = append(drivers, d)

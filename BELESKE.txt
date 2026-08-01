@@ -21,5 +21,5 @@ o vozacima koji su na putu.
 Bug-ovi:
 - (Zahtevno - resiti kasnije)Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
 - (TESTIRATI)Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
-- Vozac koji je u floti ne moze za svoj kamion da napravi rutu (omoguciti to, ali ne sme da ima zahtev za rutu od dispecera ili svoju vec pokrenutu)
-- Treba napraviti listu tura (pokrenute, zavrsene, predstojece)
+- (URADJENO 01.08) Omoguciti da dispecer pretrazuje na osnovu imena ili mejla vozace kada zeli da im posalje zahtev da se pridruze floti.
+- Omoguciti ikonicu chat-a i izvan pokrenute ture.(pretrazivanje iznad i za slanje poruka)

@@ -8,6 +8,10 @@ class Trip {
   final String? driverUsername;
   final int vehicleId;
   final String status;
+  final double originLat;
+  final double originLon;
+  final double destinationLat;
+  final double destinationLon;
   final double distanceKm;
   final double durationMin;
   final String shape;
@@ -29,6 +33,10 @@ class Trip {
     this.driverUsername,
     required this.vehicleId,
     required this.status,
+    required this.originLat,
+    required this.originLon,
+    required this.destinationLat,
+    required this.destinationLon,
     required this.distanceKm,
     required this.durationMin,
     required this.shape,
@@ -51,6 +59,10 @@ class Trip {
         driverUsername: json['driver_username'] as String?,
         vehicleId: json['vehicle_id'] as int,
         status: json['status'] as String,
+        originLat: ((json['origin'] as Map<String, dynamic>)['lat'] as num).toDouble(),
+        originLon: ((json['origin'] as Map<String, dynamic>)['lon'] as num).toDouble(),
+        destinationLat: ((json['destination'] as Map<String, dynamic>)['lat'] as num).toDouble(),
+        destinationLon: ((json['destination'] as Map<String, dynamic>)['lon'] as num).toDouble(),
         distanceKm: (json['distance_km'] as num).toDouble(),
         durationMin: (json['duration_min'] as num).toDouble(),
         shape: json['shape'] as String,

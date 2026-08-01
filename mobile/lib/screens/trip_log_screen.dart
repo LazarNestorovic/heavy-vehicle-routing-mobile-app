@@ -33,6 +33,8 @@ class _TripLogScreenState extends State<TripLogScreen> {
         return Icons.bedtime;
       case 'arrived':
         return Icons.flag;
+      case 'edited':
+        return Icons.edit_outlined;
       default:
         return Icons.circle;
     }

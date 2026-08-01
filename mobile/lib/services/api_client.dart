@@ -303,6 +303,42 @@ class ApiClient {
     return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
+  /// Edits a trip the caller (a dispatcher) previously assigned - dispatcher-
+  /// only, and only while the trip is still "offered" or "accepted" (see
+  /// backend handleUpdateTrip). If it was "accepted", the backend reverts it
+  /// to "offered" so the driver reviews the change and accepts/rejects
+  /// again; an "offered" trip's status is unaffected.
+  Future<Trip> updateTrip({
+    required int tripId,
+    required int vehicleId,
+    required LatLng origin,
+    required LatLng destination,
+    String? cargoDescription,
+    double? cargoWeightKg,
+    String? cargoTempRange,
+    String? pickupLocation,
+    String? dropoffLocation,
+  }) async {
+    final resp = await _client.put(
+      Uri.parse('$apiBaseUrl/api/v1/trips/$tripId'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'vehicle_id': vehicleId,
+        'origin': {'lat': origin.latitude, 'lon': origin.longitude},
+        'destination': {'lat': destination.latitude, 'lon': destination.longitude},
+        if (cargoDescription != null) 'cargo_description': cargoDescription,
+        if (cargoWeightKg != null) 'cargo_weight_kg': cargoWeightKg,
+        if (cargoTempRange != null) 'cargo_temp_range': cargoTempRange,
+        if (pickupLocation != null) 'pickup_location': pickupLocation,
+        if (dropoffLocation != null) 'dropoff_location': dropoffLocation,
+      }),
+    );
+    if (resp.statusCode != 200) {
+      throw ApiException(_errorMessage(resp));
+    }
+    return Trip.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
   Future<Trip> getTrip(int id) async {
     final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/trips/$id'), headers: _authHeaders);
     if (resp.statusCode != 200) {
@@ -577,8 +613,14 @@ class ApiClient {
     return list.map((d) => Driver.fromJson(d as Map<String, dynamic>)).toList();
   }
 
-  Future<List<Driver>> listAvailableDrivers() async {
-    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/dispatcher/available-drivers'), headers: _authHeaders);
+  /// [query] filters by a case-insensitive substring of username or email
+  /// (backend does the matching - see documentations/features/ entry); omit
+  /// or leave empty to list every unmanaged driver.
+  Future<List<Driver>> listAvailableDrivers({String? query}) async {
+    final uri = Uri.parse('$apiBaseUrl/api/v1/dispatcher/available-drivers').replace(
+      queryParameters: (query != null && query.isNotEmpty) ? {'q': query} : null,
+    );
+    final resp = await _client.get(uri, headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }

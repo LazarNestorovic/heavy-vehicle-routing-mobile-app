@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/driver.dart';
 import '../models/geocode_result.dart';
 import '../models/route_result.dart';
+import '../models/trip.dart';
 import '../models/vehicle_profile.dart';
 import '../services/api_client.dart';
 import '../services/polyline.dart';
@@ -26,10 +27,17 @@ import '../widgets/address_search_field.dart';
 /// phone's GPS has nothing to do with where the driver/truck actually is,
 /// and there's no reason to treat picking it any differently than the
 /// destination).
+///
+/// Doubles as the edit screen for an already-offered/accepted trip when
+/// [editing] is passed - same form, prefilled from the existing trip, PUT
+/// instead of POST on submit (see ApiClient.updateTrip). If the trip was
+/// "accepted", the backend reverts it to "offered" so the driver reviews and
+/// re-accepts (see BELESKE.txt 2026-08-01 entry for the reasoning).
 class DispatcherCreateTripScreen extends StatefulWidget {
   final ApiClient api;
   final Driver driver;
-  const DispatcherCreateTripScreen({super.key, required this.api, required this.driver});
+  final Trip? editing;
+  const DispatcherCreateTripScreen({super.key, required this.api, required this.driver, this.editing});
 
   @override
   State<DispatcherCreateTripScreen> createState() => _DispatcherCreateTripScreenState();
@@ -85,6 +93,26 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
   void initState() {
     super.initState();
     _vehiclesFuture = widget.api.listDriverVehicles(widget.driver.id);
+
+    final editing = widget.editing;
+    if (editing != null) {
+      _origin = LatLng(editing.originLat, editing.originLon);
+      _destination = LatLng(editing.destinationLat, editing.destinationLon);
+      unawaited(_reverseGeocodeOrigin(_origin!));
+      unawaited(_reverseGeocodeDestination(_destination!));
+      _cargoDescriptionCtrl.text = editing.cargoDescription ?? '';
+      _cargoWeightCtrl.text = editing.cargoWeightKg?.toString() ?? '';
+      _cargoTempRangeCtrl.text = editing.cargoTempRange ?? '';
+      _pickupLocationCtrl.text = editing.pickupLocation ?? '';
+      _dropoffLocationCtrl.text = editing.dropoffLocation ?? '';
+      // The vehicle list loads async - once it's in, match the trip's
+      // current vehicle by id so the dropdown starts pre-selected.
+      _vehiclesFuture.then((vehicles) {
+        if (!mounted) return;
+        final match = vehicles.where((v) => v.id == editing.vehicleId);
+        if (match.isNotEmpty) setState(() => _selectedVehicle = match.first);
+      });
+    }
   }
 
   @override
@@ -213,22 +241,40 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
       _loading = true;
       _error = null;
     });
+    final editing = widget.editing;
     try {
-      await widget.api.createTrip(
-        vehicleId: _selectedVehicle!.id!,
-        origin: _origin!,
-        destination: _destination!,
-        cargoDescription: _cargoDescriptionCtrl.text.trim().isEmpty ? null : _cargoDescriptionCtrl.text.trim(),
-        cargoWeightKg: double.tryParse(_cargoWeightCtrl.text.trim()),
-        cargoTempRange: _cargoTempRangeCtrl.text.trim().isEmpty ? null : _cargoTempRangeCtrl.text.trim(),
-        pickupLocation: _pickupLocationCtrl.text.trim().isEmpty ? null : _pickupLocationCtrl.text.trim(),
-        dropoffLocation: _dropoffLocationCtrl.text.trim().isEmpty ? null : _dropoffLocationCtrl.text.trim(),
-        driverId: widget.driver.id,
-      );
+      String message;
+      if (editing != null) {
+        final updated = await widget.api.updateTrip(
+          tripId: editing.id,
+          vehicleId: _selectedVehicle!.id!,
+          origin: _origin!,
+          destination: _destination!,
+          cargoDescription: _cargoDescriptionCtrl.text.trim().isEmpty ? null : _cargoDescriptionCtrl.text.trim(),
+          cargoWeightKg: double.tryParse(_cargoWeightCtrl.text.trim()),
+          cargoTempRange: _cargoTempRangeCtrl.text.trim().isEmpty ? null : _cargoTempRangeCtrl.text.trim(),
+          pickupLocation: _pickupLocationCtrl.text.trim().isEmpty ? null : _pickupLocationCtrl.text.trim(),
+          dropoffLocation: _dropoffLocationCtrl.text.trim().isEmpty ? null : _dropoffLocationCtrl.text.trim(),
+        );
+        message = updated.status == 'offered' && editing.status == 'accepted'
+            ? 'Tura izmenjena — vozač ${widget.driver.username} treba ponovo da je potvrdi.'
+            : 'Tura izmenjena.';
+      } else {
+        await widget.api.createTrip(
+          vehicleId: _selectedVehicle!.id!,
+          origin: _origin!,
+          destination: _destination!,
+          cargoDescription: _cargoDescriptionCtrl.text.trim().isEmpty ? null : _cargoDescriptionCtrl.text.trim(),
+          cargoWeightKg: double.tryParse(_cargoWeightCtrl.text.trim()),
+          cargoTempRange: _cargoTempRangeCtrl.text.trim().isEmpty ? null : _cargoTempRangeCtrl.text.trim(),
+          pickupLocation: _pickupLocationCtrl.text.trim().isEmpty ? null : _pickupLocationCtrl.text.trim(),
+          dropoffLocation: _dropoffLocationCtrl.text.trim().isEmpty ? null : _dropoffLocationCtrl.text.trim(),
+          driverId: widget.driver.id,
+        );
+        message = 'Tura ponuđena vozaču ${widget.driver.username}.';
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tura ponuđena vozaču ${widget.driver.username}.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       setState(() => _error = 'Greška: ${e.message}');
@@ -244,7 +290,7 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
     final canAssign = _origin != null && _destination != null && _selectedVehicle != null && !_loading;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Nova tura — ${widget.driver.username}'),
+        title: Text(widget.editing != null ? 'Izmena ture — ${widget.driver.username}' : 'Nova tura — ${widget.driver.username}'),
         actions: [
           IconButton(onPressed: _reset, icon: const Icon(Icons.refresh), tooltip: 'Resetuj tačke'),
         ],
@@ -317,7 +363,12 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                 Positioned.fill(
                   child: GoogleMap(
                     initialCameraPosition: const CameraPosition(target: _serbiaCenter, zoom: 7),
-                    onMapCreated: (c) => _mapController = c,
+                    onMapCreated: (c) {
+                      _mapController = c;
+                      if (_origin != null) {
+                        c.animateCamera(CameraUpdate.newLatLngZoom(_origin!, 7));
+                      }
+                    },
                     onTap: _handleTap,
                     polylines: {
                       ..._alternatePolylines,
@@ -449,7 +500,7 @@ class _DispatcherCreateTripScreenState extends State<DispatcherCreateTripScreen>
                     onPressed: canAssign ? _assignTrip : null,
                     child: _loading
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Ponudi turu'),
+                        : Text(widget.editing != null ? 'Sačuvaj izmene' : 'Ponudi turu'),
                   ),
                 ),
               ],

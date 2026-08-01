@@ -201,6 +201,76 @@ func (s *TripStore) HasActiveTrip(ctx context.Context, driverID int64) (*Trip, e
 	return &t, nil
 }
 
+// HasPendingOffer returns driverID's pending dispatcher-assigned trip
+// (status "offered" or "accepted" - requested but not yet started), or nil
+// if they have none. Offered/accepted only ever occurs for dispatcher-
+// assigned trips (self-service ones skip straight to "created"), so no
+// separate assigned_by_id filter is needed. Used to stop a managed driver
+// from self-planning a route on their own vehicle while a request from
+// their dispatcher is still awaiting a decision or accepted but not yet
+// under way (see httpapi handleCreateTrip).
+func (s *TripStore) HasPendingOffer(ctx context.Context, driverID int64) (*Trip, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, driver_id, assigned_by_id, vehicle_id, origin_lat, origin_lon, destination_lat, destination_lon,
+			distance_km, duration_min, risk_score, shape, status, explanation,
+			next_rest_suggestion_min, rest_stop_lat, rest_stop_lon, rest_stop_name, rest_stop_amenity,
+			cargo_description, cargo_weight_kg, cargo_temp_range, pickup_location, dropoff_location, created_at
+		FROM trips
+		WHERE driver_id = $1 AND status IN ($2, $3)
+		ORDER BY created_at DESC
+		LIMIT 1`, driverID, TripStatusOffered, TripStatusAccepted)
+
+	var t Trip
+	err := row.Scan(&t.ID, &t.DriverID, &t.AssignedByID, &t.VehicleID, &t.OriginLat, &t.OriginLon, &t.DestinationLat, &t.DestinationLon,
+		&t.DistanceKm, &t.DurationMin, &t.RiskScore, &t.Shape, &t.Status, &t.Explanation,
+		&t.NextRestSuggestionMin, &t.RestStopLat, &t.RestStopLon, &t.RestStopName, &t.RestStopAmenity,
+		&t.CargoDescription, &t.CargoWeightKg, &t.CargoTempRange, &t.PickupLocation, &t.DropoffLocation, &t.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("check pending offer: %w", err)
+	}
+	return &t, nil
+}
+
+// EditByDispatcher updates a dispatcher-assigned trip's vehicle/route/cargo
+// while it's still pending the driver's decision ("offered") or accepted but
+// not yet under way ("accepted") - see httpapi handleUpdateTrip. Always sets
+// status to "offered": an edit to an already-"offered" trip is a no-op on
+// status, but an edit to an "accepted" one reverts it - the trip changed
+// after the driver committed to it, so they need to see the new version and
+// accept/reject again. Clears any rest-stop suggestion, same reasoning as
+// Reroute(). Guarded by WHERE status IN (...) so a concurrent accept/start
+// can't be silently overwritten; returns ErrNotFound if the trip no longer
+// matches (deleted, or moved past both of those statuses in the meantime).
+func (s *TripStore) EditByDispatcher(ctx context.Context, id int64, t Trip) error {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE trips SET vehicle_id = $2, origin_lat = $3, origin_lon = $4,
+			destination_lat = $5, destination_lon = $6, distance_km = $7, duration_min = $8,
+			risk_score = $9, shape = $10, explanation = $11,
+			cargo_description = $12, cargo_weight_kg = $13, cargo_temp_range = $14,
+			pickup_location = $15, dropoff_location = $16, status = $17,
+			next_rest_suggestion_min = NULL, rest_stop_lat = NULL, rest_stop_lon = NULL,
+			rest_stop_name = NULL, rest_stop_amenity = NULL
+		WHERE id = $1 AND status IN ($17, $18)`,
+		id, t.VehicleID, t.OriginLat, t.OriginLon, t.DestinationLat, t.DestinationLon,
+		t.DistanceKm, t.DurationMin, t.RiskScore, t.Shape, t.Explanation,
+		t.CargoDescription, t.CargoWeightKg, t.CargoTempRange, t.PickupLocation, t.DropoffLocation,
+		TripStatusOffered, TripStatusAccepted)
+	if err != nil {
+		return fmt.Errorf("edit trip: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("edit trip: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListForOwner lists trips belonging to ownerID. byAssigner=false filters by
 // driver_id (a driver's own trips - self-service and assigned alike);
 // byAssigner=true filters by assigned_by_id (a dispatcher's assigned trips).

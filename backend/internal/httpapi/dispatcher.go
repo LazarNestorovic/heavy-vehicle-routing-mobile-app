@@ -44,7 +44,7 @@ func (s *Server) handleListAvailableDrivers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	drivers, err := s.Drivers.ListAvailable(r.Context())
+	drivers, err := s.Drivers.ListAvailable(r.Context(), r.URL.Query().Get("q"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list available drivers: "+err.Error())
 		return
@@ -55,7 +55,7 @@ func (s *Server) handleListAvailableDrivers(w http.ResponseWriter, r *http.Reque
 func toDriverResponses(drivers []store.Driver) []driverResponse {
 	out := make([]driverResponse, len(drivers))
 	for i, d := range drivers {
-		out[i] = driverResponse{ID: d.ID, Username: d.Username}
+		out[i] = driverResponse{ID: d.ID, Username: d.Username, Email: d.Email}
 	}
 	return out
 }

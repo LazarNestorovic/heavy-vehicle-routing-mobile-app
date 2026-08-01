@@ -204,14 +204,17 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
                                   ],
                                 )
                               : null,
-                          // A managed driver's dispatcher creates trips for them
-                          // (backend rejects self-service POST /trips for a
-                          // managed driver) - this screen reached via
-                          // OfferedTripsScreen's "Moja vozila" icon is then only
-                          // for vehicle CRUD, not route planning. A dispatcher
-                          // doesn't drive either - tapping a fleet vehicle just
-                          // opens edit, the same action as the popup menu's
-                          // "Izmeni" (a plain, common tap-to-edit convenience).
+                          // A managed driver's dispatcher creates trips for
+                          // FLEET vehicles (backend rejects self-service
+                          // POST /trips against a fleet truck for a managed
+                          // driver) - tapping one here just opens edit, same
+                          // as the popup menu's "Izmeni". A dispatcher
+                          // doesn't drive either - tapping a fleet vehicle
+                          // just opens edit too. But a managed driver's OWN
+                          // personal vehicle still goes to RouteRequestScreen,
+                          // same as an independent driver (the backend allows
+                          // self-service there, gated on no pending dispatcher
+                          // offer / no own trip already under way).
                           // Takes priority over all of that: if THIS vehicle is
                           // the one on the active trip, go straight to
                           // ActiveTripScreen instead - RouteRequestScreen would
@@ -227,11 +230,11 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
                                 }
                               : _isDispatcher
                                   ? () => _editVehicle(v)
-                                  : widget.api.dispatcherId != null
+                                  : (widget.api.dispatcherId != null && v.isFleet)
                                       ? () => ScaffoldMessenger.of(context).showSnackBar(
                                             const SnackBar(
                                                 content: Text(
-                                                    'Vaš dispečer kreira ture za vas - ovde samo upravljate vozilima.')),
+                                                    'Vaš dispečer kreira ture za flotna vozila - ovde samo upravljate vozilima.')),
                                           )
                                       : () => Navigator.of(context).push(
                                             MaterialPageRoute(

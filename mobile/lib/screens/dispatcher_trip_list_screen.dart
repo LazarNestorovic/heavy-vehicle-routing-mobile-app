@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../models/driver.dart';
 import '../models/trip.dart';
 import '../services/api_client.dart';
 import '../theme/nocturne_theme.dart';
+import 'dispatcher_create_trip_screen.dart';
 import 'dispatcher_live_map_screen.dart';
 import 'trip_log_screen.dart';
 
@@ -111,7 +113,7 @@ class _DispatcherTripListScreenState extends State<DispatcherTripListScreen> {
     }
   }
 
-  Widget _tripTile(Trip t, {required VoidCallback onTap}) {
+  Widget _tripTile(Trip t, {required VoidCallback onTap, VoidCallback? onEdit}) {
     final date = t.createdAt.toLocal();
     final dateLabel = '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}.';
     return Card(
@@ -121,16 +123,42 @@ class _DispatcherTripListScreenState extends State<DispatcherTripListScreen> {
         title: Text(t.driverUsername ?? 'Vozač #${t.driverId}'),
         subtitle: Text('$dateLabel · ${t.distanceKm.toStringAsFixed(1)} km · ${t.durationMin.toStringAsFixed(0)} min'
             '${t.cargoDescription != null ? " · ${t.cargoDescription}" : ""}'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: onEdit == null
+            ? const Icon(Icons.chevron_right)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), tooltip: 'Izmeni turu'),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
         onTap: onTap,
       ),
     );
+  }
+
+  // Dispatcher-only edit of a trip they assigned - only while it's still
+  // "offered" or "accepted" (see backend handleUpdateTrip; enforced there
+  // too, this just avoids offering the action once it's moot). Reuses the
+  // create-trip screen in edit mode (DispatcherCreateTripScreen.editing).
+  Future<void> _editTrip(Trip t) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => DispatcherCreateTripScreen(
+          api: widget.api,
+          driver: Driver(id: t.driverId, username: t.driverUsername ?? 'Vozač #${t.driverId}'),
+          editing: t,
+        ),
+      ),
+    );
+    if (changed == true) _reload();
   }
 
   Widget _tripList({
     required Future<List<Trip>> future,
     required String emptyText,
     required void Function(Trip) onTap,
+    void Function(Trip)? onEdit,
   }) {
     return FutureBuilder<List<Trip>>(
       future: future,
@@ -150,7 +178,11 @@ class _DispatcherTripListScreenState extends State<DispatcherTripListScreen> {
                 )
               : ListView.builder(
                   itemCount: trips.length,
-                  itemBuilder: (context, i) => _tripTile(trips[i], onTap: () => onTap(trips[i])),
+                  itemBuilder: (context, i) => _tripTile(
+                    trips[i],
+                    onTap: () => onTap(trips[i]),
+                    onEdit: onEdit == null ? null : () => onEdit(trips[i]),
+                  ),
                 ),
         );
       },
@@ -246,6 +278,7 @@ class _DispatcherTripListScreenState extends State<DispatcherTripListScreen> {
               onTap: (t) => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => TripLogScreen(api: widget.api, tripId: t.id)),
               ),
+              onEdit: _editTrip,
             ),
             _completedTab(),
           ],

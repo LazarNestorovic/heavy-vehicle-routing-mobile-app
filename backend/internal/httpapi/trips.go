@@ -40,6 +40,8 @@ type tripResponse struct {
 	DriverUsername        string              `json:"driver_username,omitempty"`
 	VehicleID             int64               `json:"vehicle_id"`
 	Status                string              `json:"status"`
+	Origin                valhalla.LatLon     `json:"origin"`
+	Destination           valhalla.LatLon     `json:"destination"`
 	DistanceKm            float64             `json:"distance_km"`
 	DurationMin           float64             `json:"duration_min"`
 	Shape                 string              `json:"shape"`
@@ -62,6 +64,8 @@ func toTripResponse(t store.Trip, candidates []candidateResponse) tripResponse {
 		DriverID:              t.DriverID,
 		VehicleID:             t.VehicleID,
 		Status:                t.Status,
+		Origin:                valhalla.LatLon{Lat: t.OriginLat, Lon: t.OriginLon},
+		Destination:           valhalla.LatLon{Lat: t.DestinationLat, Lon: t.DestinationLon},
 		DistanceKm:            t.DistanceKm,
 		DurationMin:           t.DurationMin,
 		Shape:                 t.Shape,
@@ -110,8 +114,12 @@ func (s *Server) startTripSideEffects(ctx context.Context, tripID int64) {
 //   - Independent driver (no dispatcher): unchanged self-service flow, trip starts
 //     immediately (status "created", departed event fires now) - rejected with
 //     409 if they already have another trip active (see HasActiveTrip).
-//   - Managed driver (has a dispatcher): rejected - their dispatcher creates trips
-//     for them.
+//   - Managed driver (has a dispatcher): self-service is allowed, but only for
+//     their OWN personal vehicle - their dispatcher's fleet trucks still go
+//     through the dispatcher (rejected otherwise). Also rejected with 409 if
+//     they have a pending/accepted request from their dispatcher (see
+//     HasPendingOffer) or an own trip already under way (see HasActiveTrip,
+//     same check as the independent-driver path).
 //   - Dispatcher: req.DriverID selects which of their managed drivers this trip is
 //     for; the vehicle may be the dispatcher's own fleet OR that driver's personal
 //     vehicle. Trip is saved as "offered" - departed/trip.started fire later, from
@@ -159,8 +167,33 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 		assignedByID = &callerID
 		status = store.TripStatusOffered
 	} else if caller.DispatcherID != nil {
-		writeError(w, http.StatusForbidden, "your dispatcher creates trips for you")
-		return
+		// Managed driver: self-service is allowed for their OWN personal
+		// vehicle - their dispatcher's fleet trucks still go through the
+		// dispatcher. Even then, blocked while a pending/accepted request
+		// from the dispatcher exists; an own trip already under way is
+		// caught below by HasActiveTrip, same as the independent-driver path.
+		v, err := s.Vehicles.Get(r.Context(), req.VehicleID)
+		if err != nil {
+			if err == store.ErrNotFound {
+				writeError(w, http.StatusNotFound, "vehicle not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+			return
+		}
+		if v.DriverID == nil || *v.DriverID != callerID {
+			writeError(w, http.StatusForbidden, "your dispatcher creates trips for fleet vehicles")
+			return
+		}
+		pending, err := s.Trips.HasPendingOffer(r.Context(), callerID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check pending offer: "+err.Error())
+			return
+		}
+		if pending != nil {
+			writeError(w, http.StatusConflict, "you have a pending route request from your dispatcher")
+			return
+		}
 	}
 
 	// Self-service creation starts the trip immediately (status stays "") - a
@@ -249,6 +282,150 @@ func (s *Server) handleCreateTrip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, toTripResponse(saved, toCandidateResponses(ranked)))
+}
+
+type updateTripRequest struct {
+	VehicleID        int64           `json:"vehicle_id"`
+	Origin           valhalla.LatLon `json:"origin"`
+	Destination      valhalla.LatLon `json:"destination"`
+	CargoDescription *string         `json:"cargo_description,omitempty"`
+	CargoWeightKg    *float64        `json:"cargo_weight_kg,omitempty"`
+	CargoTempRange   *string         `json:"cargo_temp_range,omitempty"`
+	PickupLocation   *string         `json:"pickup_location,omitempty"`
+	DropoffLocation  *string         `json:"dropoff_location,omitempty"`
+}
+
+// handleUpdateTrip lets the dispatcher who assigned a trip change its
+// vehicle/route/cargo while the driver hasn't departed yet - "offered" (not
+// yet reviewed) or "accepted" (committed but not started). Editing an
+// "accepted" trip reverts it to "offered" (see store.TripStore.
+// EditByDispatcher): the trip changed after the driver committed to it, so
+// they need to see the new version and decide again; an "offered" trip
+// doesn't need a status change either way. Recomputes the route exactly like
+// handleCreateTrip, since origin/destination/vehicle may all have changed.
+// The assigned driver itself is NOT editable here - only the trip's content.
+func (s *Server) handleUpdateTrip(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := driverIDFromContext(r.Context())
+
+	caller, err := s.loadAccount(r.Context(), callerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load account: "+err.Error())
+		return
+	}
+	if caller.Role != store.RoleDispatcher {
+		writeError(w, http.StatusForbidden, "only a dispatcher can edit a trip")
+		return
+	}
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid trip id")
+		return
+	}
+	trip, err := s.Trips.Get(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "trip not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load trip: "+err.Error())
+		return
+	}
+	if trip.AssignedByID == nil || *trip.AssignedByID != callerID {
+		writeError(w, http.StatusForbidden, "trip does not belong to you")
+		return
+	}
+	if trip.Status != store.TripStatusOffered && trip.Status != store.TripStatusAccepted {
+		writeError(w, http.StatusConflict, "trip can only be edited while offered or accepted")
+		return
+	}
+
+	var req updateTripRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	vehicle, err := s.Vehicles.Get(r.Context(), req.VehicleID)
+	if err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusNotFound, "vehicle not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to load vehicle: "+err.Error())
+		return
+	}
+	// Same accessibility rule as handleCreateTrip: the dispatcher's own fleet,
+	// OR the assigned driver's own personal vehicle.
+	if !vehicleAccessible(vehicle, caller) && !(vehicle.DriverID != nil && *vehicle.DriverID == trip.DriverID) {
+		writeError(w, http.StatusForbidden, "vehicle does not belong to you")
+		return
+	}
+
+	prefs, err := s.scoringPreferences(r.Context(), callerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferences: "+err.Error())
+		return
+	}
+	preferredStops, err := s.resolvePreferredStops(r.Context(), callerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load preferred stops: "+err.Error())
+		return
+	}
+
+	profile := fromStoreVehicle(vehicle)
+	ranked, err := s.bestRoute(r.Context(), req.Origin, req.Destination, profile, prefs, plainCoords(preferredStops))
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	best := ranked[0]
+	explanation := s.Explain.Explain(r.Context(), req.Origin, req.Destination, toTruckProfile(profile), best.RouteCandidate, prefs, profile.WeightKg, plainCoords(preferredStops))
+	if explanation == nil {
+		explanation = preferredStopMessage(best.Shape, preferredStops)
+	}
+
+	wasAccepted := trip.Status == store.TripStatusAccepted
+
+	if err := s.Trips.EditByDispatcher(r.Context(), trip.ID, store.Trip{
+		VehicleID:        req.VehicleID,
+		OriginLat:        req.Origin.Lat,
+		OriginLon:        req.Origin.Lon,
+		DestinationLat:   req.Destination.Lat,
+		DestinationLon:   req.Destination.Lon,
+		DistanceKm:       best.DistanceKm,
+		DurationMin:      best.DurationMin,
+		RiskScore:        best.RiskScore,
+		Shape:            best.Shape,
+		Explanation:      explanation,
+		CargoDescription: req.CargoDescription,
+		CargoWeightKg:    req.CargoWeightKg,
+		CargoTempRange:   req.CargoTempRange,
+		PickupLocation:   req.PickupLocation,
+		DropoffLocation:  req.DropoffLocation,
+	}); err != nil {
+		if err == store.ErrNotFound {
+			writeError(w, http.StatusConflict, "trip is no longer editable")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update trip: "+err.Error())
+		return
+	}
+
+	eventDesc := "Dispatcher updated the trip"
+	if wasAccepted {
+		eventDesc = "Dispatcher updated the trip - review needed again"
+	}
+	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "edited", eventDesc); err != nil {
+		log.Printf("log edited event for trip %d: %v", trip.ID, err)
+	}
+
+	updated, err := s.Trips.Get(r.Context(), trip.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload trip: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, toTripResponse(updated, toCandidateResponses(ranked)))
 }
 
 // loadOwnTrip loads trip id and checks it's assigned to driverID (strict -
