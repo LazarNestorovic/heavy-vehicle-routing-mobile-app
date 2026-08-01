@@ -11,6 +11,7 @@ import 'dispatcher_requests_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
 import 'trip_detail_screen.dart';
+import 'trip_list_screen.dart';
 import 'vehicle_list_screen.dart';
 
 /// Home screen for a MANAGED driver (has a dispatcher) - see
@@ -169,6 +170,13 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> with RouteAware
                 tooltip: 'Zahtevi dispečera',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => DispatcherRequestsScreen(api: widget.api)),
+                ),
+              ),
+              RadialFabMenuItem(
+                icon: Icons.list_alt,
+                tooltip: 'Moje ture',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => TripListScreen(api: widget.api)),
                 ),
               ),
             ],

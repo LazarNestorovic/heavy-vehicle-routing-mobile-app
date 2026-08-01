@@ -14,6 +14,7 @@ import 'dispatcher_requests_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
 import 'route_request_screen.dart';
+import 'trip_list_screen.dart';
 import 'vehicle_profile_screen.dart';
 
 /// Hub screen after login for a SELF-SERVICE driver (SPECIFIKACIJA.md 3.9 +
@@ -275,6 +276,13 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
                   tooltip: 'Zahtevi dispečera',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => DispatcherRequestsScreen(api: widget.api)),
+                  ),
+                ),
+                RadialFabMenuItem(
+                  icon: Icons.list_alt,
+                  tooltip: 'Moje ture',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => TripListScreen(api: widget.api)),
                   ),
                 ),
               ],

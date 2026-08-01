@@ -8,7 +8,7 @@ import '../widgets/radial_fab_menu.dart';
 import 'dispatcher_available_drivers_screen.dart';
 import 'dispatcher_create_trip_screen.dart';
 import 'dispatcher_live_map_screen.dart';
-import 'dispatcher_trips_screen.dart';
+import 'dispatcher_trip_list_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
 import 'vehicle_list_screen.dart';
@@ -147,7 +147,7 @@ class _DispatcherHomeScreenState extends State<DispatcherHomeScreen> {
                 icon: Icons.list_alt,
                 tooltip: 'Sve ture',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => DispatcherTripsScreen(api: widget.api)),
+                  MaterialPageRoute(builder: (_) => DispatcherTripListScreen(api: widget.api)),
                 ),
               ),
             ],

@@ -20,9 +20,6 @@ o vozacima koji su na putu.
 
 Bug-ovi:
 - (Zahtevno - resiti kasnije)Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
-- Kada se vozac pokrece zelim da se tako pokrece i i ikonica, a da se oznaka rute puta brise iza vozaca.
-- Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
-- Ruta treba da bude prikazana uocljivijom bojom.
-- Dispecer ekran kada se pravi ruta za vozaca ima nekog preklapanja u UI.
+- (TESTIRATI)Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
+- Vozac koji je u floti ne moze za svoj kamion da napravi rutu (omoguciti to, ali ne sme da ima zahtev za rutu od dispecera ili svoju vec pokrenutu)
 - Treba napraviti listu tura (pokrenute, zavrsene, predstojece)
-- *Isto napraviti dizajn pocetnog prozora i za dispecera i za vozaca koji je u floti(veza sa dispecerom)

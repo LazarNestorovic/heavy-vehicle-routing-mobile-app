@@ -21,6 +21,7 @@ class Trip {
   final String? cargoTempRange;
   final String? pickupLocation;
   final String? dropoffLocation;
+  final DateTime createdAt;
 
   const Trip({
     required this.id,
@@ -41,6 +42,7 @@ class Trip {
     this.cargoTempRange,
     this.pickupLocation,
     this.dropoffLocation,
+    required this.createdAt,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) => Trip(
@@ -64,5 +66,6 @@ class Trip {
         cargoTempRange: json['cargo_temp_range'] as String?,
         pickupLocation: json['pickup_location'] as String?,
         dropoffLocation: json['dropoff_location'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
       );
 }
