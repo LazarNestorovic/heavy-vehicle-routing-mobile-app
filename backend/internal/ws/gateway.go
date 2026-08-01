@@ -54,17 +54,32 @@ var upgrader = websocket.Upgrader{
 type liveTrip struct {
 	mu          sync.Mutex
 	subscribers map[chan positionUpdate]struct{}
+	last        *positionUpdate // most recent broadcast, replayed to new subscribers - see subscribe()
 }
 
 func newLiveTrip() *liveTrip {
 	return &liveTrip{subscribers: make(map[chan positionUpdate]struct{})}
 }
 
+// subscribe registers ch and, if a position has already been reported,
+// immediately replays it. Without this, a dispatcher who leaves and reopens
+// the live map (or any client reconnecting) would see nothing until the
+// vehicle's NEXT GPS fix - which can be minutes away, since fixes only arrive
+// every distanceFilter meters of movement (LocationService.positionStream)
+// and don't fire at all while the vehicle is stationary. See
+// documentations/fixes/2026-08-01-dispatcher-live-map-loses-position-on-reopen.md.
 func (lt *liveTrip) subscribe() chan positionUpdate {
 	ch := make(chan positionUpdate, 4)
 	lt.mu.Lock()
 	lt.subscribers[ch] = struct{}{}
+	last := lt.last
 	lt.mu.Unlock()
+	if last != nil {
+		select {
+		case ch <- *last:
+		default: // unreachable for a fresh channel, kept for consistency with broadcast()
+		}
+	}
 	return ch
 }
 
@@ -78,6 +93,7 @@ func (lt *liveTrip) unsubscribe(ch chan positionUpdate) {
 func (lt *liveTrip) broadcast(update positionUpdate) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
+	lt.last = &update
 	for ch := range lt.subscribers {
 		select {
 		case ch <- update:

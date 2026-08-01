@@ -6,14 +6,15 @@ import '../services/api_client.dart';
 import '../services/trip_socket.dart';
 import '../theme/nocturne_theme.dart';
 
-/// Dispatcher's live fleet map - GET /api/v1/trips?status=in_progress for the
-/// list of currently active assigned trips, then one TripSocket connection
-/// per trip (reusing the existing per-trip WS gateway as-is - see
-/// documentations/features/ entry for why this is client-side aggregation
-/// rather than a new server-side broadcast gateway). Only shows drivers
-/// currently on an active trip; there's no idle-position tracking in this
-/// project (position is only reported per-trip while one is active, not a
-/// standing GPS feed).
+/// Dispatcher's live fleet map - GET /api/v1/trips?status=created and
+/// ?status=in_progress for the list of currently active assigned trips (both
+/// statuses count as "on the road" - see the comment on _load() for why),
+/// then one TripSocket connection per trip (reusing the existing per-trip WS
+/// gateway as-is - see documentations/features/ entry for why this is
+/// client-side aggregation rather than a new server-side broadcast gateway).
+/// Only shows drivers currently on an active trip; there's no idle-position
+/// tracking in this project (position is only reported per-trip while one is
+/// active, not a standing GPS feed).
 class DispatcherLiveMapScreen extends StatefulWidget {
   final ApiClient api;
   const DispatcherLiveMapScreen({super.key, required this.api});
@@ -36,7 +37,17 @@ class _DispatcherLiveMapScreenState extends State<DispatcherLiveMapScreen> {
 
   Future<void> _load() async {
     try {
-      final trips = await widget.api.listMyTrips(status: 'in_progress');
+      // A trip stays "created" until the async trip.started worker flips it
+      // to "in_progress" (rest-stop suggestion computed) - that can lag well
+      // behind the driver actually being on the road, so both statuses count
+      // as "live" here (same as HasActiveTrip/TripListScreen's Pokrenute tab)
+      // or a just-started trip would be invisible on this map until the
+      // worker catches up.
+      final results = await Future.wait([
+        widget.api.listMyTrips(status: 'created'),
+        widget.api.listMyTrips(status: 'in_progress'),
+      ]);
+      final trips = [...results[0], ...results[1]];
       if (!mounted) return;
       setState(() => _loading = false);
       for (final trip in trips) {
