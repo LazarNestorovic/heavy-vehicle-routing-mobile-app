@@ -55,7 +55,7 @@ class _RadialFabMenuState extends State<RadialFabMenu> {
   static const _edgeMargin = 53.0;
   // Wide enough that even 5 sub-buttons (see _anglesFor) don't overlap -
   // a driver reported the previous radius (100) as visibly overlapping.
-  static const _arcRadius = 150.0;
+  static const _arcRadius = 180.0;
   static const _arcSweepStart = 95.0;
   static const _arcSweepEnd = 0.0;
   static const _dragSlop = 6.0;

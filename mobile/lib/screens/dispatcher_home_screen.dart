@@ -5,6 +5,7 @@ import '../services/api_client.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/email_verification_banner.dart';
 import '../widgets/radial_fab_menu.dart';
+import 'chat_list_screen.dart';
 import 'dispatcher_available_drivers_screen.dart';
 import 'dispatcher_create_trip_screen.dart';
 import 'dispatcher_live_map_screen.dart';
@@ -16,7 +17,7 @@ import 'vehicle_list_screen.dart';
 /// Home screen for the dispatcher role - roster of managed drivers, fleet
 /// management, and entry points to the live map and "find a driver" flow.
 /// See documentations/features/ entry for the dispatcher/driver roles feature.
-/// Profil/Preference/Vozila/Vozila uživo/Sve ture are reached via a
+/// Profil/Preference/Vozila/Vozila uživo/Sve ture/Poruke are reached via a
 /// RadialFabMenu fixed on the left edge (non-draggable, hamburger icon) -
 /// same pattern as VehicleListScreen/OfferedTripsScreen, for a consistent
 /// navigation layout across the app. "Vozila" opens VehicleListScreen (reused
@@ -35,17 +36,32 @@ class DispatcherHomeScreen extends StatefulWidget {
 
 class _DispatcherHomeScreenState extends State<DispatcherHomeScreen> {
   late Future<List<Driver>> _driversFuture;
+  int _chatUnreadTotal = 0;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _loadChatUnreadTotal();
   }
 
   void _reload() {
     setState(() {
       _driversFuture = widget.api.listManagedDrivers();
     });
+  }
+
+  // Refreshed on entry and whenever the chat list screen is popped back to
+  // here - same scope cut as active_trip_screen.dart's identical method:
+  // REST is the source of truth, no live polling.
+  Future<void> _loadChatUnreadTotal() async {
+    try {
+      final chats = await widget.api.listChats();
+      if (!mounted) return;
+      setState(() => _chatUnreadTotal = chats.fold(0, (sum, c) => sum + c.unreadCount));
+    } catch (_) {
+      // Non-critical - the badge just stays at its last known value.
+    }
   }
 
   @override
@@ -149,6 +165,17 @@ class _DispatcherHomeScreenState extends State<DispatcherHomeScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => DispatcherTripListScreen(api: widget.api)),
                 ),
+              ),
+              RadialFabMenuItem(
+                icon: Icons.chat_bubble_outline,
+                tooltip: 'Poruke',
+                badgeCount: _chatUnreadTotal,
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ChatListScreen(api: widget.api)),
+                  );
+                  _loadChatUnreadTotal();
+                },
               ),
             ],
           ),

@@ -7,6 +7,7 @@ import '../theme/nocturne_theme.dart';
 import '../widgets/active_trip_banner.dart';
 import '../widgets/email_verification_banner.dart';
 import '../widgets/radial_fab_menu.dart';
+import 'chat_list_screen.dart';
 import 'dispatcher_requests_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
@@ -19,11 +20,11 @@ import 'vehicle_list_screen.dart';
 /// They don't plan routes themselves; instead they see trips their
 /// dispatcher assigned. Tapping one opens TripDetailScreen (route on map,
 /// cargo, vehicle) where they accept/reject an "offered" trip, or start an
-/// already-"accepted" one. Profil/Moja vozila/Preference/Zahtevi dispečera
-/// are reached via a RadialFabMenu fixed on the left edge (non-draggable,
-/// hamburger icon) - same pattern as VehicleListScreen, for a consistent
-/// navigation layout across the app. "Odjava" lives on ProfileScreen, not
-/// duplicated here.
+/// already-"accepted" one. Profil/Moja vozila/Preference/Zahtevi
+/// dispečera/Poruke are reached via a RadialFabMenu fixed on the left edge
+/// (non-draggable, hamburger icon) - same pattern as VehicleListScreen, for a
+/// consistent navigation layout across the app. "Odjava" lives on
+/// ProfileScreen, not duplicated here.
 class OfferedTripsScreen extends StatefulWidget {
   final ApiClient api;
   const OfferedTripsScreen({super.key, required this.api});
@@ -34,11 +35,13 @@ class OfferedTripsScreen extends StatefulWidget {
 
 class _OfferedTripsScreenState extends State<OfferedTripsScreen> with RouteAware {
   late Future<List<Trip>> _tripsFuture;
+  int _chatUnreadTotal = 0;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _loadChatUnreadTotal();
   }
 
   @override
@@ -68,6 +71,19 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> with RouteAware
         widget.api.listMyTrips(status: 'accepted'),
       ]).then((results) => [...results[0], ...results[1]]);
     });
+  }
+
+  // Refreshed once on entry (and again whenever the chat list screen is
+  // popped back to here) - same scope cut as active_trip_screen.dart's
+  // identical method: REST is the source of truth, no live polling.
+  Future<void> _loadChatUnreadTotal() async {
+    try {
+      final chats = await widget.api.listChats();
+      if (!mounted) return;
+      setState(() => _chatUnreadTotal = chats.fold(0, (sum, c) => sum + c.unreadCount));
+    } catch (_) {
+      // Non-critical - the badge just stays at its last known value.
+    }
   }
 
   Future<void> _openDetail(Trip trip) async {
@@ -178,6 +194,17 @@ class _OfferedTripsScreenState extends State<OfferedTripsScreen> with RouteAware
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => TripListScreen(api: widget.api)),
                 ),
+              ),
+              RadialFabMenuItem(
+                icon: Icons.chat_bubble_outline,
+                tooltip: 'Poruke',
+                badgeCount: _chatUnreadTotal,
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ChatListScreen(api: widget.api)),
+                  );
+                  _loadChatUnreadTotal();
+                },
               ),
             ],
           ),

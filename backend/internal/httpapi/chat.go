@@ -19,28 +19,28 @@ type driverResponse struct {
 }
 
 // handleListDrivers is the "start a new chat" contact list - every other
-// registered driver, since this project has no fleet/team concept.
+// registered account (driver or dispatcher), since this project has no
+// fleet/team concept restricting who can message whom. Optional query-string
+// `q` filters by a case-insensitive substring of username or email (see
+// documentations/features/ entry for the chat contact search + pinning
+// feature).
 func (s *Server) handleListDrivers(w http.ResponseWriter, r *http.Request) {
 	driverID, _ := driverIDFromContext(r.Context())
 
-	drivers, err := s.Drivers.List(r.Context(), driverID)
+	drivers, err := s.Drivers.List(r.Context(), driverID, r.URL.Query().Get("q"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list drivers: "+err.Error())
 		return
 	}
-
-	out := make([]driverResponse, len(drivers))
-	for i, d := range drivers {
-		out[i] = driverResponse{ID: d.ID, Username: d.Username}
-	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, toDriverResponses(drivers))
 }
 
 type chatConversationResponse struct {
-	CounterpartID int64     `json:"counterpart_id"`
-	LastMessage   string    `json:"last_message"`
-	LastMessageAt time.Time `json:"last_message_at"`
-	UnreadCount   int       `json:"unread_count"`
+	CounterpartID       int64     `json:"counterpart_id"`
+	CounterpartUsername string    `json:"counterpart_username"`
+	LastMessage         string    `json:"last_message"`
+	LastMessageAt       time.Time `json:"last_message_at"`
+	UnreadCount         int       `json:"unread_count"`
 }
 
 func (s *Server) handleListChats(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +55,11 @@ func (s *Server) handleListChats(w http.ResponseWriter, r *http.Request) {
 	out := make([]chatConversationResponse, len(conversations))
 	for i, c := range conversations {
 		out[i] = chatConversationResponse{
-			CounterpartID: c.CounterpartID,
-			LastMessage:   c.LastMessage,
-			LastMessageAt: c.LastMessageAt,
-			UnreadCount:   c.UnreadCount,
+			CounterpartID:       c.CounterpartID,
+			CounterpartUsername: c.CounterpartUsername,
+			LastMessage:         c.LastMessage,
+			LastMessageAt:       c.LastMessageAt,
+			UnreadCount:         c.UnreadCount,
 		}
 	}
 	writeJSON(w, http.StatusOK, out)

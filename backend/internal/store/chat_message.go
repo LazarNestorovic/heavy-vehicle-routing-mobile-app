@@ -19,10 +19,11 @@ type ChatMessage struct {
 // ChatConversation summarizes one thread for the chat list screen: who it's
 // with, the last message, and how many are unread by the requesting driver.
 type ChatConversation struct {
-	CounterpartID int64
-	LastMessage   string
-	LastMessageAt time.Time
-	UnreadCount   int
+	CounterpartID       int64
+	CounterpartUsername string
+	LastMessage         string
+	LastMessageAt       time.Time
+	UnreadCount         int
 }
 
 type ChatMessageStore struct {
@@ -91,8 +92,9 @@ func (s *ChatMessageStore) ListConversations(ctx context.Context, driverID int64
 			WHERE to_driver_id = $1 AND read_at IS NULL
 			GROUP BY counterpart_id
 		)
-		SELECT lm.counterpart_id, lm.body, lm.sent_at, COALESCE(u.unread_count, 0)
+		SELECT lm.counterpart_id, d.username, lm.body, lm.sent_at, COALESCE(u.unread_count, 0)
 		FROM last_msg lm
+		JOIN drivers d ON d.id = lm.counterpart_id
 		LEFT JOIN unread u ON u.counterpart_id = lm.counterpart_id
 		ORDER BY lm.sent_at DESC`, driverID)
 	if err != nil {
@@ -103,7 +105,7 @@ func (s *ChatMessageStore) ListConversations(ctx context.Context, driverID int64
 	conversations := []ChatConversation{}
 	for rows.Next() {
 		var c ChatConversation
-		if err := rows.Scan(&c.CounterpartID, &c.LastMessage, &c.LastMessageAt, &c.UnreadCount); err != nil {
+		if err := rows.Scan(&c.CounterpartID, &c.CounterpartUsername, &c.LastMessage, &c.LastMessageAt, &c.UnreadCount); err != nil {
 			return nil, fmt.Errorf("scan chat conversation: %w", err)
 		}
 		conversations = append(conversations, c)

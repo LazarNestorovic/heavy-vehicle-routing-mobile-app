@@ -30,12 +30,14 @@ class ChatMessage {
 /// One row of GET /api/v1/chats - the chat list screen's conversation summary.
 class ChatConversation {
   final int counterpartId;
+  final String counterpartUsername;
   final String lastMessage;
   final DateTime lastMessageAt;
   final int unreadCount;
 
   const ChatConversation({
     required this.counterpartId,
+    required this.counterpartUsername,
     required this.lastMessage,
     required this.lastMessageAt,
     required this.unreadCount,
@@ -43,6 +45,7 @@ class ChatConversation {
 
   factory ChatConversation.fromJson(Map<String, dynamic> json) => ChatConversation(
         counterpartId: json['counterpart_id'] as int,
+        counterpartUsername: json['counterpart_username'] as String,
         lastMessage: json['last_message'] as String,
         lastMessageAt: DateTime.parse(json['last_message_at'] as String),
         unreadCount: json['unread_count'] as int,

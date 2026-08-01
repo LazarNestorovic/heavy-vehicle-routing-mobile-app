@@ -518,8 +518,14 @@ class ApiClient {
     }
   }
 
-  Future<List<Driver>> listDrivers() async {
-    final resp = await _client.get(Uri.parse('$apiBaseUrl/api/v1/drivers'), headers: _authHeaders);
+  /// [query] filters by a case-insensitive substring of username or email
+  /// (backend does the matching - see documentations/features/ entry); omit
+  /// or leave empty to list every other registered account.
+  Future<List<Driver>> listDrivers({String? query}) async {
+    final uri = Uri.parse('$apiBaseUrl/api/v1/drivers').replace(
+      queryParameters: (query != null && query.isNotEmpty) ? {'q': query} : null,
+    );
+    final resp = await _client.get(uri, headers: _authHeaders);
     if (resp.statusCode != 200) {
       throw ApiException(_errorMessage(resp));
     }

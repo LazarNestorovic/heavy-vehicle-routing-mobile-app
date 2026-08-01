@@ -257,13 +257,20 @@ func (s *DriverStore) ListAvailable(ctx context.Context, query string) ([]Driver
 	return drivers, rows.Err()
 }
 
-// List returns every registered driver except excludeID (the caller - used to
-// populate the "start a new chat" contact list). No fleet/team concept yet
-// (see documentations/features/2026-07-21-nocturne-redesign.md) - every
-// registered driver is a valid chat contact.
-func (s *DriverStore) List(ctx context.Context, excludeID int64) ([]Driver, error) {
+// List returns every registered account except excludeID (the caller - used
+// to populate the "start a new chat" contact list) whose username or email
+// contains query as a case-insensitive substring - an empty query matches
+// everyone. No fleet/team concept yet (see documentations/features/2026-07-21-
+// nocturne-redesign.md) - every registered account (driver or dispatcher) is
+// a valid chat contact; pinning the caller's own dispatcher/managed drivers
+// to the top of the list is done client-side (see documentations/features/
+// entry for the chat contact search + pinning feature).
+func (s *DriverStore) List(ctx context.Context, excludeID int64, query string) ([]Driver, error) {
+	pattern := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username FROM drivers WHERE id != $1 ORDER BY username ASC`, excludeID)
+		SELECT id, username, email FROM drivers
+		WHERE id != $1 AND (LOWER(username) LIKE $2 OR LOWER(COALESCE(email, '')) LIKE $2)
+		ORDER BY username ASC`, excludeID, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("list drivers: %w", err)
 	}
@@ -272,7 +279,7 @@ func (s *DriverStore) List(ctx context.Context, excludeID int64) ([]Driver, erro
 	drivers := []Driver{}
 	for rows.Next() {
 		var d Driver
-		if err := rows.Scan(&d.ID, &d.Username); err != nil {
+		if err := rows.Scan(&d.ID, &d.Username, &d.Email); err != nil {
 			return nil, fmt.Errorf("scan driver: %w", err)
 		}
 		drivers = append(drivers, d)

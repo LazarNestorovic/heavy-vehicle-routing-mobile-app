@@ -10,6 +10,7 @@ import '../widgets/active_trip_banner.dart';
 import '../widgets/email_verification_banner.dart';
 import '../widgets/radial_fab_menu.dart';
 import 'active_trip_screen.dart';
+import 'chat_list_screen.dart';
 import 'dispatcher_requests_screen.dart';
 import 'preferences_screen.dart';
 import 'profile_screen.dart';
@@ -53,6 +54,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
   // self-contained for OfferedTripsScreen's sake) - a second lightweight GET
   // is an acceptable cost for keeping both independent.
   Trip? _activeTrip;
+  int _chatUnreadTotal = 0;
 
   @override
   void initState() {
@@ -86,6 +88,20 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
       _vehiclesFuture = widget.api.listVehicles();
     });
     unawaited(_loadActiveTrip());
+    if (!_isDispatcher && widget.api.dispatcherId == null) _loadChatUnreadTotal();
+  }
+
+  // Refreshed on entry and whenever a pushed route (e.g. the chat list
+  // screen) is popped back to here - same scope cut as active_trip_screen.
+  // dart's identical method: REST is the source of truth, no live polling.
+  Future<void> _loadChatUnreadTotal() async {
+    try {
+      final chats = await widget.api.listChats();
+      if (!mounted) return;
+      setState(() => _chatUnreadTotal = chats.fold(0, (sum, c) => sum + c.unreadCount));
+    } catch (_) {
+      // Non-critical - the badge just stays at its last known value.
+    }
   }
 
   Future<void> _loadActiveTrip() async {
@@ -287,6 +303,17 @@ class _VehicleListScreenState extends State<VehicleListScreen> with RouteAware {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => TripListScreen(api: widget.api)),
                   ),
+                ),
+                RadialFabMenuItem(
+                  icon: Icons.chat_bubble_outline,
+                  tooltip: 'Poruke',
+                  badgeCount: _chatUnreadTotal,
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => ChatListScreen(api: widget.api)),
+                    );
+                    _loadChatUnreadTotal();
+                  },
                 ),
               ],
             ),
