@@ -194,7 +194,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
                     anchor: const Offset(0.5, 0.5),
                     flat: true,
-                    zIndex: 2,
+                    zIndexInt: 2,
                     infoWindow: const InfoWindow(title: 'Vaša pozicija'),
                   ),
                 if (_routePoints.isNotEmpty)
