@@ -1,0 +1,65 @@
+<svg viewBox="0 0 640 620" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="12.5">
+  <defs>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#000"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
+    .dec{fill:#ffffff;stroke:#000;stroke-width:1.3;stroke-dasharray:3,2;}
+    .lbl{text-anchor:middle;dominant-baseline:middle;}
+    .edge{stroke:#000;stroke-width:1.2;fill:none;marker-end:url(#arrow2);}
+    .cap{font-size:11px;text-anchor:middle;fill:#333;}
+  </style>
+
+  <rect class="box" x="170" y="10" width="300" height="45" rx="4"/>
+  <text class="lbl" x="320" y="33">Izabrana ruta (profil vozila) + referentna ruta</text>
+
+  <path class="edge" d="M320,55 L320,95"/>
+
+  <rect class="dec" x="150" y="95" width="340" height="55" rx="4"/>
+  <text class="lbl" x="320" y="115">|distance(izabrana) − distance(referentna)|</text>
+  <text class="lbl" x="320" y="132">&lt; 1 km ?</text>
+
+  <path class="edge" d="M490,122 L560,122 L560,30 L470,30"/>
+  <text class="cap" x="565" y="80">da</text>
+  <rect class="box" x="500" y="5" width="0" height="0"/>
+  <text class="lbl" x="595" y="30" transform="rotate(0)"></text>
+
+  <rect class="box" x="490" y="8" width="140" height="45" rx="4" transform="translate(0,0)"/>
+  <text class="lbl small" x="560" y="25" font-size="11">Nema odstupanja</text>
+  <text class="lbl small" x="560" y="40" font-size="11">— bez poruke</text>
+
+  <path class="edge" d="M320,150 L320,190"/>
+  <text class="cap" x="270" y="172">ne</text>
+
+  <rect class="box" x="120" y="190" width="400" height="55" rx="4"/>
+  <text class="lbl" x="320" y="210">Redom oslobodi JEDNU dimenziju profila</text>
+  <text class="lbl" x="320" y="227">(height, weight, axle_load, width, hazmat)</text>
+
+  <path class="edge" d="M320,245 L320,285"/>
+
+  <rect class="dec" x="150" y="285" width="340" height="55" rx="4"/>
+  <text class="lbl" x="320" y="305">Rastojanje nove rute ≈</text>
+  <text class="lbl" x="320" y="322">referentnoj (&lt; 1 km) ?</text>
+
+  <path class="edge" d="M150,312 L60,312 L60,217 L120,217"/>
+  <text class="cap" x="70" y="270" transform="rotate(-90 70 270)">ne — probaj sledeću dimenziju</text>
+
+  <path class="edge" d="M320,340 L320,380"/>
+  <text class="cap" x="270" y="362">da</text>
+
+  <rect class="box" x="120" y="380" width="400" height="50" rx="4"/>
+  <text class="lbl" x="320" y="405">Ta dimenzija je VEZUJUĆE OGRANIČENJE za ovaj segment</text>
+
+  <path class="edge" d="M320,430 L320,470"/>
+
+  <rect class="box" x="120" y="470" width="400" height="55" rx="4"/>
+  <text class="lbl" x="320" y="490">Geometrijska divergencija ruta → najbliži naziv</text>
+  <text class="lbl" x="320" y="507">ulice iz maneuver-a izabrane rute (6.3)</text>
+
+  <path class="edge" d="M320,525 L320,565"/>
+
+  <rect class="box" x="90" y="565" width="460" height="50" rx="4"/>
+  <text class="lbl" x="320" y="592" font-style="italic">„Ruta skreće kod {ulica} jer {dimenzija} vozila ne zadovoljava ograničenje.“</text>
+</svg>

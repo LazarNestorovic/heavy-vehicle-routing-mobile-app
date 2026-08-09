@@ -21,3 +21,8 @@ o vozacima koji su na putu.
 Bug-ovi:
 - (Zahtevno - resiti kasnije)Pokusaj da napravis tako da aplikacija mora biti povezana na internet, a ne na lokalnu mrezu.
 - (TESTIRATI)Ako vozac na svoju ruku promeni pravac kretanja zelim da se automatski izracuna nova ruta od njegove trenutne pozicije do odredista.
+
+TESTIRANJE:
+- Restartovanje lozinke - kada se udje na mejl preko telefona ne moze da otvori link, dobija se greska localhost je odbio povezivanje, na adresi localhost:8080.
+- Menjanje polazne i krajnje lokacije rute kao dispecer, ne intuitivno, zelim da pinovi mogu da se prevlace ili tako nesto.
+- Logovi voznje su na engleskom i takodje vremena su napisana sa jako velikom preciznoscu, neka se prikazuju samo sati, minuti i sekunde.

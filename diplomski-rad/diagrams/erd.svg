@@ -1,0 +1,97 @@
+<svg viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="12">
+  <style>
+    .ent{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
+    .title{font-weight:bold;text-anchor:middle;}
+    .field{font-size:10.5px;}
+    .edge{stroke:#000;stroke-width:1.1;fill:none;}
+    .card{font-size:10px;fill:#333;}
+  </style>
+
+  <!-- drivers -->
+  <rect class="ent" x="270" y="15" width="160" height="90"/>
+  <text class="title" x="350" y="32">drivers</text>
+  <line x1="270" y1="40" x2="430" y2="40" stroke="#000"/>
+  <text class="field" x="280" y="55">id (PK)</text>
+  <text class="field" x="280" y="68">role, dispatcher_id (FK→drivers)</text>
+  <text class="field" x="280" y="81">email, google_sub, token_version</text>
+  <text class="field" x="280" y="94">password_hash</text>
+
+  <!-- dispatcher_requests -->
+  <rect class="ent" x="20" y="15" width="180" height="60"/>
+  <text class="title" x="110" y="32">dispatcher_requests</text>
+  <line x1="20" y1="40" x2="200" y2="40" stroke="#000"/>
+  <text class="field" x="30" y="54">dispatcher_id, driver_id (FK)</text>
+  <text class="field" x="30" y="67">status</text>
+
+  <!-- driver_preferences -->
+  <rect class="ent" x="500" y="15" width="180" height="60"/>
+  <text class="title" x="590" y="32">driver_preferences</text>
+  <line x1="500" y1="40" x2="680" y2="40" stroke="#000"/>
+  <text class="field" x="510" y="54">driver_id (PK, FK)</text>
+  <text class="field" x="510" y="67">fuel/cargo/highway/time_priority</text>
+
+  <!-- vehicles -->
+  <rect class="ent" x="60" y="170" width="180" height="80"/>
+  <text class="title" x="150" y="187">vehicles</text>
+  <line x1="60" y1="195" x2="240" y2="195" stroke="#000"/>
+  <text class="field" x="70" y="209">id (PK)</text>
+  <text class="field" x="70" y="222">driver_id / dispatcher_id (FK)</text>
+  <text class="field" x="70" y="235">height_m, weight_kg, hazmat...</text>
+
+  <!-- trips -->
+  <rect class="ent" x="280" y="170" width="180" height="90"/>
+  <text class="title" x="370" y="187">trips</text>
+  <line x1="280" y1="195" x2="460" y2="195" stroke="#000"/>
+  <text class="field" x="290" y="209">id (PK)</text>
+  <text class="field" x="290" y="222">driver_id, assigned_by_id (FK)</text>
+  <text class="field" x="290" y="235">vehicle_id (FK), status</text>
+  <text class="field" x="290" y="248">shape, risk_score, rest_stop_*</text>
+
+  <!-- driver_favorite_stops -->
+  <rect class="ent" x="500" y="170" width="180" height="65"/>
+  <text class="title" x="590" y="187">driver_favorite_stops</text>
+  <line x1="500" y1="195" x2="680" y2="195" stroke="#000"/>
+  <text class="field" x="510" y="209">driver_id (FK)</text>
+  <text class="field" x="510" y="222">lat, lon, name</text>
+
+  <!-- trip_events -->
+  <rect class="ent" x="280" y="330" width="180" height="65"/>
+  <text class="title" x="370" y="347">trip_events</text>
+  <line x1="280" y1="355" x2="460" y2="355" stroke="#000"/>
+  <text class="field" x="290" y="369">trip_id (FK)</text>
+  <text class="field" x="290" y="382">event_type, occurred_at</text>
+
+  <!-- chat_messages -->
+  <rect class="ent" x="500" y="330" width="180" height="65"/>
+  <text class="title" x="590" y="347">chat_messages</text>
+  <line x1="500" y1="355" x2="680" y2="355" stroke="#000"/>
+  <text class="field" x="510" y="369">from_driver_id, to_driver_id (FK)</text>
+  <text class="field" x="510" y="382">body, sent_at, read_at</text>
+
+  <!-- edges -->
+  <path class="edge" d="M200,45 L270,45"/>
+  <text class="card" x="215" y="40">N</text><text class="card" x="255" y="40">1</text>
+
+  <path class="edge" d="M430,45 L500,45"/>
+  <text class="card" x="445" y="40">1</text><text class="card" x="490" y="40">1</text>
+
+  <path class="edge" d="M330,105 L200,170"/>
+  <text class="card" x="290" y="130">1</text><text class="card" x="220" y="160">N</text>
+
+  <path class="edge" d="M370,105 L370,170"/>
+  <text class="card" x="360" y="130">1</text><text class="card" x="360" y="160">N</text>
+
+  <path class="edge" d="M430,105 L560,170"/>
+  <text class="card" x="470" y="130">1</text><text class="card" x="540" y="160">N</text>
+
+  <path class="edge" d="M150,250 L340,170" stroke-dasharray="3,2"/>
+  <text class="card" x="220" y="205">1</text><text class="card" x="300" y="185">N</text>
+
+  <path class="edge" d="M370,260 L370,330"/>
+  <text class="card" x="360" y="285">1</text><text class="card" x="360" y="315">N</text>
+
+  <path class="edge" d="M350,105 L590,330" stroke-dasharray="3,2"/>
+  <text class="card" x="420" y="200">1</text><text class="card" x="560" y="300">N</text>
+
+  <text x="350" y="490" text-anchor="middle" font-size="10.5" fill="#333">Isprekidane linije: veza posredna preko drivers (vlasništvo vozila / autor poruke), ne direktan FK prikazan na dijagramu.</text>
+</svg>

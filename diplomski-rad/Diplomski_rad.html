@@ -1,0 +1,1537 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8"/>
+<title>Diplomski rad</title>
+<style>@page {
+  size: A4;
+  margin: 25mm 25mm 25mm 30mm;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12.5pt;
+  line-height: 1.4;
+  color: #111;
+  text-align: justify;
+  hyphens: auto;
+  max-width: 100%;
+}
+
+h1, h2, h3 {
+  font-family: "Times New Roman", Times, serif;
+  text-align: left;
+  page-break-after: avoid;
+  break-after: avoid;
+  color: #000;
+}
+
+h1 { font-size: 17pt; margin: 1.4em 0 0.6em; border-bottom: 1.4pt solid #000; padding-bottom: 4pt; }
+h2 { font-size: 14pt; margin: 1.3em 0 0.5em; }
+h3 { font-size: 12.5pt; margin: 1.1em 0 0.4em; font-style: italic; }
+
+p { margin: 0 0 0.75em 0; }
+
+a.cite { color: inherit; text-decoration: none; }
+
+strong { font-weight: bold; }
+em { font-style: italic; }
+
+code {
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 10.5pt;
+  background: #f0f0f0;
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+pre.code {
+  background: #f6f6f6;
+  border: 1px solid #999;
+  border-radius: 3px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin: 0.8em 0;
+}
+pre.code code {
+  background: none;
+  padding: 0;
+  font-size: 10pt;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6em 0 1em 0;
+  font-size: 10.8pt;
+  page-break-inside: avoid;
+}
+th, td {
+  border: 1px solid #444;
+  padding: 4px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: #e9e9e9; font-weight: bold; }
+
+ul, ol { margin: 0.3em 0 0.9em 1.3em; padding: 0; }
+li { margin: 0.15em 0; }
+
+.pagebreak { page-break-before: always; break-before: page; }
+
+.diagram {
+  display: flex;
+  justify-content: center;
+  margin: 1em 0 1.4em;
+  page-break-inside: avoid;
+}
+.diagram svg { width: 100%; max-width: 520px; height: auto; }
+
+.literature { padding-left: 1.4em; font-size: 11pt; }
+.literature li { margin-bottom: 0.5em; }
+
+.quotepage {
+  height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.quotepage blockquote {
+  font-style: italic;
+  font-size: 13.5pt;
+  max-width: 70%;
+  margin: 0 auto;
+}
+.quotepage footer {
+  margin-top: 0.6em;
+  font-style: normal;
+  font-size: 11pt;
+}
+
+.coverpage {
+  text-align: center;
+  padding-top: 5mm;
+}
+.letterhead {
+  font-weight: bold;
+  font-size: 13pt;
+  border-bottom: 1.4pt solid #000;
+  padding-bottom: 10mm;
+  margin-bottom: 60mm;
+  text-align: center;
+}
+.coverauthor { text-align: left; font-size: 13pt; margin-bottom: 55mm; }
+.covertitle { font-size: 19pt; font-weight: bold; margin: 0 auto 12mm; max-width: 85%; line-height: 1.3; }
+.coverkind { font-size: 13pt; margin-bottom: 90mm; }
+.coveryear { font-size: 13pt; }
+
+hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
+</style>
+</head>
+<body>
+<div style="page-break-after:always;break-after:page;"><div class="coverpage">
+<div class="letterhead">УНИВЕРЗИТЕТ У НОВОМ САДУ<br/>FAKULTET TEHNIČKIH NAUKA U NOVOM SADU</div>
+<div class="coverauthor">[IME PREZIME]</div>
+<div class="covertitle">Razvoj aplikacije za rutiranje teretnih vozila prilagođene fizičkim ograničenjima vozila i terena</div>
+<div class="coverkind">Diplomski rad<br/>- Osnovne akademske studije -</div>
+<div class="coveryear">Novi Sad, 2026.</div>
+</div></div>
+<h2>KLJUČNA DOKUMENTACIJSKA INFORMACIJA</h2>
+<table>
+<thead><tr>
+<th></th>
+<th></th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Redni broj, RBR:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Identifikacioni broj, IBR:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Tip dokumentacije, TD:</strong></td>
+<td>Monografska dokumentacija</td>
+</tr>
+<tr>
+<td><strong>Tip zapisa, TZ:</strong></td>
+<td>Tekstualni štampani materijal</td>
+</tr>
+<tr>
+<td><strong>Vrsta rada, VR:</strong></td>
+<td>Diplomski rad</td>
+</tr>
+<tr>
+<td><strong>Autor, AU:</strong></td>
+<td>[IME PREZIME]</td>
+</tr>
+<tr>
+<td><strong>Mentor, MN:</strong></td>
+<td>[TITULA I IME MENTORA]</td>
+</tr>
+<tr>
+<td><strong>Naslov rada, NR:</strong></td>
+<td>Razvoj aplikacije za rutiranje teretnih vozila prilagođene fizičkim ograničenjima vozila i terena</td>
+</tr>
+<tr>
+<td><strong>Jezik publikacije, JP:</strong></td>
+<td>Srpski / latinica</td>
+</tr>
+<tr>
+<td><strong>Jezik izvoda, JI:</strong></td>
+<td>Srpski</td>
+</tr>
+<tr>
+<td><strong>Zemlja publikovanja, ZP:</strong></td>
+<td>Republika Srbija</td>
+</tr>
+<tr>
+<td><strong>Uže geografsko područje, UGP:</strong></td>
+<td>Vojvodina</td>
+</tr>
+<tr>
+<td><strong>Godina, GO:</strong></td>
+<td>2026</td>
+</tr>
+<tr>
+<td><strong>Izdavač, IZ:</strong></td>
+<td>Autorski reprint</td>
+</tr>
+<tr>
+<td><strong>Mesto i adresa, MA:</strong></td>
+<td>Novi Sad, Trg Dositeja Obradovića 6</td>
+</tr>
+<tr>
+<td><strong>Fizički opis rada, FO:</strong> (poglavlja/strana/citata/tabela/slika/grafika/priloga)</td>
+<td>10/[BROJ]/17/[BROJ]/[BROJ]/3/0</td>
+</tr>
+<tr>
+<td><strong>Naučna oblast, NO:</strong></td>
+<td>Elektrotehnika i računarstvo</td>
+</tr>
+<tr>
+<td><strong>Naučna disciplina, ND:</strong></td>
+<td>Primenjeno softversko inženjerstvo</td>
+</tr>
+<tr>
+<td><strong>Predmetna odrednica/Ključne reči, PO:</strong></td>
+<td>Rutiranje teretnih vozila, OpenStreetMap, Valhalla, distribuirani sistemi, mobilna aplikacija, prilagođena funkcija cene rute</td>
+</tr>
+<tr>
+<td><strong>UDK</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Čuva se, ČU:</strong></td>
+<td>U biblioteci Fakulteta tehničkih nauka, Novi Sad</td>
+</tr>
+<tr>
+<td><strong>Važna napomena, VN:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Izvod, IZ:</strong></td>
+<td>U ovom radu opisan je sistem za rutiranje teretnih vozila koji uzima u obzir fizička ograničenja vozila (visina, širina, dužina, masa, osovinsko opterećenje, prevoz opasnog tereta) i podatke o putnoj mreži preuzete iz OpenStreetMap projekta. Sistem se sastoji od Go backend servisa, Valhalla routing engine-a sa truck costing modelom, PostgreSQL/PostGIS baze podataka, RabbitMQ mehanizma za asinhronu obradu i Flutter mobilne aplikacije za vozače i dispečere. Nad Valhalla alternativama implementiran je sopstveni modul za rangiranje ruta prema riziku i preferencama vozača, kao i mehanizam koji vozaču objašnjava zašto predložena ruta odstupa od geometrijski najkraćeg puta. Za potrebe algoritamske evaluacije, nezavisno od produkcionog puta, implementirana je sopstvena Dijkstra/A* pretraga nad ograničenim podgrafom putne mreže, direktno učitanim iz OSM podataka. Rad opisuje arhitekturu sistema, pripremu geografskih podataka, algoritamski deo, backend servis i mobilnu aplikaciju, a zaključuje se evaluacijom implementiranog rešenja i pregledom mogućih pravaca budućeg razvoja.</td>
+</tr>
+<tr>
+<td><strong>Datum prihvatanja teme, DP:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Datum odbrane, DO:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Članovi komisije, KO:</strong></td>
+<td>Predsednik:</td>
+</tr>
+<tr>
+<td></td>
+<td>Član:</td>
+</tr>
+<tr>
+<td></td>
+<td>Član, mentor: [TITULA I IME MENTORA]</td>
+</tr>
+</tbody></table>
+<h2>KEY WORDS DOCUMENTATION</h2>
+<div style="page-break-after:always;break-after:page;"><table>
+<thead><tr>
+<th></th>
+<th></th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Accession number, ANO:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Identification number, INO:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Document type, DT:</strong></td>
+<td>Monographic publication</td>
+</tr>
+<tr>
+<td><strong>Type of record, TR:</strong></td>
+<td>Textual printed material</td>
+</tr>
+<tr>
+<td><strong>Contents code, CC:</strong></td>
+<td>Bachelor thesis</td>
+</tr>
+<tr>
+<td><strong>Author, AU:</strong></td>
+<td>[NAME SURNAME]</td>
+</tr>
+<tr>
+<td><strong>Mentor, MN:</strong></td>
+<td>[MENTOR TITLE AND NAME]</td>
+</tr>
+<tr>
+<td><strong>Title, TI:</strong></td>
+<td>Development of a heavy vehicle routing application adapted to the physical constraints of the vehicle and terrain</td>
+</tr>
+<tr>
+<td><strong>Language of text, LT:</strong></td>
+<td>Serbian</td>
+</tr>
+<tr>
+<td><strong>Language of abstract, LA:</strong></td>
+<td>Serbian</td>
+</tr>
+<tr>
+<td><strong>Country of publication, CP:</strong></td>
+<td>Republic of Serbia</td>
+</tr>
+<tr>
+<td><strong>Locality of publication, LP:</strong></td>
+<td>Vojvodina</td>
+</tr>
+<tr>
+<td><strong>Publication year, PY:</strong></td>
+<td>2026</td>
+</tr>
+<tr>
+<td><strong>Publisher, PB:</strong></td>
+<td>Author's reprint</td>
+</tr>
+<tr>
+<td><strong>Publication place, PP:</strong></td>
+<td>Novi Sad, Trg Dositeja Obradovića 6</td>
+</tr>
+<tr>
+<td><strong>Physical description, PD:</strong></td>
+<td>10/[NUM]/17/[NUM]/[NUM]/3/0</td>
+</tr>
+<tr>
+<td><strong>Scientific field, SF:</strong></td>
+<td>Electrical and Computer Engineering</td>
+</tr>
+<tr>
+<td><strong>Scientific discipline, SD:</strong></td>
+<td>Applied Software Engineering</td>
+</tr>
+<tr>
+<td><strong>Subject/Key words, S/KW:</strong></td>
+<td>Heavy vehicle routing, OpenStreetMap, Valhalla, distributed systems, mobile application, custom route cost function</td>
+</tr>
+<tr>
+<td><strong>UC</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Holding data, HD:</strong></td>
+<td>Library of the Faculty of Technical Sciences, Novi Sad</td>
+</tr>
+<tr>
+<td><strong>Note, N:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Abstract, AB:</strong></td>
+<td>This thesis describes a heavy vehicle routing system that accounts for the vehicle's physical constraints (height, width, length, weight, axle load, hazardous cargo) using road network data from OpenStreetMap. The system consists of a Go backend service, the Valhalla routing engine with a truck costing model, a PostgreSQL/PostGIS database, RabbitMQ-based asynchronous processing, and a Flutter mobile application for drivers and dispatchers. On top of Valhalla's alternative routes, a custom module ranks candidates by risk/driver preference and explains to the driver why the suggested route deviates from the geometrically shortest path. For algorithmic evaluation, independent of the production path, a custom Dijkstra/A* search over a bounded subgraph loaded directly from OSM data was implemented. The thesis covers system architecture, geographic data preparation, the routing algorithm, the backend service, and the mobile application, and concludes with an evaluation of the implemented solution and directions for future work.</td>
+</tr>
+<tr>
+<td><strong>Accepted by the Scientific Board on, ASB:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Defended on, DE:</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Defended Board, DB:</strong></td>
+<td>President:</td>
+</tr>
+<tr>
+<td></td>
+<td>Member:</td>
+</tr>
+<tr>
+<td></td>
+<td>Member, Mentor: [MENTOR TITLE AND NAME]</td>
+</tr>
+</tbody></table></div>
+<h2>ZADATAK ZA IZRADU DIPLOMSKOG (BACHELOR) RADA</h2>
+<p><strong>Vrsta studija:</strong> Osnovne akademske studije <strong>Studijski program:</strong> [STUDIJSKI PROGRAM] <strong>Rukovodilac studijskog programa:</strong> [IME RUKOVODIOCA]</p>
+<p><strong>Student:</strong> [IME PREZIME]  <strong>Broj indeksa:</strong> [BROJ INDEKSA] <strong>Oblast:</strong> Elektrotehničko i računarsko inženjerstvo <strong>Mentor:</strong> [TITULA I IME MENTORA]</p>
+<p><strong>NASLOV DIPLOMSKOG (BACHELOR) RADA:</strong></p>
+<p>RAZVOJ APLIKACIJE ZA RUTIRANJE TERETNIH VOZILA PRILAGOĐENE FIZIČKIM OGRANIČENJIMA VOZILA I TERENA</p>
+<p><strong>TEKST ZADATKA:</strong></p>
+<ul>
+<li>Proučiti postojeća komercijalna i otvorena rešenja za rutiranje teretnih vozila i principe rada distribuiranih sistema za obradu i prenos podataka u realnom vremenu.</li>
+<li>Proučiti podatkovni model OpenStreetMap projekta u delu koji se odnosi na ograničenja za teretni saobraćaj (visina, masa, širina, osovinsko opterećenje, opasan teret) i pripremiti geografske podatke za teritoriju Republike Srbije.</li>
+<li>Implementirati backend servis koji na osnovu profila vozila i Valhalla routing engine-a generiše rutu, dodatno je rangira sopstvenom funkcijom rizika prilagođenom preferencama vozača i vozilu, te vozaču objašnjava odstupanje predložene rute od geometrijski najkraćeg puta.</li>
+<li>Implementirati, isključivo u svrhu algoritamske evaluacije, sopstvenu pretragu najkraćeg puta (Dijkstra/A*) nad ograničenim podgrafom putne mreže učitanim direktno iz OSM podataka, sa sopstvenom funkcijom cene.</li>
+<li>Implementirati distribuiranu komunikaciju sistema (REST API, asinhrona obrada porukama, WebSocket komunikacija u realnom vremenu) i mobilnu aplikaciju za vozače i dispečere.</li>
+<li>Testirati i evaluirati implementirano rešenje i izvesti najvažnije zaključke.</li>
+</ul>
+<div style="page-break-after:always;break-after:page;"><p><strong>Rukovodilac studijskog programa:</strong> [IME RUKOVODIOCA] <strong>Mentor rada:</strong> [TITULA I IME MENTORA]</p></div>
+<h2>IZJAVA O NEPOSTOJANJU SUKOBA INTERESA</h2>
+<p>Izjavljujem da nisam u sukobu interesa u odnosu mentor – kandidat i da nisam član porodice (supružnik ili vanbračni partner, roditelj ili usvojitelj, dete ili usvojenik), povezano lice (krvni srodnik mentora/kandidata u pravoj liniji, odnosno u pobočnoj liniji zaključno sa drugim stepenom srodstva, kao ni fizičko lice koje se prema drugim osnovama i okolnostima može opravdano smatrati interesno povezanim sa mentorom ili kandidatom), odnosno da nisam zavisan/na od mentora/kandidata, da ne postoje okolnosti koje bi mogle da utiču na moju nepristrasnost, niti da stičem bilo kakve koristi ili pogodnosti za sebe ili drugo lice bilo pozitivnim ili negativnim ishodom, kao i da nemam privatni interes koji utiče, može da utiče ili izgleda kao da utiče na odnos mentor-kandidat.</p>
+<p>U Novom Sadu, dana \_\_\_\_\_\_\_\_\_\_\_\_\_\_</p>
+<p>Mentor</p>
+<p>\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_</p>
+<p>Kandidat</p>
+<div style="page-break-after:always;break-after:page;"><p>\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_</p></div>
+<div style="page-break-after:always;break-after:page;"><div class="quotepage"><blockquote>„The map is not the territory.“<footer>— Alfred Korzybski</footer></blockquote></div></div>
+<h2>Sadržaj</h2>
+<div style="page-break-after:always;break-after:page;"><ul>
+<li>1 Uvod</li>
+<li>2 Pregled postojećih rešenja i teorijske osnove</li>
+<ul>
+<li>2.1 Komercijalna i otvorena rešenja za rutiranje teretnih vozila</li>
+<li>2.2 Distribuirani sistemi — osnovni pojmovi</li>
+<li>2.3 Grafovi i algoritmi najkraćeg puta</li>
+<li>2.4 OpenStreetMap podatkovni model i oznake za teretni saobraćaj</li>
+</ul>
+<li>3 Korišćene tehnologije</li>
+<ul>
+<li>3.1 Go</li>
+<li>3.2 Flutter i Dart</li>
+<li>3.3 Valhalla</li>
+<li>3.4 PostgreSQL i PostGIS</li>
+<li>3.5 RabbitMQ</li>
+<li>3.6 WebSocket</li>
+<li>3.7 Docker i docker-compose</li>
+<li>3.8 Ostale biblioteke i servisi</li>
+</ul>
+<li>4 Arhitektura sistema</li>
+<ul>
+<li>4.1 Pregled arhitekture i tok podataka</li>
+<li>4.2 Kontejnerizacija i orkestracija servisa</li>
+<li>4.3 Sigurnost i autentifikacija</li>
+</ul>
+<li>5 Priprema geografskih podataka — OSM ekstrakcija za teretna vozila u Srbiji</li>
+<ul>
+<li>5.1 Izvor podataka i osmium filter</li>
+<li>5.2 Izgradnja Valhalla grafa</li>
+<li>5.3 Ekstrakcija podataka o odmaralištima</li>
+</ul>
+<li>6 Algoritam rutiranja prilagođen vozilu</li>
+<ul>
+<li>6.1 Valhalla truck costing</li>
+<li>6.2 Prilagođena funkcija rizika (scoring)</li>
+<li>6.3 Objašnjenje predložene rute — slučaj Novi Banovci</li>
+<li>6.4 Sopstvena implementacija pretrage puta nad ograničenim podgrafom</li>
+</ul>
+<li>7 Backend servis i model podataka</li>
+<ul>
+<li>7.1 REST API</li>
+<li>7.2 Model podataka</li>
+<li>7.3 Uloge vozač/dispečer</li>
+<li>7.4 Asinhrona obrada — RabbitMQ i modul pauza vozača</li>
+<li>7.5 Real-time komunikacija — WebSocket gateway</li>
+</ul>
+<li>8 Mobilna aplikacija</li>
+<ul>
+<li>8.1 Tok korisnika — vozač</li>
+<li>8.2 Tok korisnika — dispečer</li>
+<li>8.3 Arhitektura mobilne aplikacije</li>
+</ul>
+<li>9 Testiranje i evaluacija</li>
+<ul>
+<li>9.1 Automatizovano testiranje backend-a</li>
+<li>9.2 Evaluacija sopstvenog algoritma nad realnim podacima</li>
+<li>9.3 Uticaj prilagođene funkcije rizika — studija slučaja</li>
+<li>9.4 Ograničenja identifikovana testiranjem</li>
+</ul>
+<li>10 Zaključak i budući rad</li>
+<li>Literatura</li>
+<li>Spisak skraćenica</li>
+<li>Spisak slika</li>
+<li>Spisak tabela</li>
+<li>Biografija</li>
+</ul></div>
+<h1>1 Uvod</h1>
+<p>Transport robe teškim teretnim vozilima podleže ograničenjima koja ne postoje kod putničkih automobila: visina vozila mora biti manja od visine svakog nadvožnjaka i tunela na ruti, ukupna masa i osovinsko opterećenje moraju biti u skladu sa nosivošću mostova, širina i dužina vozila ograničavaju kretanje kroz uža naselja i oštre krivine, a vozila koja prevoze opasan teret moraju zaobilaziti određene deonice (tunele, naseljena mesta) po propisu. Standardne aplikacije za navigaciju namenjene putničkim vozilima (Google Maps, Waze i slične) te podatke ne uzimaju u obzir, pa ruta koju predlažu vozaču teretnog vozila može biti fizički neprohodna ili čak zakonski nedozvoljena za dato vozilo. Sa druge strane, postojeća komercijalna rešenja specijalizovana za teretni saobraćaj (npr. PTV navigator, Google Maps za dostavu, TomTom Truck) su zatvorena, plaćena i ne omogućavaju uvid u to <em>zašto</em> je određena ruta izabrana, što otežava vozaču da proceni da li je predlog razuman.</p>
+<p>Ovaj rad opisuje razvoj sistema za rutiranje teretnih vozila koji rešava taj problem korišćenjem otvorenih geografskih podataka projekta OpenStreetMap (OSM) i otvorenog routing engine-a Valhalla, koji već ima ugrađen model cene rute specifičan za teretna vozila (<em>truck costing</em>), sposoban da isključi deonice koje ne zadovoljavaju ograničenja visine, mase, širine ili prevoza opasnog tereta datog vozila. Na tu osnovu je dodat sopstveni sloj koji:</p>
+<ol>
+<li>rangira alternativne rute koje Valhalla vrati prema riziku i preferencama vozača (stil vožnje, osetljivost tereta, potrošnja goriva, favorizovane benzinske stanice), pošto sam Valhalla to ne radi;</li>
+<li>vozaču objašnjava <strong>zašto</strong> je predložena ruta odstupila od geometrijski najkraćeg puta, umesto da mu samo prikaže krajnji rezultat;</li>
+<li>omogućava, kao samostalnu algoritamsku celinu odvojenu od produkcionog puta, sopstvenu implementaciju Dijkstra i A* pretrage najkraćeg puta nad ograničenim podgrafom putne mreže, radi demonstracije i evaluacije principa na kojima Valhalla interno počiva.</li>
+</ol>
+<p>Sistem je zamišljen ne samo kao alat za planiranje jedne rute, već kao kompletna, iako po obimu ograničena, distribuirana aplikacija za rad voznog parka: pored planiranja i praćenja pojedinačne ture, uveden je i model dispečera koji upravlja više vozača i vozila, mehanizam ponude i prihvatanja ture između dispečera i vozača, chat u realnom vremenu, praćenje pozicije vozila uživo preko WebSocket veze, dnevnik događaja tokom vožnje i jednostavan mehanizam predloga pauze vozača zasnovan na proteklom vremenu vožnje. Sistem se sastoji od Go backend servisa, PostgreSQL/PostGIS baze podataka, RabbitMQ posrednika poruka, Valhalla routing engine-a i Flutter mobilne aplikacije, a svi servisi su kontejnerizovani i pokreću se preko <code>docker-compose</code>.</p>
+<h2>1.1 Motivacija</h2>
+<p>Motivacija za rad proizlazi iz konkretnog, ponovljivog problema: standardna navigacija ne razlikuje teretno vozilo od putničkog automobila, dok specijalizovana komercijalna rešenja skrivaju logiku odabira rute od korisnika i po pravilu zahtevaju plaćenu licencu i vlasnički skup podataka o putnoj mreži. Cilj ovog rada je da pokaže da se prihvatljivo tačan i <strong>objašnjiv</strong> sistem za rutiranje teretnih vozila može izgraditi nad potpuno otvorenim podacima (OSM) i otvorenim routing engine-om (Valhalla), uz sopstveni algoritamski doprinos koji tim alatima nedostaje: procenu rizika rute specifičnu za teretni saobraćaj i automatsko objašnjenje odstupanja rute od očekivanog, najkraćeg puta.</p>
+<h2>1.2 Ciljevi i obim rada</h2>
+<p>Ciljevi rada su:</p>
+<ul>
+<li>proučiti postojeća rešenja za rutiranje teretnih vozila i teorijske osnove distribuiranih sistema i algoritama pretrage najkraćeg puta u grafu;</li>
+<li>pripremiti geografske podatke za teritoriju Republike Srbije iz OSM ekstrakta, sa oznakama relevantnim za teretni saobraćaj;</li>
+<li>implementirati backend servis koji generiše, rangira i objašnjava rutu za dato vozilo, koristeći Valhallu kao routing engine;</li>
+<li>implementirati, kao odvojenu algoritamsku celinu, sopstvenu Dijkstra/A* pretragu nad ograničenim podgrafom, radi evaluacije principa rutiranja bez zavisnosti od Valhalla-e;</li>
+<li>implementirati distribuiranu komunikaciju sistema (REST, asinhrona obrada, WebSocket) i mobilnu aplikaciju za vozače i dispečere;</li>
+<li>testirati implementirano rešenje i evaluirati doprinos sopstvene funkcije rizika u odnosu na "sirov" izbor rute.</li>
+</ul>
+<p>Rad se svesno ne bavi punom implementacijom evropske AETR regulative o radnom vremenu i pauzama vozača, elevacionim (nagibnim) rizikom rute, offline režimom rada mobilne aplikacije, podrškom za više država niti bezbednosnim hardeningom na produkcionom nivou — ta ograničenja su namerna i obrazložena u poglavlju 10.</p>
+<h2>1.3 Struktura rada</h2>
+<div style="page-break-after:always;break-after:page;"><p>Poglavlje 2 daje pregled postojećih komercijalnih i otvorenih rešenja za rutiranje teretnih vozila i teorijske osnove (distribuirani sistemi, algoritmi pretrage najkraćeg puta, OSM podatkovni model). Poglavlje 3 opisuje korišćene tehnologije. Poglavlje 4 opisuje arhitekturu sistema. Poglavlje 5 opisuje pripremu geografskih podataka. Poglavlje 6 detaljno opisuje algoritamski deo rada — Valhalla truck costing, sopstvenu funkciju rizika, mehanizam objašnjenja rute i sopstvenu Dijkstra/A* implementaciju. Poglavlje 7 opisuje backend servis i model podataka. Poglavlje 8 opisuje mobilnu aplikaciju. Poglavlje 9 opisuje testiranje i evaluaciju. Poglavlje 10 sadrži zaključak i pravce budućeg rada.</p></div>
+<h1>2 Pregled postojećih rešenja i teorijske osnove</h1>
+<h2>2.1 Komercijalna i otvorena rešenja za rutiranje teretnih vozila</h2>
+<p>Rutiranje teretnih vozila je specijalizovana varijanta opšteg problema pronalaženja puta u grafu, sa dodatnim skupom ograničenja koja zavise od fizičkih karakteristika vozila i tereta. Postojeća rešenja mogu se podeliti u tri grupe.</p>
+<p><strong>Komercijalna rešenja sa vlasničkim podacima.</strong> PTV navigator i PTV xServer (nemački proizvođač PTV Group) su industrijski standard u logistici teretnog saobraćaja u Evropi; koriste vlasnički skup podataka o putnoj mreži sa ručno unetim ograničenjima za kamione (visina mostova, zabrane za HGV — <em>Heavy Goods Vehicle</em> — u naseljima i sl.) i naplaćuju se po licenci. TomTom Truck i pojedini moduli Google Maps Platform-a (Routes API sa parametrima vozila) rade na sličnom principu — visok nivo tačnosti podataka, ali zatvoren izvor, zatvorena cena rute i bez mogućnosti da se razumeju ili prilagode kriterijumi po kojima je ruta izabrana.</p>
+<p><strong>Otvoreni routing engine-i.</strong> OSRM (<em>Open Source Routing Machine</em>), GraphHopper i Valhalla su tri najpoznatija otvorena routing engine-a koji rade nad OpenStreetMap podacima. OSRM je najbrži za rutiranje putničkih vozila (koristi <em>contraction hierarchies</em>), ali njegova podrška za teretna vozila je ograničena i uglavnom se svodi na jednostavne profile bez finog podešavanja po osovinskom opterećenju. GraphHopper ima ugrađen <code>truck</code> profil sličan Valhalla-inom i dobru Java/JVM integraciju, ali slabiju podršku za alternativne rute i manje detaljan mehanizam maneuver-a u odgovoru. Valhalla, koji je razvio Mapzen (danas ga održava zajednica okupljena oko Valhalla projekta), izabran je za ovaj rad zbog tri razloga: (1) ima <em>per-request</em> <code>truck</code> costing model koji prihvata visinu, širinu, dužinu, masu, osovinsko opterećenje i prevoz opasnog tereta kao parametre HTTP zahteva, bez potrebe da se engine iznova kompajlira ili graf iznova gradi za svako vozilo; (2) podržava vraćanje više alternativnih ruta (<code>alternates</code>) u jednom zahtevu, što je preduslov za sopstveni sloj rangiranja opisan u poglavlju 6; (3) odgovor sadrži dovoljno detalja o maneuver-ima (tip, naziv ulice, početni indeks u geometriji rute) da se nad njim može izgraditi mehanizam objašnjenja rute (poglavlje 6.3) bez potrebe za dodatnim pozivima ka engine-u.</p>
+<p><strong>Akademski i istraživački radovi.</strong> Problem rutiranja vozila sa ograničenjima (<em>constrained vehicle routing</em>) je dobro proučen u okviru šire oblasti <em>Vehicle Routing Problem</em> (VRP) <a class="cite" href="#ref1">[1]</a> i njenih varijanti, gde se ograničenja tipično modeluju kao tvrda isključenja grana grafa (vozilo ne može da koristi granu) ili kao dodatni članovi u funkciji cene puta. Ovaj rad se ne bavi klasičnim VRP problemom (raspoređivanjem više vozila na više tura radi minimizacije ukupnog troška flote), već užim problemom rutiranja jednog vozila između dve tačke uz fizička ograničenja i sopstvenu procenu rizika — najbliži akademski okvir je <em>constrained shortest path</em> problem, koji je u poglavlju 2.3 i 6.4 rešen sopstvenom implementacijom Dijkstra i A* algoritma sa isključivanjem grana koje vozilo ne može fizički da koristi.</p>
+<p>Tabela 2.1 sumira poređenje.</p>
+<p><strong>Tabela 2.1.</strong> Poređenje pristupa rutiranju teretnih vozila</p>
+<table>
+<thead><tr>
+<th>Rešenje</th>
+<th>Izvor podataka</th>
+<th>Truck costing</th>
+<th>Alternative rute</th>
+<th>Objašnjenje rute</th>
+<th>Cena</th>
+</tr></thead><tbody>
+<tr>
+<td>PTV navigator / xServer</td>
+<td>Vlasnički</td>
+<td>Da, detaljan</td>
+<td>Da</td>
+<td>Ne (crna kutija)</td>
+<td>Komercijalna licenca</td>
+</tr>
+<tr>
+<td>Google Routes API (vozilo)</td>
+<td>Vlasnički</td>
+<td>Delimično</td>
+<td>Da</td>
+<td>Ne</td>
+<td>Po pozivu (plaćeno)</td>
+</tr>
+<tr>
+<td>OSRM</td>
+<td>OSM</td>
+<td>Ograničen</td>
+<td>Da</td>
+<td>Ne</td>
+<td>Besplatno (open source)</td>
+</tr>
+<tr>
+<td>GraphHopper</td>
+<td>OSM</td>
+<td>Da</td>
+<td>Ograničeno</td>
+<td>Ne</td>
+<td>Besplatno / komercijalna podrška</td>
+</tr>
+<tr>
+<td>Valhalla (bez izmena)</td>
+<td>OSM</td>
+<td>Da, detaljan</td>
+<td>Da</td>
+<td>Ne</td>
+<td>Besplatno (open source)</td>
+</tr>
+<tr>
+<td><strong>Ovaj rad (Valhalla + sopstveni sloj)</strong></td>
+<td>OSM</td>
+<td>Da (Valhalla)</td>
+<td>Da (Valhalla)</td>
+<td><strong>Da (sopstveni modul)</strong></td>
+<td>Besplatno</td>
+</tr>
+</tbody></table>
+<h2>2.2 Distribuirani sistemi — osnovni pojmovi</h2>
+<p>Sistem opisan u ovom radu je, u smislu klasifikacije koju daju Tanenbaum i van Steen <a class="cite" href="#ref2">[2]</a>, <strong>distribuiran sistem</strong>: skup nezavisnih računarskih procesa (Go backend, PostgreSQL, RabbitMQ, Valhalla, Flutter klijenti) koji korisniku djeluju kao jedinstvena celina, iako fizički i procesno rade odvojeno, najčešće u sopstvenim kontejnerima. U nastavku su ukratko definisani pojmovi neophodni za razumevanje arhitekture opisane u poglavlju 4 i 7.</p>
+<p><strong>Model klijent-server.</strong> Osnovni obrazac komunikacije u sistemu: mobilna aplikacija (klijent) šalje HTTP zahtev Go backend servisu (server), koji obrađuje zahtev i vraća odgovor. Sam backend je, u odnosu na Valhallu i bazu podataka, istovremeno klijent — što je uobičajena situacija u slojevitim sistemima, gde jedan proces može biti server u jednoj interakciji i klijent u drugoj.</p>
+<p><strong>Sinhrona i asinhrona komunikacija.</strong> REST API poziv je <em>sinhron</em>: klijent čeka odgovor servera pre nego što nastavi. Za operacije koje ne moraju biti završene odmah da bi klijent nastavio sa radom (npr. proračun predloga pauze vozača nakon što je tura započeta), koristi se <em>asinhroni</em> model preko posrednika poruka (RabbitMQ) — proizvođač (backend) objavljuje poruku o događaju i odmah nastavlja dalje, a potrošač (worker proces) je obrađuje kad je slobodan, nezavisno od toga da li je klijent koji je pokrenuo turu još povezan.</p>
+<p><strong>Model izdavač-pretplatnik (publish–subscribe).</strong> RabbitMQ u ovom sistemu radi kao <em>topic exchange</em>: proizvođači objavljuju poruke sa određenim <em>routing key</em>-em (npr. <code>trip.started</code>), a potrošači se pretplaćuju na red vezan za taj routing key. Ovaj model referencijalno razdvaja proizvođača od potrošača — backend koji objavljuje <code>trip.started</code> ne mora znati ništa o tome ko (ili da li uopšte neko) sluša taj događaj, što olakšava dodavanje novih potrošača bez izmene postojećeg koda (detaljnije u poglavlju 7.4).</p>
+<p><strong>Real-time komunikacija (WebSocket).</strong> REST model zahteva da klijent inicira svaki zahtev, što ga čini neprikladnim za slanje podataka od servera ka klijentu bez zahteva (npr. pozicija vozila koja se menja svake sekunde). WebSocket protokol (RFC 6455 <a class="cite" href="#ref3">[3]</a>) rešava taj problem uspostavljanjem trajne, dvosmerne veze preko jednog TCP soketa nakon početnog HTTP <em>upgrade</em> zahteva — server u svakom trenutku može poslati poruku klijentu bez čekanja na njegov zahtev. U ovom sistemu se koristi za praćenje pozicije vozila uživo i za dopisivanje (chat) u realnom vremenu (poglavlje 7.5).</p>
+<p><strong>Transparentnost i pouzdanost.</strong> Od četiri klasična cilja distribuiranog sistema — povezanost, transparentnost, otvorenost i skalabilnost <a class="cite" href="#ref2">[2]</a> — u ovom radu je najrelevantnija <em>transparentnost otkaza</em> (<em>fault transparency</em>): sistem je dizajniran da otkaz jedne komponente (npr. privremeni gubitak RabbitMQ konekcije od strane worker procesa) ne obori ostatak sistema, već da se poruka ponovo isporuči (<em>message redelivery</em>, videti poglavlje 7.4) kada se komponenta ponovo poveže. S obzirom na obim rada (jedan backend, jedna baza, jedan message broker — bez replikacije ijedne komponente), sistem ne postiže skalabilnost po veličini u produkcionom smislu, što je namerno ograničenje obrazloženo u poglavlju 10.</p>
+<h2>2.3 Grafovi i algoritmi najkraćeg puta</h2>
+<p>Putna mreža se prirodno modeluje kao usmereni, težinski graf <em>G = (V, E)</em>, gde skup čvorova <em>V</em> predstavlja tačke na putu (raskrsnice, prelome geometrije), a skup grana <em>E</em> predstavlja segmente puta između susednih čvorova, sa težinom koja predstavlja cenu prelaska te grane (najčešće rastojanje u metrima, vreme u sekundama ili neka izvedena veličina). Problem rutiranja se svodi na pronalaženje puta <em>P</em> od početnog čvora <em>s</em> do ciljnog čvora <em>t</em> koji minimizuje zbir težina grana na putu, uz eventualna dodatna ograničenja (izuzete grane).</p>
+<p><strong>Dijkstra algoritam.</strong> Dijkstrin algoritam <a class="cite" href="#ref4">[4]</a> pronalazi najkraći put od jednog čvora do svih ostalih čvorova u grafu sa nenegativnim težinama grana, koristeći greedy pristup: u svakom koraku bira neposećeni čvor sa najmanjom trenutno poznatom cenom od početka, "fiksira" tu cenu kao konačnu i ažurira cene njegovih suseda (<em>relaxation</em>). Algoritam se efikasno implementira uz prioritetni red (u ovom radu binarna gomila, <code>container/heap</code> iz Go standardne biblioteke), sa vremenskom složenošću <em>O((|V| + |E|)log|V|)</em>. Kada je poznat samo jedan ciljni čvor (a ne svi čvorovi grafa), pretraga se može prekinuti čim je ciljni čvor skinut sa reda — ta optimizacija je korišćena u implementaciji opisanoj u poglavlju 6.4.</p>
+<p><strong>A\<em> algoritam.</strong> A</em> algoritam <a class="cite" href="#ref5">[5]</a> je uopštenje Dijkstre koje uvodi <em>heuristiku</em> <em>h(n)</em> — procenu preostale cene od čvora <em>n</em> do cilja — i usmerava pretragu prioritetno ka čvorovima za koje je zbir <em>f(n) = g(n) + h(n)</em> (stvarna cena do sada plus procena preostale cene) najmanji. Ako je heuristika <em>dopustiva</em> (nikad ne preceni stvarnu preostalu cenu), A* garantovano pronalazi optimalan put, uz manji broj posećenih čvorova od Dijkstre u praksi. U ovom radu je kao heuristika korišćena haversine udaljenost (linija vazdušne udaljenosti po sferi Zemlje) od trenutnog čvora do cilja, podeljena maksimalnom mogućom brzinom kretanja po grani — dopustiva heuristika jer nikad ne potcenjuje stvarni put duž putne mreže, koji je uvek duži ili jednak vazdušnoj liniji.</p>
+<p><strong>Ograničena (constrained) pretraga.</strong> Fizička ograničenja vozila (visina, masa, prevoz opasnog tereta) se u ovom radu modeluju kao <em>tvrda isključenja</em> grane iz pretrage: grana koja ne zadovoljava profil vozila jednostavno se ne razmatra kao prelaz, čime pretraga po definiciji nikad ne predloži fizički neprohodnu rutu. Ovaj princip je identičan principu na kome interno počiva Valhalla-in <code>truck</code> costing model — razlika je u tome da Valhalla ta isključenja primenjuje nad grafom cele putne mreže, obogaćenim brojnim heuristikama (vreme prolaska, tipovi puta, historijski podaci o saobraćaju), dok sopstvena implementacija u ovom radu (poglavlje 6.4) to radi nad znatno manjim, ograničenim podgrafom, isključivo radi transparentne demonstracije mehanizma.</p>
+<h2>2.4 OpenStreetMap podatkovni model i oznake za teretni saobraćaj</h2>
+<p>OpenStreetMap (OSM) je projekat slobodne, uređivačke geografske baze podataka sveta, u kojoj se putna mreža, objekti i granice modeluju preko tri osnovna geometrijska primitiva: <strong>node</strong> (tačka, definisana geografskom širinom i dužinom), <strong>way</strong> (uređena lista node-ova, predstavlja liniju ili poligon — npr. jedan segment puta) i <strong>relation</strong> (grupisanje node-ova, way-eva i drugih relation-a — npr. skup segmenata koji zajedno predstavljaju jednu magistralnu rutu ili ograničenje skretanja). Svaki od ova tri primitiva može imati proizvoljan skup <strong>tag</strong>-ova — parova ključ-vrednost koji opisuju njegova svojstva.</p>
+<p>Za teretni saobraćaj relevantni su, između ostalih, sledeći tagovi (dokumentovani na OSM Wiki-ju <a class="cite" href="#ref6">[6]</a>):</p>
+<ul>
+<li><code>maxheight</code>, <code>maxweight</code>, <code>maxwidth</code> — na way-u, ograničenje visine/mase/širine za tu deonicu (npr. nadvožnjak, tunel);</li>
+<li><code>hgv</code> — da li je way dozvoljen za teška teretna vozila (<em>Heavy Goods Vehicle</em>), sa vrednostima poput <code>yes</code>, <code>no</code>, <code>destination</code>;</li>
+<li><code>hazmat</code> — ograničenje za vozila koja prevoze opasan teret;</li>
+<li><code>maxaxleload</code> — ograničenje osovinskog opterećenja, relevantno za mostove;</li>
+<li><code>surface</code> — vrsta podloge (asfalt, kolovoz, tucanik i sl.), indirektno relevantno za rizik (loša podloga + veliko opterećenje = veći rizik);</li>
+<li><code>barrier</code> na node-u (npr. <code>barrier=height_restrictor</code>, <code>barrier=lift_gate</code>) — tačkasta prepreka koja može imati sopstveni <code>maxheight</code> tag, različit od tag-a way-a na kome se nalazi (npr. rampa niske visine na inače visokom putu);</li>
+<li><code>amenity=fuel</code>, <code>amenity=parking</code>, <code>highway=rest_area</code> — node-ovi koji predstavljaju benzinske stanice, parkinge i odmarališta, relevantni za modul predloga pauze vozača (poglavlje 7.4).</li>
+</ul>
+<div style="page-break-after:always;break-after:page;"><p>Bitna karakteristika OSM podataka, relevantna za poglavlje 5, je da su ograničenja poput <code>maxheight</code> i <code>barrier</code> gotovo uvek zavedena na <strong>way</strong> nivou (za deonicu puta), dok su tačkaste prepreke (rampe, stubovi) zavedene na <strong>node</strong> nivou — što znači da alat koji filtrira OSM ekstrakt mora eksplicitno čuvati oba tipa tagova (way i node), jer se u suprotnom gubi tačno ona informacija koja je najrelevantnija za bezbednost teretnog vozila.</p></div>
+<h1>3 Korišćene tehnologije</h1>
+<h2>3.1 Go</h2>
+<p>Backend servis je implementiran u programskom jeziku Go (Golang) <a class="cite" href="#ref7">[7]</a>, koji je razvio Google 2009. godine. Go je statički tipiziran, kompajliran jezik sa automatskim upravljanjem memorijom (<em>garbage collection</em>) i ugrađenom podrškom za konkurentno programiranje preko <em>goroutine</em>-a (lakih, korisnički upravljanih niti) i <em>channel</em>-a (tipiziranih kanala za komunikaciju između goroutine-a). Za ovaj rad je Go izabran iz tri razloga: (1) standardna biblioteka već sadrži kompletan HTTP server (<code>net/http</code>, uz Go 1.22+ rutiranje po putanji i HTTP metodu preko <code>http.ServeMux</code>, korišćeno u <code>httpapi</code> paketu), bez potrebe za eksternim veb okvirom; (2) goroutine model konkurentnosti je pogodan za istovremeno opsluživanje mnogo WebSocket konekcija (poglavlje 7.5) i pozadinskog RabbitMQ potrošača (poglavlje 7.4) unutar istog procesa, bez složene infrastrukture za konkurentnost kakva bi bila potrebna u jednonitskim okruženjima; (3) statička tipizacija i kompajliranje u jedan izvršni fajl pogoduju jednostavnom kontejnerizovanju (poglavlje 3.7).</p>
+<h2>3.2 Flutter i Dart</h2>
+<p>Mobilna aplikacija je implementirana u Flutter okviru <a class="cite" href="#ref8">[8]</a>, koji koristi programski jezik Dart (oba razvijena od strane Google-a). Flutter kompajlira aplikaciju u nativni kod za Android i iOS iz jedinstvene baze izvornog koda, a korisnički interfejs se ne oslanja na nativne widgete platforme već na sopstveni <em>rendering engine</em> (Skia/Impeller), čime se postiže vizuelna konzistentnost između platformi. Za potrebe ovog rada korišćene su, između ostalih, biblioteke <code>geolocator</code> (pristup GPS senzoru uređaja), <code>flutter_map</code> odnosno OSM/vector tile prikaz mape, <code>web_socket_channel</code> za WebSocket konekcije i <code>google_sign_in</code> za prijavu preko Google naloga.</p>
+<h2>3.3 Valhalla</h2>
+<p>Valhalla <a class="cite" href="#ref9">[9]</a> je otvoreni (open source) routing engine specijalizovan za rad nad OpenStreetMap podacima, originalno razvijen u kompaniji Mapzen. Za razliku od routing engine-a koji graf i cenu puta fiksiraju u trenutku izgradnje (tzv. <em>preprocessing</em>, kakav koristi npr. OSRM sa <em>contraction hierarchies</em>), Valhalla dozvoljava da se većina parametara cene puta (costing) prosledi <strong>po zahtevu</strong> (<em>per-request</em>), uključujući ceo <code>truck</code> profil vozila — što znači da nije potrebno iznova graditi graf niti pokretati novu instancu servisa za svako vozilo ili promenu profila. Valhalla graf se organizuje u hijerarhijske "pločice" (<em>tiles</em>), izgrađene alatom <code>valhalla_build_tiles</code> iz <code>.osm.pbf</code> ekstrakta (poglavlje 5.2), a HTTP API (<code>valhalla_service</code>) prihvata zahteve na endpoint-u <code>/route</code> sa JSON telom koje uključuje lokacije, tip costing modela (<code>truck</code>) i njegove opcije. Detaljna upotreba Valhalla-inog truck costing modela u ovom radu opisana je u poglavlju 6.1.</p>
+<h2>3.4 PostgreSQL i PostGIS</h2>
+<p>PostgreSQL je korišćen kao relaciona baza podataka za skladištenje vozila, vozača, tura i pratećih entiteta (poglavlje 7.2). PostGIS <a class="cite" href="#ref10">[10]</a> je ekstenzija za PostgreSQL koja dodaje geografske tipove podataka i prostorne upite (npr. "sve tačke u krugu od 3km oko date koordinate"). Iako trenutna implementacija čuva geometriju rute kao enkodovan tekstualni <em>polyline</em> (a ne PostGIS <code>geometry</code> kolonu — videti poglavlje 7.2 i ograničenja u poglavlju 10), PostGIS ekstenzija je uključena u korišćenu Docker sliku (<code>postgis/postgis:16-3.4-alpine</code>) kao osnova za prostorne upite koje bi budući razvoj (npr. pretraga "najbliže odmaralište" direktno u bazi umesto u memoriji, poglavlje 7.4) mogao iskoristiti bez promene infrastrukture.</p>
+<h2>3.5 RabbitMQ</h2>
+<p>RabbitMQ <a class="cite" href="#ref11">[11]</a> je posrednik poruka (<em>message broker</em>) koji implementira AMQP 0-9-1 protokol. U ovom sistemu se koristi <em>topic exchange</em> (razmenjivač po temi) nazvan <code>trip.events</code>: proizvođač (backend) objavljuje poruku sa <em>routing key</em>-em <code>trip.started</code> kada vozač pokrene turu, a worker proces (poglavlje 7.4) je preuzima iz reda vezanog za taj routing key, obrađuje je i upisuje rezultat (predlog pauze) u bazu. RabbitMQ je izabran zbog ugrađene podrške za potvrdu obrade poruke (<em>acknowledgment</em>) i automatsko ponovno slanje neuspešno obrađene poruke (<em>requeue</em>), što sistemu daje otpornost na privremeni pad worker procesa bez gubitka podataka o događaju.</p>
+<h2>3.6 WebSocket</h2>
+<p>Za real-time komunikaciju (praćenje pozicije vozila uživo i chat) korišćena je biblioteka <code>gorilla/websocket</code> na backend strani i <code>web_socket_channel</code> na Flutter strani, obe implementacije WebSocket protokola (RFC 6455 <a class="cite" href="#ref3">[3]</a>) nad HTTP/1.1 <em>upgrade</em> mehanizmom. Detalji implementacije dati su u poglavlju 7.5.</p>
+<h2>3.7 Docker i docker-compose</h2>
+<p>Svi serverski delovi sistema (Go backend, PostgreSQL, RabbitMQ, Valhalla) su kontejnerizovani Docker slikama <a class="cite" href="#ref12">[12]</a> i orkestrisani preko <code>docker-compose</code>, alata koji na osnovu deklarativnog YAML fajla pokreće, povezuje u zajedničku mrežu i redosledom health-check zavisnosti startuje više kontejnera jednom komandom (<code>docker compose up</code>). Ovo omogućava da se ceo backend deo sistema pokrene na bilo kojoj mašini sa Docker-om instaliranim, bez ručne instalacije PostgreSQL-a, RabbitMQ-a ili Valhalla-e — što je posebno važno za predvidljivost demonstracije rada (poglavlje 9). Detalji konfiguracije dati su u poglavlju 4.2.</p>
+<h2>3.8 Ostale biblioteke i servisi</h2>
+<div style="page-break-after:always;break-after:page;"><ul>
+<li><strong>JWT (JSON Web Token, RFC 7519 <a class="cite" href="#ref13">[13]</a>)</strong> — format za autentifikacione tokene korišćen preko biblioteke <code>golang-jwt/jwt</code>, sa HS256 potpisom; nosi identitet vozača i broj verzije tokena (<code>token_version</code>), koji se koristi za "odjavu sa svih uređaja" bez potrebe za posebnom listom opozvanih tokena (poglavlje 4.3).</li>
+<li><strong>bcrypt</strong> — algoritam za heširanje lozinki sa ugrađenom "solju" i podesivim faktorom rada, korišćen umesto čuvanja lozinki u čistom tekstu ili prostog heša.</li>
+<li><strong>Google Sign-In / JWKS</strong> — prijava preko Google naloga verifikuje se ručnom proverom Google-ovog ID token-a nad javnim skupom ključeva (JWKS) preko biblioteke <code>MicahParks/keyfunc</code>, bez uvođenja celog Firebase SDK-a kao zavisnosti.</li>
+<li><strong>Nominatim <a class="cite" href="#ref14">[14]</a></strong> — javni servis za geokodiranje (pretvaranje adrese u koordinate i obrnuto) projekta OpenStreetMap, korišćen za pretragu adresa u mobilnoj aplikaciji (poglavlje 7.1), sa ograničenjem brzine poziva (throttling) u skladu sa politikom korišćenja servisa.</li>
+<li><strong>goose <a class="cite" href="#ref15">[15]</a></strong> — alat za upravljanje migracijama šeme baze podataka preko numerisanih SQL fajlova (poglavlje 7.2), koji garantuje da se svaka migracija primeni tačno jednom.</li>
+<li><strong>osmium-tool</strong> — komandolinijski alat za filtriranje i obradu <code>.osm</code>/<code>.osm.pbf</code> fajlova, korišćen u pripremi geografskih podataka (poglavlje 5.1).</li>
+</ul></div>
+<h1>4 Arhitektura sistema</h1>
+<h2>4.1 Pregled arhitekture i tok podataka</h2>
+<p>Sistem se sastoji od pet nezavisnih procesa: Flutter mobilne aplikacije (klijent, vozač ili dispečer), Go backend servisa (centralna tačka logike), Valhalla routing engine-a, PostgreSQL/PostGIS baze podataka i RabbitMQ posrednika poruka. Slika 4.1 prikazuje njihov međusobni odnos i osnovni tok podataka pri planiranju i praćenju jedne ture.</p>
+<div class="diagram"><svg viewBox="0 0 680 460" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#000"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
+    .inner{fill:#ffffff;stroke:#555;stroke-width:1;}
+    .lbl{text-anchor:middle;dominant-baseline:middle;}
+    .small{font-size:11px;}
+    .edge{stroke:#000;stroke-width:1.3;fill:none;marker-end:url(#arrow);}
+    .cap{font-size:11px;text-anchor:middle;fill:#333;}
+  </style>
+  <!-- Mobile app -->
+  <rect class="box" x="230" y="10" width="220" height="55" rx="4"/>
+  <text class="lbl" x="340" y="30">Flutter mobilna aplikacija</text>
+  <text class="lbl small" x="340" y="48">(vozač / dispečer)</text>
+  <!-- Backend outer -->
+  <rect class="box" x="90" y="105" width="500" height="150" rx="4"/>
+  <text class="cap" x="340" y="122">Go backend servis (jedan proces)</text>
+  <rect class="inner" x="110" y="135" width="145" height="45" rx="3"/>
+  <text class="lbl small" x="182" y="157">REST API</text>
+  <rect class="inner" x="270" y="135" width="145" height="45" rx="3"/>
+  <text class="lbl small" x="342" y="150">Scoring + Explain</text>
+  <text class="lbl small" x="342" y="165">(6.2, 6.3)</text>
+  <rect class="inner" x="430" y="135" width="140" height="45" rx="3"/>
+  <text class="lbl small" x="500" y="157">WS gateway</text>
+  <rect class="inner" x="110" y="195" width="230" height="45" rx="3"/>
+  <text class="lbl small" x="225" y="217">RabbitMQ worker (rest-stop, 7.4)</text>
+  <rect class="inner" x="360" y="195" width="210" height="45" rx="3"/>
+  <text class="lbl small" x="465" y="217">Auth (JWT, bcrypt, Google)</text>
+  <!-- External services row -->
+  <rect class="box" x="20" y="330" width="180" height="60" rx="4"/>
+  <text class="lbl" x="110" y="352">Valhalla</text>
+  <text class="lbl small" x="110" y="370">truck costing (6.1)</text>
+  <rect class="box" x="250" y="330" width="180" height="60" rx="4"/>
+  <text class="lbl" x="340" y="352">PostgreSQL</text>
+  <text class="lbl small" x="340" y="370">+ PostGIS (7.2)</text>
+  <rect class="box" x="480" y="330" width="180" height="60" rx="4"/>
+  <text class="lbl" x="570" y="352">RabbitMQ</text>
+  <text class="lbl small" x="570" y="370">trip.events (7.4)</text>
+  <!-- edges -->
+  <path class="edge" d="M300,65 L230,105"/>
+  <path class="edge" d="M230,105 L300,65" />
+  <path class="edge" d="M380,65 L480,105"/>
+  <path class="edge" d="M480,105 L380,65"/>
+  <text class="cap" x="255" y="88">REST</text>
+  <text class="cap" x="430" y="88">WebSocket</text>
+  <path class="edge" d="M182,180 L110,330"/>
+  <text class="cap" x="120" y="270" transform="rotate(-71 120 270)">/route (truck)</text>
+  <path class="edge" d="M225,240 L300,330"/>
+  <path class="edge" d="M342,180 L340,330"/>
+  <path class="edge" d="M465,240 L400,330"/>
+  <path class="edge" d="M225,195 L570,330"/>
+  <text class="cap" x="430" y="270">SQL</text>
+  <path class="edge" d="M110,330 L110,195" stroke-dasharray="4,3"/>
+  <text class="cap" x="60" y="270" transform="rotate(-90 60 270)">trip.started</text>
+  <path class="edge" d="M500,180 L570,330" stroke-dasharray="0"/>
+  <text class="cap" x="600" y="270" transform="rotate(70 600 270)">live pozicija / chat</text>
+  <text x="340" y="440" text-anchor="middle" class="small" fill="#333">Isprekidana linija: asinhrona komunikacija (RabbitMQ). Pune linije: sinhroni HTTP/SQL/WebSocket pozivi.</text>
+</svg>
+</div>
+<p><strong>Slika 4.1.</strong> Arhitektura sistema — komponente i tok podataka</p>
+<p>Tok pri planiranju rute je sledeći: mobilna aplikacija šalje <code>POST /api/v1/routes</code> sa profilom vozila, polazištem i odredištem; backend mapira profil vozila u Valhalla-in <code>truck</code> costing model (poglavlje 6.1) i traži do tri alternativne rute; svaka alternativa se rangira sopstvenom funkcijom rizika (poglavlje 6.2), a za izabranu (najbolje rangiranu) rutu se, ako odstupa od geometrijski najkraćeg puta, generiše tekstualno objašnjenje (poglavlje 6.3); odgovor sa geometrijom, rizikom i objašnjenjem se vraća klijentu. Kada vozač zaista pokrene turu (<code>POST /api/v1/trips</code>, zatim prelazak u status <code>in_progress</code>), backend objavljuje <code>trip.started</code> događaj na RabbitMQ, koji worker procès preuzima i računa predlog pauze (poglavlje 7.4); istovremeno se otvara WebSocket veza (<code>GET /ws/trips/{id}</code>) preko koje se, dok vozač šalje periodične GPS pozicije (<code>POST /api/v1/trips/{id}/position</code>), te pozicije prosleđuju svim zainteresovanim klijentima uživo — vozačevom sopstvenom ekranu i, ako postoji, njegovom dispečeru koji sistem preko sopstvene, paralelne WebSocket konekcije prati na jednoj mapi (poglavlje 7.5, 8.2).</p>
+<p>Sistem sledi troslojnu podelu odgovornosti sličnu klasičnoj veb arhitekturi <a class="cite" href="#ref2">[2]</a>: sloj prezentacije (Flutter aplikacija), sloj obrade (Go backend, uključujući scoring i explain module) i sloj perzistencije (PostgreSQL). Razlika u odnosu na uobičajenu troslojnu veb aplikaciju je što backend za svaki zahtev za rutu sam postaje klijent eksternog servisa (Valhalla), a deo obrade (predlog pauze) je pomeren u nezavisan, asinhron proces (worker), radi rasterećenja glavne HTTP niti obrade zahteva.</p>
+<h2>4.2 Kontejnerizacija i orkestracija servisa</h2>
+<p>Svi serverski delovi sistema definisani su u jednom <code>docker-compose.yml</code> fajlu i pokreću se komandom <code>docker compose up</code>. Listing 4.1 prikazuje definiciju PostgreSQL servisa, sa health-check-om koji ostali servisi (backend) koriste kao uslov za sopstveni start preko <code>depends_on: condition: service_healthy</code> — čime se garantuje da backend ne pokuša konekciju na bazu koja još nije spremna za prihvat konekcija.</p>
+<p><pre class="code lang-yaml"><code>postgres:
+  image: postgis/postgis:16-3.4-alpine
+  environment:
+    POSTGRES_USER: hvr
+    POSTGRES_PASSWORD: hvr_dev_password
+    POSTGRES_DB: hvr
+  ports:
+    - &quot;5433:5432&quot;
+  volumes:
+    - pgdata:/var/lib/postgresql/data
+  healthcheck:
+    test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U hvr -d hvr&quot;]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+</code></pre> <strong>Listing 4.1.</strong> Definicija PostgreSQL/PostGIS servisa u <code>docker-compose.yml</code></p>
+<p>Tabela 4.1 sumira sve servise definisane u <code>docker-compose.yml</code>, njihovu ulogu i portove koje izlažu na host mašini.</p>
+<p><strong>Tabela 4.1.</strong> Servisi definisani u <code>docker-compose.yml</code></p>
+<table>
+<thead><tr>
+<th>Servis</th>
+<th>Slika</th>
+<th>Uloga</th>
+<th>Port (host)</th>
+</tr></thead><tbody>
+<tr>
+<td><code>postgres</code></td>
+<td><code>postgis/postgis:16-3.4-alpine</code></td>
+<td>Relaciona baza + PostGIS ekstenzija</td>
+<td>5433 → 5432</td>
+</tr>
+<tr>
+<td><code>rabbitmq</code></td>
+<td><code>rabbitmq:3-management-alpine</code></td>
+<td>Posrednik poruka (AMQP) + web konzola</td>
+<td>5672, 15672</td>
+</tr>
+<tr>
+<td><code>valhalla</code></td>
+<td><code>ghcr.io/valhalla/valhalla:latest</code></td>
+<td>HTTP routing servis (<code>valhalla_service</code>)</td>
+<td>8002</td>
+</tr>
+<tr>
+<td><code>valhalla-build</code></td>
+<td><code>ghcr.io/valhalla/valhalla:latest</code></td>
+<td>Jednokratna izgradnja grafa iz OSM ekstrakta (profil <code>build</code>, ne pokreće se pri običnom <code>up</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>backend</code></td>
+<td>sopstveni Go build</td>
+<td>REST API, WebSocket gateway, worker</td>
+<td>8080</td>
+</tr>
+</tbody></table>
+<p><code>valhalla-build</code> je definisan sa Docker Compose <em>profilom</em> <code>build</code>, što znači da se ne pokreće automatski pri <code>docker compose up</code> — pokreće se izričito (<code>docker compose --profile build up valhalla-build</code>) samo kada treba ponovo izgraditi graf (npr. nakon promene OSM ekstrakta, poglavlje 5), i radi sa <code>network_mode: none</code> jer mu za samu izgradnju grafa nije potrebna mrežna konekcija, čime se smanjuje površina za eventualni bezbednosni problem tog koraka. Mobilna aplikacija i sopstveni algoritamski modul (poglavlje 6.4) nisu deo <code>docker-compose.yml</code> — Flutter aplikacija se pokreće lokalno na razvojnoj mašini ili emulatoru, a algoritamski modul je čista Go biblioteka koja se pokreće isključivo kroz testove, bez sopstvenog servisa (obrazloženo u poglavlju 6.4).</p>
+<h2>4.3 Sigurnost i autentifikacija</h2>
+<p>Autentifikacija vozača i dispečera zasniva se na JWT tokenima (RFC 7519 <a class="cite" href="#ref13">[13]</a>) potpisanim HMAC SHA-256 algoritmom (HS256). Nakon prijave (<code>POST /auth/login</code> sa korisničkim imenom i lozinkom, ili <code>POST /auth/google</code> sa Google ID tokenom), backend izdaje token koji, pored identifikatora vozača, nosi i celobrojno polje <code>token_version</code>. Ovo polje se upoređuje sa vrednošću <code>token_version</code> iz baze na svakom autentifikovanom zahtevu (<code>RequireAuth</code> middleware) — kada vozač zatraži odjavu sa svih uređaja (<code>POST /auth/logout-all</code>), backend samo inkrementira <code>token_version</code> u bazi, čime svi ranije izdati tokeni (koji nose stariju vrednost) trenutno postaju nevažeći, bez potrebe za posebnom, rastućom tabelom opozvanih tokena (<em>blocklist</em>) koja bi morala da se proverava na svakom zahtevu.</p>
+<p>Lozinke se ne čuvaju u čistom tekstu, već kao bcrypt heš, algoritam koji ugrađuje nasumičnu "sol" po lozinci (čime dve identične lozinke dva različita korisnika dobijaju različit heš) i podesivi faktor rada (koji direktno određuje koliko dugo traje jedan pokušaj heširanja, pa time i koliko dugo traje jedan pokušaj brute-force napada). Nalozi kreirani preko Google prijave nemaju lozinku (<code>password_hash</code> je <code>NULL</code>) — identifikuju se preko stabilnog Google identifikatora naloga (<code>google_sub</code>, <code>sub</code> polje iz Google ID tokena), koji backend verifikuje samostalno preko Google-ovog javnog skupa ključeva (JWKS), bez uvođenja Firebase SDK-a kao zavisnosti.</p>
+<p>Za obnovu zaboravljene lozinke (<code>POST /auth/forgot-password</code>) i verifikaciju email adrese (<code>GET /auth/verify-email</code>) koristi se model jednokratnog, vremenski ograničenog tokena zapisanog u posebnoj tabeli (<code>password_reset_tokens</code>, <code>email_verification_tokens</code>) sa poljima <code>expires_at</code> i <code>used_at</code> — link poslat emailom prestaje da važi i po isteku vremena i po jednokratnoj upotrebi, a backend razlikuje ta dva slučaja radi jasnije poruke korisniku. Slanje emaila (link za verifikaciju/reset) realizovano je preko <code>net/smtp</code> paketa iz Go standardne biblioteke, bez eksternog transakcionog email API-ja — servis je no-op (ne šalje ništa, samo zapisuje u log) ako promenljiva okruženja <code>SMTP_HOST</code> nije podešena, čime ostatak sistema radi i bez konfigurisanog email servisa (npr. u razvojnom okruženju).</p>
+<div style="page-break-after:always;break-after:page;"><p>Sistem u trenutnom obliku ima namerno ograničen bezbednosni obim, obrazložen u poglavlju 10 — WebSocket <code>CheckOrigin</code> provera je trenutno propustljiva (prihvata sve origin-e), pošto je aplikacija zamišljena kao rad sa jednim poznatim, poverljivim klijentom (sopstvena Flutter aplikacija), a ne kao javni, višezakupčani (multi-tenant) servis.</p></div>
+<h1>5 Priprema geografskih podataka — OSM ekstrakcija za teretna vozila u Srbiji</h1>
+<h2>5.1 Izvor podataka i osmium filter</h2>
+<p>Osnovni izvor geografskih podataka je Geofabrik-ov dnevno ažuriran ekstrakt OpenStreetMap podataka za Srbiju (<code>serbia-latest.osm.pbf</code>) <a class="cite" href="#ref16">[16]</a>, preuzet automatizovanim <code>update-osm.sh</code> skriptom koja, pored preuzimanja, provera integritet fajla preko MD5 kontrolne sume koju Geofabrik objavljuje uz sam ekstrakt. Kompletan <code>.osm.pbf</code> fajl za Srbiju sadrži ogroman broj tagova nepotrebnih za rutiranje teretnih vozila (npr. sve poljoprivredne parcele, granice popisnih krugova, turističke oznake), pa se filtrira alatom <code>osmium-tools</code> <a class="cite" href="#ref17">[17]</a> pre nego što se prosledi Valhalla-i.</p>
+<p>Listing 5.1 prikazuje tačnu <code>osmium tags-filter</code> komandu korišćenu u projektu.</p>
+<p><pre class="code lang-bash"><code>osmium tags-filter \
+  serbia-latest.osm.pbf \
+  w/highway w/maxheight w/maxweight w/maxwidth \
+  w/hgv w/hazmat w/bridge w/tunnel \
+  w/surface w/maxspeed \
+  n/amenity=fuel,parking n/highway=rest_area n/barrier \
+  r/type=restriction \
+  --output serbia-hvt.osm.pbf --overwrite
+</code></pre> <strong>Listing 5.1.</strong> Osmium filter za ekstrakciju podataka relevantnih za teretni saobraćaj</p>
+<p>Filter čuva way-eve (<code>w/</code>) sa tagovima relevantnim za geometriju i ograničenja puta (<code>highway</code>, <code>maxheight</code>, <code>maxweight</code>, <code>maxwidth</code>, <code>hgv</code>, <code>hazmat</code>, <code>bridge</code>, <code>tunnel</code>, <code>surface</code>, <code>maxspeed</code>), relacije (<code>r/</code>) tipa <code>restriction</code> (ograničenja skretanja) i, što je bilo kritično ispraviti tokom razvoja (videti dalje u ovom poglavlju), node-ove (<code>n/</code>) sa tagovima <code>amenity=fuel</code>, <code>amenity=parking</code>, <code>highway=rest_area</code> i <code>barrier</code>. Way i node su, kako je objašnjeno u poglavlju 2.4, dva različita nivoa na kojima OSM podaci nose ograničenja relevantna za teretna vozila — way-evi obično nose ograničenje za celu deonicu (npr. <code>maxheight</code> na mostu), a node-ovi tačkastu prepreku (npr. rampu ili stub na ulazu u parking).</p>
+<p><strong>Napomena o razvoju filtera.</strong> Prva verzija filtera korišćena u ranoj fazi razvoja sadržala je samo <code>w/</code> i <code>r/</code> pravila, bez ijednog <code>n/</code> pravila — što je značilo da su svi node-ovi sa <code>amenity=fuel</code>, <code>amenity=parking</code>, <code>highway=rest_area</code> i <code>barrier</code> tagovima bili odbačeni pri filtriranju, iako su neophodni za modul predloga pauze vozača (poglavlje 7.4). Ovaj propust je otkriven i ispravljen tokom pripreme podataka za rad — dodavanjem tri <code>n/</code> pravila filtrirani fajl je narastao sa 68 121 223 na 68 402 528 bajtova, a Valhalla graf je ponovo izgrađen sa ispravljenim skupom podataka. Ovaj slučaj ilustruje opštu lekciju vezanu za pripremu OSM podataka: filter koji izgleda kompletan gledano samo kroz way tagove tiho odbacuje čitavu kategoriju informacija zavedenih na node nivou, a greška se ne manifestuje kao pad sistema već kao <em>nedostajuća</em> funkcionalnost koja se lako previdi dok se posebno ne testira.</p>
+<h2>5.2 Izgradnja Valhalla grafa</h2>
+<p>Filtriran <code>.osm.pbf</code> fajl se prosleđuje alatu <code>valhalla_build_tiles</code>, koji ga parsira i izgrađuje hijerarhijski graf organizovan u pločice (<em>tiles</em>) — trajni format koji Valhalla HTTP servis (<code>valhalla_service</code>) učitava pri startu i koristi za sve naredne <code>/route</code> zahteve. Ovaj korak je u sistemu izdvojen u poseban Docker Compose servis (<code>valhalla-build</code>, poglavlje 4.2), koji se pokreće samo kada treba ponovo izgraditi graf, a ne pri svakom pokretanju sistema (jer izgradnja traje nekoliko minuta i, s obzirom na to da se OSM podaci ne menjaju u toku jedne demonstracije rada, nije potrebno da se ona izvršava pri svakom <code>docker compose up</code>).</p>
+<p>Nakon ispravke filtera opisane u 5.1, ponovo izgrađen graf za teritoriju Republike Srbije sadrži 898 337 čvorova i 2 216 948 usmerenih ivica (grana). Ovaj graf koristi isključivo Valhalla, preko HTTP <code>/route</code> poziva (poglavlje 6.1) — nije direktno dostupan Go backend-u niti bilo kom drugom delu sistema, čime se čitava logika parsiranja OSM podataka i izgradnje efikasne rutne strukture prepušta Valhalla-i, u skladu sa odlukom (obrazloženom u poglavlju 6) da se produkcioni put ne oslanja na sopstvenu implementaciju pretrage nad grafom cele države.</p>
+<h2>5.3 Ekstrakcija podataka o odmaralištima</h2>
+<div style="page-break-after:always;break-after:page;"><p>Za modul predloga pauze vozača (poglavlje 7.4) backend ne poziva Valhallu, već direktno učitava, pri pokretanju, sve node-ove sa tagovima <code>amenity=fuel</code>, <code>amenity=parking</code> i <code>highway=rest_area</code> iz filtriranog OSM ekstrakta (istog fajla korišćenog za izgradnju Valhalla grafa, poglavlje 5.1) u memoriju procesa — oko 2000 node-ova za teritoriju Srbije. Ova lista se pri svakom predlogu pauze pretražuje geometrijski: kandidat mora biti unutar zadatog radijusa od tačke na ruti u kojoj bi vozilo teorijski bilo nakon isteka praga vožnje (poglavlje 7.4), i mora zaista biti u koridoru trase (a ne, na primer, geometrijski najbliža tačka vazdušnom linijom koja se nalazi na potpuno drugom putu). Rezultat pretrage dodatno favorizuje omiljene ili brend-specifične lokacije vozača, a za vozila koja prevoze opasan teret preferira benzinske stanice nad parkinzima u granicama tolerancije rastojanja — detalji ove logike dati su u poglavlju 7.4.</p></div>
+<h1>6 Algoritam rutiranja prilagođen vozilu</h1>
+<p>Ovo poglavlje je centralni algoritamski doprinos rada. Sistem koristi <strong>dvoslojni pristup</strong>: (1) u produkcionom putu, Valhalla generiše fizički dopustive alternativne rute preko svog <code>truck</code> costing modela (6.1), nad kojima sopstveni Go modul dodaje rangiranje po riziku (6.2) i objašnjenje odstupanja rute (6.3), pošto to Valhalla nativno ne radi; (2) kao odvojena, algoritamska celina namenjena evaluaciji i demonstraciji principa, implementirana je sopstvena Dijkstra/A* pretraga nad ograničenim podgrafom putne mreže, direktno nad OSM podacima, bez ikakve zavisnosti od Valhalla-e (6.4). Ovaj pristup je posledica realne procene obima rada: reimplementacija efikasnog nacionalnog routing engine-a nad grafom od skoro milion čvorova (poglavlje 5.2) nije realan cilj jednog diplomskog rada, dok je razumevanje i demonstracija principa na kojima takav engine počiva — kroz sopstvenu, testiranu implementaciju nad manjim, ali realnim podgrafom — sasvim ostvarivo i akademski relevantno.</p>
+<h2>6.1 Valhalla truck costing</h2>
+<p>Valhalla-in <code>truck</code> costing model prihvata profil vozila kao deo tela HTTP <code>/route</code> zahteva, bez potrebe da se graf iznova izgradi za svako vozilo. Listing 6.1 prikazuje tipičan zahtev korišćen u ovom sistemu.</p>
+<p><pre class="code lang-json"><code>POST /route
+{
+  &quot;locations&quot;: [
+    {&quot;lat&quot;: 44.8, &quot;lon&quot;: 20.4},
+    {&quot;lat&quot;: 45.25, &quot;lon&quot;: 19.85}
+  ],
+  &quot;costing&quot;: &quot;truck&quot;,
+  &quot;costing_options&quot;: {
+    &quot;truck&quot;: {
+      &quot;height&quot;: 4.0,
+      &quot;width&quot;: 2.55,
+      &quot;length&quot;: 16.5,
+      &quot;weight&quot;: 40,
+      &quot;axle_load&quot;: 11.5,
+      &quot;hazmat&quot;: false
+    }
+  },
+  &quot;alternates&quot;: 2
+}
+</code></pre> <strong>Listing 6.1.</strong> Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)</p>
+<p>Backend mapira sopstveni <code>TruckProfile</code> (u SI jedinicama — metrima i kilogramima, radi konzistentnosti sa ostatkom sistema) u Valhalla-ine jedinice (metri za dimenzije, metrički toni za masu), i parsira odgovor u sopstvenu strukturu <code>RouteCandidate</code> koja, pored rastojanja i trajanja, izdvaja i broj manevara, udeo puta na magistralnim/autoputskim deonicama (<code>HighwayRatio</code>), prisustvo trajekta ili putarine, kao i nazive ulica i tačke svakog manevra — signale koje ne izlaže sam sažetak rute, ali su neophodni za sloj rangiranja (6.2) i objašnjenja (6.3). Listing 6.2 prikazuje deo implementacije koja šalje zahtev i mapira profil vozila.</p>
+<p><pre class="code lang-go"><code>// TruckProfile mirrors Valhalla&#x27;s truck costing_options, in SI units (meters, kilograms).
+type TruckProfile struct {
+	HeightM    float64
+	WidthM     float64
+	LengthM    float64
+	WeightKg   float64
+	AxleLoadKg float64
+	Hazmat     bool
+}
+
+func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon,
+	profile TruckProfile, numAlternates int) ([]RouteCandidate, error) {
+	body := routeRequest{
+		Locations: []LatLon{origin, destination},
+		Costing:   &quot;truck&quot;,
+		CostingOptions: map[string]truckCostingOpt{
+			&quot;truck&quot;: {
+				Height:   profile.HeightM,
+				Width:    profile.WidthM,
+				Length:   profile.LengthM,
+				Weight:   profile.WeightKg / 1000,   // Valhalla expects metric tons
+				AxleLoad: profile.AxleLoadKg / 1000,
+				Hazmat:   profile.Hazmat,
+			},
+		},
+		Alternates: numAlternates,
+	}
+	// ... serijalizacija, HTTP POST na baseURL+&quot;/route&quot;, parsiranje odgovora
+}
+</code></pre> <strong>Listing 6.2.</strong> <code>valhalla.Client.RouteAlternates</code> — mapiranje profila vozila u Valhalla <code>costing_options</code> (<code>backend/internal/valhalla/client.go</code>)</p>
+<p>Ograničenje ovog pristupa je da odgovor običnog <code>/route</code> poziva ne izlaže <em>koja tačno</em> ivica grafa je isključena niti njenu tačnu vrednost ograničenja (npr. tačnu visinu nadvožnjaka) — ta informacija bi zahtevala poziv Valhalla-inog <code>/trace_attributes</code> endpoint-a nad već izračunatom rutom, ili direktan pristup OSM podacima nezavisno od Valhalla-e. Ovo ograničenje je direktno motivisalo modul opisan u 6.4, koji, radeći nad sopstvenim, manjim grafom, ima pristup tačnim OSM tagovima svake ivice.</p>
+<h2>6.2 Prilagođena funkcija rizika (scoring)</h2>
+<p>Valhalla po zahtevu vraća do tri alternativne rute, ali ih ne rangira po bilo kom kriterijumu specifičnom za teretni saobraćaj — sve tri su, sa njene tačke gledišta, fizički dopustive. Paket <code>scoring</code> dodaje taj nedostajući sloj: svaku alternativu bodira heurističkom funkcijom rizika koja kombinuje rastojanje, broj manevara, udeo puta van magistralnih deonica, prisustvo trajekta/putarine, procenu potrošnje goriva u odnosu na masu vozila, broj "oštrih" manevara (proxy za rizik pomeranja tereta) i blizinu omiljenih/brend benzinskih stanica vozača — a zatim vraća alternative sortirane od najboljeg (najmanji rizik) ka najgorem rezultatu.</p>
+<p>Svaka dimenzija skalira se prema preferenci vozača, izraženoj kao ceo broj od 1 do 5 (gde je 3 neutralna, podrazumevana vrednost) preko faktora <code>priority/3</code> — vozač koji nikad ne podesi svoje preference dobija rezultat identičan fiksnoj, uravnoteženoj formuli. Listing 6.3 prikazuje centralnu funkciju bodovanja.</p>
+<p><pre class="code lang-go"><code>func score(c valhalla.RouteCandidate, prefs Preferences, vehicleWeightKg,
+	fastestDurationMin float64, preferredStops []valhalla.LatLon) float64 {
+	var timeTerm float64
+	if fastestDurationMin &gt; 0 {
+		timeTerm = (c.DurationMin - fastestDurationMin) / fastestDurationMin * timeScale
+	}
+	highwayTerm := (1 - c.HighwayRatio) * nonHighwayScale
+	fuelTerm := fuelProxy(c, vehicleWeightKg)
+	cargoTerm := float64(c.SharpManeuverCount) * sharpManeuverWt
+
+	s := scalar(prefs.TimePriority)*timeTerm +
+		scalar(prefs.HighwayPriority)*highwayTerm +
+		scalar(prefs.FuelPriority)*fuelTerm +
+		scalar(prefs.CargoPriority)*cargoTerm +
+		float64(c.ManeuverCount)*maneuverWeight
+
+	if c.HasFerry {
+		s += ferryPenalty
+	}
+	if c.HasToll {
+		s += tollPenalty
+	}
+	s += preferredStopDiscount(c.Shape, preferredStops)
+	return s
+}
+</code></pre> <strong>Listing 6.3.</strong> Funkcija bodovanja rute (<code>backend/internal/scoring/scoring.go</code>) — manji rezultat je bolji</p>
+<p>Vrednost <code>timeTerm</code> je relativno kašnjenje kandidata u odnosu na najbrži kandidat u istom skupu alternativa (0% ako je kandidat najbrži), a <code>fuelProxy</code> je relativna procena "potrošnje" izvedena iz rastojanja i mase vozila (nema pristupa podacima o nagibu puta, pa ovo nije stvarna potrošnja u litrima, već relativan signal za poređenje kandidata međusobno). Autor koda je u komentarima izričito naglasio da su bazne težine (<code>maneuverWeight</code>, <code>nonHighwayScale</code>, <code>ferryPenalty</code> itd.) prva heuristička procena, nekalibrisana prema stvarnim podacima o potrošnji ili nesrećama — što je pošteno i namerno ograničenje, razmatrano dalje u poglavlju 9.3 kroz konkretan primer greške koju je ova formula ispravila.</p>
+<p><strong>Motivacija dodavanja vremenskog člana.</strong> Rana verzija formule nije sadržala <code>timeTerm</code> — bodovala je isključivo na osnovu udela magistralne deonice (<code>highwayTerm</code>) i broja manevara. Testiranjem na konkretnoj ruti (Radalj, poglavlje 9.3) uočeno je da takva formula bira rutu koja je 47% duža i 30% sporija od alternative samo zato što ima nešto povoljniji odnos magistralne i lokalne deonice puta — očigledno pogrešan ishod sa stanovišta stvarnog transportnog troška. Dodavanje <code>timeTerm</code>-a, koji direktno kažnjava kandidata srazmerno tome koliko je sporiji od najbržeg u skupu, ispravilo je taj slučaj bez uklanjanja postojećih članova formule.</p>
+<h2>6.3 Objašnjenje predložene rute — slučaj Novi Banovci</h2>
+<p>Kada izabrana ruta odstupa od geometrijski najkraćeg puta, vozaču nije dovoljno prikazati <em>šta</em> je predloženo — potrebno mu je objašnjenje <em>zašto</em>. Paket <code>explain</code> implementira taj mehanizam prema principu binarne pretrage po dimenzijama profila vozila:</p>
+<ol>
+<li>Zahteva se "referentna" ruta sa svim dimenzijama profila veštački opuštenim na nerealno velike vrednosti (npr. visina 100m, masa 900 000 kg) — ruta koju bi Valhalla predložila da fizička ograničenja vozila ne postoje.</li>
+<li>Ako se izabrana ruta (sa stvarnim profilom vozila) po rastojanju ne razlikuje značajno od referentne (manje od 1km), nema odstupanja koje treba objasniti.</li>
+<li>U suprotnom, dimenzije profila (visina, masa, osovinsko opterećenje, širina, prevoz opasnog tereta) se redom, jedna po jedna, "oslobađaju" na referentnu vrednost, i ruta se ponovo traži — dimenzija čije oslobađanje vrati rutu na rastojanje referentne rute je <strong>vezujuće ograničenje</strong> za taj segment puta.</li>
+<li>Mesto odstupanja se određuje geometrijski: dekodirane geometrije (polyline) izabrane i referentne rute se upoređuju tačku po tačku, a prva tačka izabrane rute čija je udaljenost od svake tačke referentne rute veća od 200m proglašava se tačkom divergencije; njoj se pridružuje naziv ulice najbližeg manevra izabrane rute.</li>
+<li>Generiše se poruka vozaču, npr.: <em>"Ruta skreće kod [ulica] jer visina vozila (4.7m) ne zadovoljava ograničenje na toj deonici."</em></li>
+</ol>
+<div class="diagram"><svg viewBox="0 0 640 620" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="12.5">
+  <defs>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#000"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
+    .dec{fill:#ffffff;stroke:#000;stroke-width:1.3;stroke-dasharray:3,2;}
+    .lbl{text-anchor:middle;dominant-baseline:middle;}
+    .edge{stroke:#000;stroke-width:1.2;fill:none;marker-end:url(#arrow2);}
+    .cap{font-size:11px;text-anchor:middle;fill:#333;}
+  </style>
+  <rect class="box" x="170" y="10" width="300" height="45" rx="4"/>
+  <text class="lbl" x="320" y="33">Izabrana ruta (profil vozila) + referentna ruta</text>
+  <path class="edge" d="M320,55 L320,95"/>
+  <rect class="dec" x="150" y="95" width="340" height="55" rx="4"/>
+  <text class="lbl" x="320" y="115">|distance(izabrana) − distance(referentna)|</text>
+  <text class="lbl" x="320" y="132">&lt; 1 km ?</text>
+  <path class="edge" d="M490,122 L560,122 L560,30 L470,30"/>
+  <text class="cap" x="565" y="80">da</text>
+  <rect class="box" x="500" y="5" width="0" height="0"/>
+  <text class="lbl" x="595" y="30" transform="rotate(0)"></text>
+  <rect class="box" x="490" y="8" width="140" height="45" rx="4" transform="translate(0,0)"/>
+  <text class="lbl small" x="560" y="25" font-size="11">Nema odstupanja</text>
+  <text class="lbl small" x="560" y="40" font-size="11">— bez poruke</text>
+  <path class="edge" d="M320,150 L320,190"/>
+  <text class="cap" x="270" y="172">ne</text>
+  <rect class="box" x="120" y="190" width="400" height="55" rx="4"/>
+  <text class="lbl" x="320" y="210">Redom oslobodi JEDNU dimenziju profila</text>
+  <text class="lbl" x="320" y="227">(height, weight, axle_load, width, hazmat)</text>
+  <path class="edge" d="M320,245 L320,285"/>
+  <rect class="dec" x="150" y="285" width="340" height="55" rx="4"/>
+  <text class="lbl" x="320" y="305">Rastojanje nove rute ≈</text>
+  <text class="lbl" x="320" y="322">referentnoj (&lt; 1 km) ?</text>
+  <path class="edge" d="M150,312 L60,312 L60,217 L120,217"/>
+  <text class="cap" x="70" y="270" transform="rotate(-90 70 270)">ne — probaj sledeću dimenziju</text>
+  <path class="edge" d="M320,340 L320,380"/>
+  <text class="cap" x="270" y="362">da</text>
+  <rect class="box" x="120" y="380" width="400" height="50" rx="4"/>
+  <text class="lbl" x="320" y="405">Ta dimenzija je VEZUJUĆE OGRANIČENJE za ovaj segment</text>
+  <path class="edge" d="M320,430 L320,470"/>
+  <rect class="box" x="120" y="470" width="400" height="55" rx="4"/>
+  <text class="lbl" x="320" y="490">Geometrijska divergencija ruta → najbliži naziv</text>
+  <text class="lbl" x="320" y="507">ulice iz maneuver-a izabrane rute (6.3)</text>
+  <path class="edge" d="M320,525 L320,565"/>
+  <rect class="box" x="90" y="565" width="460" height="50" rx="4"/>
+  <text class="lbl" x="320" y="592" font-style="italic">„Ruta skreće kod {ulica} jer {dimenzija} vozila ne zadovoljava ograničenje.“</text>
+</svg>
+</div>
+<p><strong>Slika 6.1.</strong> Tok mehanizma objašnjenja rute (<code>explain.Explain</code>)</p>
+<p><strong>Slučaj Novi Banovci.</strong> Ovaj mehanizam je razvijen i potvrđen na konkretnom, stvarnom slučaju: ručnom binarnom pretragom (ponavljanjem <code>/route</code> poziva sa različitim vrednostima visine) utvrđeno je da na auto-putu A1, u okolini čvora Novi Banovci (izlaz 21/22), postoji ograničenje visine između 4.5m i 4.6m. Za vozilo profila korišćenog u testu (visina 4.7m), Valhalla je korektno birala detour preko lokalnog puta umesto direktnog nastavka auto-putem — a mehanizam opisan u ovom poglavlju automatizuje upravo tu istu binarnu pretragu, koju je autor prvo sproveo ručno da bi potvrdio da je ponašanje Valhalla-e (i, posledično, sistema) tačno.</p>
+<p>Bitna napomena o ovom mehanizmu je jedna poznata, dokumentovana greška otkrivena tokom razvoja i potom ispravljena: rana verzija je poredila listu manevara (<code>street_names</code>) izabrane i referentne rute <strong>po pozicionom indeksu u nizu</strong> (manevar broj <em>i</em> izabrane rute sa manevrom broj <em>i</em> referentne rute). Ovo je radilo dobro kada su rute delile zajednički početni deo puta i lokalno se razdvajale, ali je davalo pogrešnu (preraniju) lokaciju za vozila sa toliko strogim ograničenjem da Valhalla za njih bira <strong>globalno drugačiju strategiju rute od samog početka</strong> — tada indeks <em>i</em> ne odgovara istom mestu na putu kod obe rute. Zamena poređenja po indeksu geometrijskim poređenjem (korak 4 gore) rešila je ovaj problem, jer geometrija ne zavisi od toga kako su manevri indeksirani, već isključivo od toga gde se putevi fizički razilaze. Ovaj slučaj je vredan pomena u radu jer ilustruje opštu lekciju: kada se dva niza podataka (manevri dve različite rute) upoređuju da bi se pronašla tačka razlike, poređenje po <strong>pozicionoj strukturi</strong> (indeksu) je lažno pouzdano — tačno je samo dok se strukture podudaraju, a tiho daje pogrešan rezultat kada se globalno razlikuju; poređenje po <strong>sadržaju</strong> (u ovom slučaju, stvarnoj geografskoj geometriji) je robusnije jer ne pretpostavlja da strukture uopšte odgovaraju jedna drugoj.</p>
+<h2>6.4 Sopstvena implementacija pretrage puta nad ograničenim podgrafom</h2>
+<p>Kao samostalna algoritamska celina, odvojena od produkcionog puta (nije uvezana u <code>main.go</code> niti u REST API — koristi se isključivo kroz sopstvene testove), implementirana je sopstvena Dijkstra i A<em> pretraga najkraćeg puta koja radi direktno nad OSM XML podacima, bez ikakve zavisnosti od Valhalla-e. Svrha ovog modula nije da zameni Valhallu u produkciji (poglavlje 5.2 objašnjava zašto bi reimplementacija efikasnog routing engine-a nad grafom cele države bila nerealan cilj za obim ovog rada), već da (a) demonstrira, kroz sopstveni, testiran kod, principe na kojima Valhalla interno počiva (isključivanje fizički nedopustivih grana, pretraga najkraćeg puta uz heuristiku), i (b) da posluži kao alat za evaluaciju i poređenje Dijkstra i A</em> pristupa nad istim, realnim podacima (poglavlje 9.2), sa direktnim pristupom OSM tagovima koje obični Valhalla <code>/route</code> odgovor ne izlaže (poglavlje 6.1).</p>
+<p><strong>Graf i model podataka.</strong> Graf se učitava iz <code>.osm</code> (XML) ekstrakta funkcijom <code>LoadOSMXML</code>, koja parsira way-eve sa tagom <code>highway</code> u usmerene ivice (<code>Edge</code>), čuvajući po ivici dužinu, klasu puta (<code>RoadClass</code>), podlogu (<code>Surface</code>) i, ako postoje, ograničenja <code>maxheight</code>/<code>maxweight</code>/<code>hazmat</code> preuzeta sa way-a. Node-ovi koji imaju sopstveni <code>barrier</code> tag sa <code>maxheight</code>/<code>maxweight</code> (npr. rampa niže visine na inače prohodnom putu) čuvaju se kao ograničenje na samom čvoru (<code>Node.MaxHeightM</code>), odvojeno od ograničenja na ivici — jer, kako je objašnjeno u poglavlju 2.4, OSM te dve vrste ograničenja zavodi na dva različita nivoa.</p>
+<p><strong>Funkcija cene.</strong> Cena prelaska ivice je njena dužina u metrima, uvećana za faktor lošije podloge (<code>unpaved</code>, <code>gravel</code>, <code>dirt</code>, <code>sett</code> — 30% penal) i skalirana faktorom preferencije klase puta (Tabela 6.1) — magistralni putevi i auto-putevi imaju blagi popust u ceni (manje raskrsnica/prilaza po kilometru za veliko vozilo), dok sekundarni putevi imaju blagi penal. Na svaki prelaz sa ivice na ivicu (skretanje) dodaje se i penal za oštrinu ugla skretanja, izražen u istoj jedinici ("metar") kao i osnovna cena, radi jednostavnog sabiranja — svi ovi koeficijenti su, kao i kod paketa <code>scoring</code> (6.2), heuristička, nekalibrisana prva procena, što je u kodu izričito dokumentovano.</p>
+<p><strong>Tabela 6.1.</strong> Faktor preferencije klase puta (<code>roadClassMultiplier</code>)</p>
+<table>
+<thead><tr>
+<th>Klasa puta (OSM <code>highway</code>)</th>
+<th>Faktor</th>
+</tr></thead><tbody>
+<tr>
+<td><code>motorway</code></td>
+<td>0.85</td>
+</tr>
+<tr>
+<td><code>motorway_link</code></td>
+<td>0.90</td>
+</tr>
+<tr>
+<td><code>trunk</code></td>
+<td>0.90</td>
+</tr>
+<tr>
+<td><code>trunk_link</code></td>
+<td>0.95</td>
+</tr>
+<tr>
+<td><code>primary</code></td>
+<td>1.00</td>
+</tr>
+<tr>
+<td><code>primary_link</code></td>
+<td>1.05</td>
+</tr>
+<tr>
+<td><code>secondary</code></td>
+<td>1.15</td>
+</tr>
+<tr>
+<td><code>secondary_link</code></td>
+<td>1.20</td>
+</tr>
+</tbody></table>
+<p>Listing 6.4 prikazuje isključivanje nedopustivih ivica i čvorova (tvrdo ograničenje, princip identičan Valhalla-inom <code>truck</code> costing-u, poglavlje 2.3) i funkciju cene ivice.</p>
+<p><pre class="code lang-go"><code>func allowed(e Edge, p VehicleProfile) bool {
+	if e.MaxHeightM &gt; 0 &amp;&amp; p.HeightM &gt; e.MaxHeightM {
+		return false
+	}
+	if e.MaxWeightT &gt; 0 &amp;&amp; p.WeightKg/1000 &gt; e.MaxWeightT {
+		return false
+	}
+	if e.Hazmat &amp;&amp; p.Hazmat {
+		return false
+	}
+	return true
+}
+
+func cost(e Edge) float64 {
+	base := e.LengthM
+	switch e.Surface {
+	case &quot;unpaved&quot;, &quot;gravel&quot;, &quot;dirt&quot;, &quot;sett&quot;:
+		base *= 1.3
+	}
+	if mult, ok := roadClassMultiplier[e.RoadClass]; ok {
+		base *= mult
+	}
+	return base
+}
+</code></pre> <strong>Listing 6.4.</strong> Isključivanje nedopustivih ivica i funkcija cene (<code>backend/internal/algorithm/cost.go</code>)</p>
+<p><strong>Pretraga.</strong> Dijkstra i A<em> dele istu implementaciju pretrage (funkcija <code>search</code>), sa jedinom razlikom u heuristici prosleđenoj prioritetnom redu: Dijkstra koristi heuristiku koja je uvek nula (ekvivalentno standardnom Dijkstra algoritmu), a A</em> koristi haversine udaljenost od trenutnog čvora do cilja. Pretraga koristi binarnu gomilu (<code>container/heap</code>) kao prioritetni red i prekida se čim je ciljni čvor skinut sa reda, umesto da izračuna najkraći put do svih čvorova u grafu. Listing 6.5 prikazuje deljenu funkciju pretrage.</p>
+<p><pre class="code lang-go"><code>func search(g *Graph, start, goal int64, profile VehicleProfile,
+	heuristic func(node int64) float64) (Result, error) {
+	dist := map[int64]float64{start: 0}
+	prev := map[int64]int64{}
+	pq := &amp;priorityQueue{{node: start, priority: heuristic(start)}}
+	heap.Init(pq)
+	visited := map[int64]bool{}
+
+	for pq.Len() &gt; 0 {
+		current := heap.Pop(pq).(pqItem).node
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		if current == goal {
+			return Result{Path: reconstructPath(prev, start, goal), Cost: dist[goal]}, nil
+		}
+		for _, edge := range g.AdjList[current] {
+			if !allowed(edge, profile) || !nodeAllowed(g.Nodes[edge.To], profile) || visited[edge.To] {
+				continue
+			}
+			edgeCost := cost(edge)
+			if p, ok := prev[current]; ok {
+				edgeCost += turnPenaltyMeters(turnAngle(g, p, current, edge.To))
+			}
+			newDist := dist[current] + edgeCost
+			if old, ok := dist[edge.To]; !ok || newDist &lt; old {
+				dist[edge.To] = newDist
+				prev[edge.To] = current
+				heap.Push(pq, pqItem{node: edge.To, priority: newDist + heuristic(edge.To)})
+			}
+		}
+	}
+	return Result{}, errNoPath
+}
+</code></pre> <strong>Listing 6.5.</strong> Deljena implementacija Dijkstra i A* pretrage (<code>backend/internal/algorithm/dijkstra.go</code>)</p>
+<div style="page-break-after:always;break-after:page;"><p><strong>Poznato, dokumentovano pojednostavljenje.</strong> Penal za skretanje se računa na osnovu <strong>jednog</strong> prethodno fiksiranog puta do trenutnog čvora (<code>prev[current]</code>), a ne na osnovu para (čvor, dolazna ivica), koje bi bilo teorijski korektnije (jer bi omogućilo da se do istog čvora stigne različitim uglovima dolaska i time različitim penalom za naredno skretanje). Ovo je jeftinije i jednostavnije za implementaciju od praćenja stanja pretrage po paru (čvor, ivica), po cenu da pretraga, u retkim slučajevima, ne mora biti globalno optimalna po ukupnom penalu za skretanje — pojednostavljenje koje je u samom kodu izričito i pošteno dokumentovano, u istom duhu kao i nekalibrisani koeficijenti pomenuti ranije u ovom poglavlju. Evaluacija ovog modula nad stvarnim podacima data je u poglavlju 9.2.</p></div>
+<h1>7 Backend servis i model podataka</h1>
+<h2>7.1 REST API</h2>
+<p>Backend izlaže REST API organizovan oko pet grupa resursa: autentifikacija, vozila, ture (trips), dispečerski odnosi i chat. Tabela 7.1 sumira najvažnije endpoint-e; kompletan spisak obuhvata i dodatne varijante (npr. <code>PATCH</code>, <code>PUT</code>) koje ovde nisu posebno izdvojene.</p>
+<p><strong>Tabela 7.1.</strong> Pregled REST API endpoint-a (skraćeno)</p>
+<table>
+<thead><tr>
+<th>Grupa</th>
+<th>Endpoint</th>
+<th>Opis</th>
+</tr></thead><tbody>
+<tr>
+<td>Autentifikacija</td>
+<td><code>POST /auth/register</code>, <code>POST /auth/login</code>, <code>POST /auth/google</code></td>
+<td>Registracija i prijava (lozinka ili Google)</td>
+</tr>
+<tr>
+<td>Autentifikacija</td>
+<td><code>GET /auth/verify-email</code>, <code>POST /auth/resend-verification</code></td>
+<td>Verifikacija email adrese</td>
+</tr>
+<tr>
+<td>Autentifikacija</td>
+<td><code>POST /auth/forgot-password</code>, <code>GET</code>/<code>POST /auth/reset-password</code></td>
+<td>Obnova zaboravljene lozinke</td>
+</tr>
+<tr>
+<td>Autentifikacija</td>
+<td><code>GET /auth/me</code>, <code>POST /auth/logout-all</code></td>
+<td>Podaci o naloгu, odjava sa svih uređaja</td>
+</tr>
+<tr>
+<td>Vozila</td>
+<td><code>POST</code>/<code>GET</code>/<code>PUT</code>/<code>DELETE /vehicles</code></td>
+<td>CRUD nad profilom vozila</td>
+</tr>
+<tr>
+<td>Vozila</td>
+<td><code>PATCH /vehicles/{id}/status</code>, <code>GET /vehicles/{id}/hours</code></td>
+<td>Nivo goriva/servis, sati vožnje</td>
+</tr>
+<tr>
+<td>Rutiranje</td>
+<td><code>POST /api/v1/routes</code></td>
+<td>Generisanje, rangiranje i objašnjenje rute (bez čuvanja)</td>
+</tr>
+<tr>
+<td>Ture</td>
+<td><code>POST</code>/<code>GET /trips</code>, <code>GET</code>/<code>PUT /trips/{id}</code></td>
+<td>Kreiranje i pregled tura</td>
+</tr>
+<tr>
+<td>Ture</td>
+<td><code>POST /trips/{id}/accept</code> (i <code>reject</code>, <code>start</code>, <code>position</code>, <code>reroute</code>, <code>complete</code>)</td>
+<td>Prelazi statusne mašine ture</td>
+</tr>
+<tr>
+<td>Ture</td>
+<td><code>GET /trips/{id}/events</code></td>
+<td>Dnevnik događaja tokom vožnje</td>
+</tr>
+<tr>
+<td>Dispečer</td>
+<td><code>GET /dispatcher/drivers</code>, <code>GET /dispatcher/available-drivers</code></td>
+<td>Pregled vozača dispečera / dostupnih vozača</td>
+</tr>
+<tr>
+<td>Dispečer</td>
+<td><code>POST /dispatcher/requests</code>, <code>GET /dispatcher/requests</code>, <code>GET /driver/requests</code>, <code>POST /driver/requests/{id}/respond</code></td>
+<td>Zahtev za povezivanje dispečer↔vozač</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td><code>GET /chats</code>, <code>GET</code>/<code>POST /chats/{driverId}/messages</code></td>
+<td>Pregled i slanje poruka</td>
+</tr>
+<tr>
+<td>Real-time</td>
+<td><code>GET /ws/trips/{id}</code>, <code>GET /ws/chats/{counterpartId}</code></td>
+<td>WebSocket veze (poglavlje 7.5)</td>
+</tr>
+<tr>
+<td>Geokodiranje</td>
+<td><code>GET /geocode</code>, <code>GET /geocode/reverse</code></td>
+<td>Proxy ka Nominatim servisu</td>
+</tr>
+</tbody></table>
+<p>Endpoint <code>POST /api/v1/routes</code> je <em>stateless</em> — samo generiše i vraća pregled rute (uz rizik i objašnjenje), bez upisa u bazu — dok <code>POST /trips</code> kreira stvarnu turu koja prolazi kroz statusnu mašinu opisanu u nastavku. Ovo razdvajanje omogućava vozaču da pregleda više varijanti rute (npr. sa različitim profilom vozila ili preferencama) bez posledica u bazi, pre nego što se konkretna ruta konvertuje u turu.</p>
+<p><strong>Statusna mašina ture.</strong> Tura prolazi kroz stanja: <code>offered</code> (ponuđena vozaču od strane dispečera, čeka odgovor) → <code>accepted</code> (vozač prihvatio ponudu) / <code>rejected</code> (vozač odbio, terminalno stanje) → <code>created</code> (samostalno kreirana od strane vozača, bez posrednog <code>offered</code> stanja) → <code>in_progress</code> (vozač pokrenuo turu) → <code>completed</code>. Backend, preko <code>HasActiveTrip</code>/<code>HasPendingOffer</code> provera, sprečava da vozač ima paralelno više aktivnih tura ili više neodgovorenih ponuda istovremeno.</p>
+<h2>7.2 Model podataka</h2>
+<p>Slika 7.1 prikazuje pregled entiteta baze podataka i njihovih veza; potpuna šema, uključujući sve kolone, definisana je preko četiri <code>goose</code> migracije opisane u nastavku.</p>
+<div class="diagram"><svg viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="12">
+  <style>
+    .ent{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
+    .title{font-weight:bold;text-anchor:middle;}
+    .field{font-size:10.5px;}
+    .edge{stroke:#000;stroke-width:1.1;fill:none;}
+    .card{font-size:10px;fill:#333;}
+  </style>
+  <!-- drivers -->
+  <rect class="ent" x="270" y="15" width="160" height="90"/>
+  <text class="title" x="350" y="32">drivers</text>
+  <line x1="270" y1="40" x2="430" y2="40" stroke="#000"/>
+  <text class="field" x="280" y="55">id (PK)</text>
+  <text class="field" x="280" y="68">role, dispatcher_id (FK→drivers)</text>
+  <text class="field" x="280" y="81">email, google_sub, token_version</text>
+  <text class="field" x="280" y="94">password_hash</text>
+  <!-- dispatcher_requests -->
+  <rect class="ent" x="20" y="15" width="180" height="60"/>
+  <text class="title" x="110" y="32">dispatcher_requests</text>
+  <line x1="20" y1="40" x2="200" y2="40" stroke="#000"/>
+  <text class="field" x="30" y="54">dispatcher_id, driver_id (FK)</text>
+  <text class="field" x="30" y="67">status</text>
+  <!-- driver_preferences -->
+  <rect class="ent" x="500" y="15" width="180" height="60"/>
+  <text class="title" x="590" y="32">driver_preferences</text>
+  <line x1="500" y1="40" x2="680" y2="40" stroke="#000"/>
+  <text class="field" x="510" y="54">driver_id (PK, FK)</text>
+  <text class="field" x="510" y="67">fuel/cargo/highway/time_priority</text>
+  <!-- vehicles -->
+  <rect class="ent" x="60" y="170" width="180" height="80"/>
+  <text class="title" x="150" y="187">vehicles</text>
+  <line x1="60" y1="195" x2="240" y2="195" stroke="#000"/>
+  <text class="field" x="70" y="209">id (PK)</text>
+  <text class="field" x="70" y="222">driver_id / dispatcher_id (FK)</text>
+  <text class="field" x="70" y="235">height_m, weight_kg, hazmat...</text>
+  <!-- trips -->
+  <rect class="ent" x="280" y="170" width="180" height="90"/>
+  <text class="title" x="370" y="187">trips</text>
+  <line x1="280" y1="195" x2="460" y2="195" stroke="#000"/>
+  <text class="field" x="290" y="209">id (PK)</text>
+  <text class="field" x="290" y="222">driver_id, assigned_by_id (FK)</text>
+  <text class="field" x="290" y="235">vehicle_id (FK), status</text>
+  <text class="field" x="290" y="248">shape, risk_score, rest_stop_*</text>
+  <!-- driver_favorite_stops -->
+  <rect class="ent" x="500" y="170" width="180" height="65"/>
+  <text class="title" x="590" y="187">driver_favorite_stops</text>
+  <line x1="500" y1="195" x2="680" y2="195" stroke="#000"/>
+  <text class="field" x="510" y="209">driver_id (FK)</text>
+  <text class="field" x="510" y="222">lat, lon, name</text>
+  <!-- trip_events -->
+  <rect class="ent" x="280" y="330" width="180" height="65"/>
+  <text class="title" x="370" y="347">trip_events</text>
+  <line x1="280" y1="355" x2="460" y2="355" stroke="#000"/>
+  <text class="field" x="290" y="369">trip_id (FK)</text>
+  <text class="field" x="290" y="382">event_type, occurred_at</text>
+  <!-- chat_messages -->
+  <rect class="ent" x="500" y="330" width="180" height="65"/>
+  <text class="title" x="590" y="347">chat_messages</text>
+  <line x1="500" y1="355" x2="680" y2="355" stroke="#000"/>
+  <text class="field" x="510" y="369">from_driver_id, to_driver_id (FK)</text>
+  <text class="field" x="510" y="382">body, sent_at, read_at</text>
+  <!-- edges -->
+  <path class="edge" d="M200,45 L270,45"/>
+  <text class="card" x="215" y="40">N</text><text class="card" x="255" y="40">1</text>
+  <path class="edge" d="M430,45 L500,45"/>
+  <text class="card" x="445" y="40">1</text><text class="card" x="490" y="40">1</text>
+  <path class="edge" d="M330,105 L200,170"/>
+  <text class="card" x="290" y="130">1</text><text class="card" x="220" y="160">N</text>
+  <path class="edge" d="M370,105 L370,170"/>
+  <text class="card" x="360" y="130">1</text><text class="card" x="360" y="160">N</text>
+  <path class="edge" d="M430,105 L560,170"/>
+  <text class="card" x="470" y="130">1</text><text class="card" x="540" y="160">N</text>
+  <path class="edge" d="M150,250 L340,170" stroke-dasharray="3,2"/>
+  <text class="card" x="220" y="205">1</text><text class="card" x="300" y="185">N</text>
+  <path class="edge" d="M370,260 L370,330"/>
+  <text class="card" x="360" y="285">1</text><text class="card" x="360" y="315">N</text>
+  <path class="edge" d="M350,105 L590,330" stroke-dasharray="3,2"/>
+  <text class="card" x="420" y="200">1</text><text class="card" x="560" y="300">N</text>
+  <text x="350" y="490" text-anchor="middle" font-size="10.5" fill="#333">Isprekidane linije: veza posredna preko drivers (vlasništvo vozila / autor poruke), ne direktan FK prikazan na dijagramu.</text>
+</svg>
+</div>
+<p><strong>Slika 7.1.</strong> Pregled entiteta baze podataka (skraćeno, bez svih kolona)</p>
+<p>Šema baze je organizovana u četiri numerisane, hronološke migracije, upravljane alatom <code>goose</code>, koji garantuje da se svaka migracija primeni tačno jednom, bez obzira na to koliko puta se sistem pokrene. Tabela 7.2 sumira sadržaj svake migracije.</p>
+<p><strong>Tabela 7.2.</strong> Migracije šeme baze podataka</p>
+<table>
+<thead><tr>
+<th>Migracija</th>
+<th>Sadržaj</th>
+</tr></thead><tbody>
+<tr>
+<td><code>00001_initial_schema.sql</code></td>
+<td>Osnovna šema: <code>drivers</code>, <code>vehicles</code>, <code>trips</code>, <code>driver_preferences</code>, <code>driver_favorite_stops</code>, <code>trip_events</code>, <code>chat_messages</code></td>
+</tr>
+<tr>
+<td><code>00002_dispatcher_roles.sql</code></td>
+<td><code>drivers.role</code>/<code>dispatcher_id</code>, <code>vehicles.dispatcher_id</code>, <code>trips.assigned_by_id</code>, tabela <code>dispatcher_requests</code></td>
+</tr>
+<tr>
+<td><code>00003_google_and_email_auth.sql</code></td>
+<td><code>drivers.google_sub</code>/<code>email</code>/<code>email_verified</code>, tabela <code>email_verification_tokens</code></td>
+</tr>
+<tr>
+<td><code>00004_password_reset_and_logout_all.sql</code></td>
+<td><code>drivers.token_version</code>, tabela <code>password_reset_tokens</code></td>
+</tr>
+</tbody></table>
+<p>Listing 7.1 prikazuje deo osnovne šeme — tabele <code>vehicles</code> i <code>trips</code>, sa CHECK ograničenjem koje garantuje da osovinsko opterećenje vozila ne može biti veće od njegove ukupne mase (integritetno ograničenje na nivou baze, ne samo na nivou aplikacije).</p>
+<p><pre class="code lang-sql"><code>CREATE TABLE IF NOT EXISTS vehicles (
+    id SERIAL PRIMARY KEY,
+    height_m DOUBLE PRECISION NOT NULL,
+    width_m DOUBLE PRECISION NOT NULL,
+    length_m DOUBLE PRECISION NOT NULL,
+    weight_kg DOUBLE PRECISION NOT NULL,
+    axle_load_kg DOUBLE PRECISION NOT NULL,
+    hazmat BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (axle_load_kg &lt;= weight_kg)
+);
+
+CREATE TABLE IF NOT EXISTS trips (
+    id SERIAL PRIMARY KEY,
+    vehicle_id INTEGER NOT NULL REFERENCES vehicles(id),
+    origin_lat DOUBLE PRECISION NOT NULL,
+    origin_lon DOUBLE PRECISION NOT NULL,
+    destination_lat DOUBLE PRECISION NOT NULL,
+    destination_lon DOUBLE PRECISION NOT NULL,
+    distance_km DOUBLE PRECISION NOT NULL,
+    duration_min DOUBLE PRECISION NOT NULL,
+    risk_score DOUBLE PRECISION NOT NULL,
+    shape TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT &#x27;created&#x27;,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+</code></pre> <strong>Listing 7.1.</strong> Osnovna šema tabela <code>vehicles</code> i <code>trips</code> (<code>00001_initial_schema.sql</code>)</p>
+<p>Geometrija rute (<code>trips.shape</code>) čuva se kao enkodovan tekstualni polyline (isti format koji vraća Valhalla), a ne kao PostGIS <code>geometry</code> kolona — pragmatičan izbor koji izbegava dekodiranje/enkodiranje geometrije pri svakom čitanju iz baze, po cenu da prostorni upiti nad geometrijom rute (npr. "sve ture koje prolaze kroz ovaj region") nisu mogući direktno u bazi, već bi zahtevali dekodiranje u aplikacionom sloju — razmatrano kao mogući pravac budućeg rada u poglavlju 10.</p>
+<h2>7.3 Uloge vozač/dispečer</h2>
+<p>Sistem razlikuje dve uloge vozača: <strong>vozač</strong> (<code>driver</code>) i <strong>dispečer</strong> (<code>dispatcher</code>), zapisane u koloni <code>drivers.role</code>. Veza dispečer↔vozač se, namerno, ne uspostavlja pri registraciji, već isključivo preko mehanizma zahteva i odobrenja: dispečer šalje zahtev (<code>POST /dispatcher/requests</code>) izabranom vozaču, a vozač ga prihvata ili odbija (<code>POST /driver/requests/{id}/respond</code>); prihvatanje postavlja <code>drivers.dispatcher_id</code> na identifikator dispečera. Vozač u svakom trenutku može napustiti dispečera (<code>POST /driver/leave-dispatcher</code>), čime se ta veza raskida.</p>
+<p>Vozilo (<code>vehicles</code>) pripada tačno jednom od dva vlasnika — <code>driver_id</code> ili <code>dispatcher_id</code> — nikad oboma. Ovim se modeluje realan scenario iz transportne prakse: vozač koji radi za dispečera može voziti vozilo koje je u vlasništvu firme (dispečera), ali isto tako može, paralelno, imati i sopstveno vozilo kojim upravlja samostalno — provera koje vozilo vozač trenutno može koristiti (<code>vehicleAccessible</code>/<code>vehicleMutable</code>) implementirana je na nivou Go handler-a, a ne kao ograničenje baze, jer zavisi i od trenutne dispečer-vozač veze, koja se može promeniti tokom vremena.</p>
+<p>Kada dispečer kreira turu za vozača (<code>assigned_by_id</code> postavljen na dispečera), ruta se generiše i rangira prema <strong>dispečerovom</strong> profilu preferenci, ne vozačevom — s obzirom na to da je dispečer taj koji donosi odluku o ruti u ime firme, a preference u ovom sistemu modeluju stil odlučivanja o ruti, ne lične navike vozača u vožnji.</p>
+<h2>7.4 Asinhrona obrada — RabbitMQ i modul pauza vozača</h2>
+<p>Kada vozač pokrene turu, backend objavljuje <code>trip.started</code> poruku na <code>trip.events</code> topic exchange RabbitMQ-a. Nezavisan worker proces, pokrenut kao goroutine unutar istog backend binarnog fajla (ne kao poseban kontejner), konzumira tu poruku i računa jednostavan predlog pauze: ako je planirano trajanje ture veće od praga od 270 minuta (4.5h — pojednostavljena zamena za stvarno AETR pravilo o obaveznoj pauzi nakon određenog vremena vožnje <a class="cite" href="#ref18">[18]</a>, obrazloženo dalje u ovom poglavlju), worker pronalazi tačku na ruti gde bi se vozilo teorijski nalazilo nakon isteka tog vremena (pod pretpostavkom konstantne brzine duž rute), i traži najbliže odmaralište iz skupa OSM node-ova učitanih u poglavlju 5.3 koje je stvarno u koridoru trase. Listing 7.2 prikazuje deo implementacije koja računa predlog.</p>
+<p><pre class="code lang-go"><code>const restThresholdMin = 270 // 4.5h - stand-in za AETR pravilo
+
+func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store.RestStopSuggestion {
+	if trip.DurationMin &lt;= restThresholdMin {
+		return store.RestStopSuggestion{}
+	}
+	afterMin := float64(restThresholdMin)
+	suggestion := store.RestStopSuggestion{AfterMinutes: &amp;afterMin}
+
+	points := valhalla.DecodePolyline6(trip.Shape)
+	fraction := restThresholdMin / trip.DurationMin
+	at := valhalla.PointAtFraction(points, fraction)
+
+	// ... učitavanje preferenci vozača i omiljenih stanica ...
+	stop, _, found := w.RestStops.NearestOnRoute(at.Lat, at.Lon, brand, favorites,
+		reststop.DefaultPreferredRadiusM, routePoints, reststop.DefaultRouteCorridorRadiusM, hazmat)
+	if !found {
+		return suggestion
+	}
+	suggestion.Lat, suggestion.Lon = &amp;stop.Lat, &amp;stop.Lon
+	suggestion.Amenity = &amp;stop.Amenity
+	return suggestion
+}
+</code></pre> <strong>Listing 7.2.</strong> Proračun predloga pauze u <code>TripWorker</code> (<code>backend/internal/worker/trip_worker.go</code>)</p>
+<p>Rezultat se upisuje u samu turu (<code>trips.rest_stop_*</code> kolone) i u dnevnik događaja (<code>trip_events</code>, tip <code>rest_stop_suggested</code>), koji mobilna aplikacija prikazuje vozaču kao vremensku liniju (poglavlje 8.1). Za vozila koja prevoze opasan teret, pretraga preferira benzinske stanice nad parkinzima (u granicama tolerancije rastojanja), a rezultat u svim slučajevima favorizuje vozačevu omiljenu ili brend-specifičnu stanicu, ako se takva nalazi u koridoru trase.</p>
+<p><strong>Namerno pojednostavljenje.</strong> Prag od 270 minuta je jednostavna, fiksna zamena za stvarnu evropsku AETR regulativu o radnom vremenu i obaveznim pauzama vozača teretnih vozila <a class="cite" href="#ref18">[18]</a>, koja u stvarnosti razlikuje dnevno i nedeljno vreme vožnje, obavezne dnevne i nedeljne odmore, i dozvoljava određena izuzeća. Puna implementacija te regulative izlazi iz obima ovog rada (obrazloženo u poglavlju 10) — cilj modula je da demonstrira <strong>mehanizam</strong> (asinhrono računanje predloga na osnovu proteklog vremena vožnje i geografske pretrage najbliže odgovarajuće lokacije), a ne da zameni stvarnu, zakonski obavezujuću logiku.</p>
+<p><strong>Napomena o evoluciji sistema.</strong> U ranoj fazi razvoja bio je planiran i drugi tok poruka — <code>trip.eta_updated</code>, koji bi worker objavljivao nakon računanja ETA, a WebSocket gateway (7.5) konzumirao radi guranja ka klijentu. Taj tok je napušten kada je uvedeno praćenje stvarne GPS pozicije vozila (umesto simulacije), pošto je ETA tada postalo jednostavnije računati direktno u WebSocket gateway-u, iz svake nove GPS pozicije (poglavlje 7.5) — čime je <code>trip.eta_updated</code> poruka postala "mrtav kod" (niko je nije konzumirao) i uklonjena je iz sistema. Ovo je uobičajena i zdrava evolucija u razvoju asinhronog sistema: mehanizam koji je u jednom trenutku bio neophodan postaje suvišan kada se promeni pretpostavka na kojoj je zasnovan, i treba ga ukloniti umesto ostaviti kao neaktivan kod.</p>
+<h2>7.5 Real-time komunikacija — WebSocket gateway</h2>
+<p>Paket <code>ws</code> implementira dva WebSocket gateway-a nad istom osnovnom idejom: relej poruka svim zainteresovanim klijentima jedne "teme" (ture ili konverzacije), bez čuvanja stanja konverzacije unutar samog WebSocket sloja.</p>
+<p><strong>Praćenje pozicije uživo.</strong> Za svaku turu koja je u toku, gateway drži strukturu <code>liveTrip</code> sa skupom pretplatnika (otvorenih WebSocket konekcija) i poslednjom emitovanom pozicijom. Kada vozačev telefon prijavi novu GPS poziciju (<code>POST /api/v1/trips/{id}/position</code>), gateway izračunava preostalo rastojanje do odredišta (haversine formula) i procenjeno vreme dolaska na osnovu prosečnog planiranog tempa ture, i tu poruku emituje svim trenutno povezanim pretplatnicima — vozačevom sopstvenom ekranu i, ako postoji, njegovom dispečeru koji istu turu prati na svojoj live mapi (poglavlje 8.2). Novi pretplatnik koji se poveže (ili ponovo poveže) odmah prima poslednju poznatu poziciju, umesto da čeka narednu GPS prijavu — bez ovoga, dispečer koji zatvori i ponovo otvori live mapu ne bi video ništa do naredne GPS prijave vozila, koja može kasniti minutima ako se vozilo ne kreće (GPS prijave se šalju na pomak od određenog broja metara, ne na fiksni interval).</p>
+<p><strong>Napomena o evoluciji sistema.</strong> Prva verzija ovog gateway-a je, kada još nije stigla nijedna stvarna GPS prijava, simulirala kretanje vozila "hodanjem" duž geometrije rute fiksnim korakom, kao zamenu za stvarni GPS signal tokom razvoja bez pristupa fizičkom vozilu. Kada je testiranje sa stvarnim telefonom postalo dostupno, simulacija je počela da pravi vidljiv "skok" na ekranu u trenutku kada bi stigla prva stvarna GPS prijava (jer se stvarna pozicija po pravilu nije poklapala sa simuliranom) — problem koji je rešen potpunim uklanjanjem simulacije, pošto je do tog trenutka mobilna aplikacija već zahtevala stvaran GPS fix pre nego što dozvoli pokretanje ture (provera blizine polazištu, poglavlje 8.1), čime je simulacija izgubila i svoju originalnu svrhu.</p>
+<div style="page-break-after:always;break-after:page;"><p><strong>Chat.</strong> Chat poruke se, za razliku od pozicije, trajno čuvaju u bazi (<code>chat_messages</code>) preko REST endpoint-a (<code>POST /chats/{driverId}/messages</code>) — REST je "izvor istine" za istoriju razgovora. WebSocket veza (<code>GET /ws/chats/{counterpartId}</code>) služi isključivo za isporuku uživo dok je druga strana trenutno povezana: backend objavljuje poslatu poruku na RabbitMQ (<code>chat.events</code> exchange), a WS gateway je samo prosleđuje pretplatniku ako je u tom trenutku povezan — ako nije, poruka je već sačuvana u bazi preko REST poziva i biće učitana pri narednom otvaranju razgovora, bez potrebe za posebnim mehanizmom "neisporučenih" poruka.</p></div>
+<h1>8 Mobilna aplikacija</h1>
+<p>Mobilna aplikacija je jedinstvena Flutter kodna baza koja se, u zavisnosti od uloge prijavljenog korisnika (poglavlje 7.3), grana na dva različita korisnička toka: vozača i dispečera. Grananje se vrši na jednom mestu (<code>entry_router</code>), odmah nakon prijave, na osnovu polja <code>role</code> vraćenog sa backend-a.</p>
+<h2>8.1 Tok korisnika — vozač</h2>
+<p>Nakon prijave (<code>login_screen</code>, <code>register_screen</code> sa izborom uloge vozač/dispečer preko <code>SegmentedButton</code>-a, ili <code>forgot_password_screen</code> za obnovu lozinke), samostalni vozač ili vozač koji radi za dispečera dolazi na svoj početni ekran. Ako je trenutno pod dispečerom i čeka na ponuđenu turu, prikazuje mu se <code>offered_trips_screen</code> sa ponudama koje treba prihvatiti ili odbiti; u suprotnom, vozač sam pokreće planiranje preko <code>route_request_screen</code>.</p>
+<p><strong>Planiranje rute.</strong> <code>route_request_screen</code> omogućava izbor polazišta (trenutna GPS pozicija ili pretraga adrese preko <code>address_search_field</code>, koja poziva backend <code>GET /geocode</code> proxy ka Nominatim-u) i odredišta, izbor vozila (preko <code>vehicle_list_screen</code>/<code>vehicle_profile_screen</code>, gde vozač unosi ili menja visinu, širinu, dužinu, masu, osovinsko opterećenje i prevoz opasnog tereta), i prikaz vraćenih alternativnih ruta na mapi, sortiranih po riziku (poglavlje 6.2), sa mogućim objašnjenjem odstupanja rute (poglavlje 6.3) prikazanim kao tekstualna napomena.</p>
+<p><strong>Pokretanje i praćenje ture.</strong> Pre pokretanja ture, <code>start_proximity_status</code> widget provera da je vozač stvarno u blizini (unutar 500m) prijavljenog polazišta preko GPS-a — namerna provera koja sprečava pokretanje ture "iz kancelarije" i garantuje da je prva pozicija koju backend primi zaista stvaran GPS fix, ne proizvoljna vrednost (relevantno za odluku da se ukloni simulacija pozicije, poglavlje 7.5). Tokom vožnje, <code>active_trip_screen</code> prikazuje trenutnu poziciju, procenjeno vreme dolaska i alert za predlog pauze (poglavlje 7.4) primljene preko WebSocket veze (<code>trip_socket.dart</code>, sa automatskim ponovnim povezivanjem po rastućem intervalu — 1, 2, 5, potom 10 sekundi — u slučaju privremenog prekida konekcije), a <code>active_trip_banner</code> ostaje vidljiv i na drugim ekranima aplikacije dok je tura aktivna, kao podsetnik i prečica nazad na <code>active_trip_screen</code>. Ako vozač napusti planiranu rutu za više od 300m, backend automatski preračunava novu rutu od trenutne pozicije do istog odredišta (<code>POST /trips/{id}/reroute</code>).</p>
+<p><strong>Dnevnik i istorija.</strong> <code>trip_log_screen</code> prikazuje dnevnik događaja jedne ture (<code>trip_events</code> — polazak, predlog pauze, dolazak) kao vremensku liniju, dok <code>trip_list_screen</code> organizuje sve vozačeve ture u tri kategorije (u toku, predstojeće, završene). <code>truck_status_screen</code> prikazuje nivo goriva, preostali kilometre do sledećeg servisa i ukupne sate vožnje vozila; <code>preferences_screen</code> omogućava podešavanje stila vožnje (klizači za prioritet potrošnje goriva, osetljivosti tereta, korišćenja auto-puta i brzine, opisani u poglavlju 6.2) i omiljene benzinske stanice; <code>chat_list_screen</code>/<code>chat_thread_screen</code> omogućavaju dopisivanje sa dispečerom u realnom vremenu (poglavlje 7.5).</p>
+<h2>8.2 Tok korisnika — dispečer</h2>
+<p>Dispečer upravlja flotom vozača i vozila kroz odvojen skup ekrana. <code>dispatcher_home_screen</code> je početna tačka; <code>dispatcher_available_drivers_screen</code> prikazuje vozače koji trenutno nisu vezani za nijednog dispečera i omogućava slanje zahteva za povezivanje (poglavlje 7.3), dok <code>dispatcher_requests_screen</code> prikazuje status poslatih zahteva. <code>dispatcher_create_trip_screen</code> omogućava kreiranje i dodelu ture jednom od svojih vozača, birajući između vozačevog sopstvenog vozila ili vozila u vlasništvu dispečera (poglavlje 7.3).</p>
+<p>Najkompleksniji ekran dispečerskog toka je <code>dispatcher_live_map_screen</code>: prikazuje jednu mapu sa <strong>N paralelnih WebSocket konekcija</strong>, po jednu za svaku aktivnu turu svojih vozača, i ažurira poziciju svakog vozila na mapi čim gateway (poglavlje 7.5) emituje novu poziciju za odgovarajuću turu. <code>dispatcher_trip_list_screen</code> prikazuje istoriju svih tura koje je dispečer dodelio.</p>
+<h2>8.3 Arhitektura mobilne aplikacije</h2>
+<p>Aplikacija je organizovana u standardnu Flutter strukturu: <code>screens/</code> (ekrani navedeni u 8.1/8.2), <code>models/</code> (podatkovne klase koje odgovaraju backend JSON odgovorima — <code>driver</code>, <code>vehicle_profile</code>, <code>trip</code>, <code>trip_event</code>, <code>route_result</code>/<code>route_candidate</code>, <code>chat_message</code>, <code>dispatcher_request</code>, <code>driver_preferences</code>, <code>favorite_stop</code>, <code>geocode_result</code>, <code>position_update</code>, <code>rest_stop</code>, <code>account_status</code>, <code>auth_result</code>), <code>services/</code> i <code>widgets/</code> (deljene, ponovo iskoristive komponente).</p>
+<p>Sloj servisa uključuje: <code>api_client.dart</code> (centralizovan REST klijent koji, pored slanja zahteva, globalno presreće HTTP 401 odgovor i automatski prebacuje korisnika na ekran za prijavu, umesto da svaki ekran posebno rukuje isticanjem sesije), <code>auth_storage.dart</code> (lokalno, trajno čuvanje JWT tokena na uređaju), <code>chat_socket.dart</code> i <code>trip_socket.dart</code> (WebSocket klijenti sa automatskim ponovnim povezivanjem), <code>location_service.dart</code> (očitavanje GPS pozicije preko <code>geolocator</code> biblioteke), <code>google_auth.dart</code> (Google prijava na klijentskoj strani), <code>polyline.dart</code> (dekodiranje enkodovane geometrije rute za prikaz na mapi) i <code>route_observer.dart</code> (Flutter <code>RouteAware</code> mehanizam koji osvežava podatke na ekranu kada se korisnik na njega vrati nakon zatvaranja nekog drugog ekrana — npr. povratak na listu vozila nakon uređivanja profila vozila).</p>
+<div style="page-break-after:always;break-after:page;"><p>Među deljenim widgetima ističe se <code>radial_fab_menu.dart</code> — radijalni, povlačivi (<em>draggable</em>) meni pokrenut iz plutajućeg dugmeta (<em>floating action button</em>), korišćen kao glavna navigacija umesto klasične donje trake sa karticama (<em>bottom navigation bar</em>), kao i <code>email_verification_banner</code> (podsetnik da nalog nije verifikovan) i <code>start_proximity_status</code> (opisan u 8.1).</p></div>
+<h1>9 Testiranje i evaluacija</h1>
+<h2>9.1 Automatizovano testiranje backend-a</h2>
+<p>Backend je testiran automatizovanim, tabelarno-vođenim (<em>table-driven</em>) Go testovima, standardnim pristupom u Go ekosistemu gde se više varijacija istog scenarija testira kroz jednu test funkciju sa nizom ulaznih/izlaznih parova. Tabela 9.1 prikazuje broj test funkcija po paketu, na dan pisanja rada; svi navedeni testovi prolaze (<code>go test ./...</code> vraća <code>ok</code> za svaki paket koji sadrži testove).</p>
+<p><strong>Tabela 9.1.</strong> Broj automatizovanih testova po Go paketu</p>
+<table>
+<thead><tr>
+<th>Paket</th>
+<th>Broj testova</th>
+<th>Fokus testiranja</th>
+</tr></thead><tbody>
+<tr>
+<td><code>internal/algorithm</code></td>
+<td>15</td>
+<td>Isključivanje nedopustivih ivica/čvorova, poklapanje Dijkstra/A*, penal za skretanje, ponašanje nad realnim OSM podacima</td>
+</tr>
+<tr>
+<td><code>internal/scoring</code></td>
+<td>6</td>
+<td>Funkcija bodovanja rute, preferenca korisnika, popust za omiljenu stanicu</td>
+</tr>
+<tr>
+<td><code>internal/explain</code></td>
+<td>8</td>
+<td>Detekcija odstupanja rute, identifikacija vezujuće dimenzije, geometrijska divergencija</td>
+</tr>
+<tr>
+<td><code>internal/reststop</code></td>
+<td>9</td>
+<td>Pretraga najbližeg odmarališta u koridoru rute, hazmat preferenca, brend/omiljena lokacija</td>
+</tr>
+<tr>
+<td><code>internal/auth</code></td>
+<td>5</td>
+<td>Izdavanje/parsiranje JWT tokena, provera lozinke, verzija tokena</td>
+</tr>
+<tr>
+<td><code>internal/ws</code></td>
+<td>4</td>
+<td>Relej pozicije pretplatnicima, replay poslednje pozicije novom pretplatniku</td>
+</tr>
+<tr>
+<td><code>internal/httpapi</code></td>
+<td>4</td>
+<td>HTTP handleri (integracioni testovi nad REST rutama)</td>
+</tr>
+<tr>
+<td><code>internal/geocode</code></td>
+<td>6</td>
+<td>Nominatim proxy, throttling</td>
+</tr>
+<tr>
+<td><strong>Ukupno</strong></td>
+<td><strong>57</strong></td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Paket <code>internal/algorithm</code> koristi dve vrste test podataka: (a) male, ručno konstruisane sintetičke grafove (npr. "dijamant" od četiri čvora sa kontrolisanim ograničenjima), pogodne za preciznu proveru jedne izolovane osobine algoritma (npr. "grana sa <code>maxheight=3.5</code> se isključuje za vozilo visine 4.0m"), i (b) stvaran OSM ekstrakt koridora Beograd–Novi Sad (poglavlje 9.2), koji dodatno potvrđuje da implementacija korektno parsira i koristi <em>stvarne</em> OSM tagove, ne samo tagove koje je autor sam smislio za potrebe testa.</p>
+<h2>9.2 Evaluacija sopstvenog algoritma nad realnim podacima</h2>
+<p>Sopstvena Dijkstra/A* implementacija (poglavlje 6.4) je evaluirana nad stvarnim OSM ekstraktom koridora Beograd–Novi Sad (major-roads-only ekstrakt, <code>testdata/beograd-novisad-corridor.osm</code>), učitanim istim <code>LoadOSMXML</code> mehanizmom koji koristi i produkcioni kod. Ekstrakt se učitava u graf od <strong>38 265 čvorova i 50 705 usmerenih ivica</strong> — dva reda veličine manje od kompletnog nacionalnog Valhalla grafa (898 337 čvorova, poglavlje 5.2), u skladu sa namerom da ovaj modul bude ograničen, transparentan alat za evaluaciju, ne zamena za Valhallu.</p>
+<p><strong>Plauzibilnost rute.</strong> Za par tačaka Beograd (44.80, 20.40) – Novi Sad (45.25, 19.85), Dijkstra pretraga (vozilo visine 4.0m, mase 40 000 kg) pronalazi put od <strong>81,0 km kroz 1899 čvorova</strong>. Za poređenje, Valhalla, nad kompletnim nacionalnim grafom sa punim skupom puteva (ne samo magistralnim), za isti par tačaka vraća rute u rasponu od 84,8 do 92,7 km (u zavisnosti od izabrane alternative), zabeleženo tokom rada na Valhalla integraciji (poglavlje 6.1). Rezultat sopstvenog modula je unutar plauzibilnog opsega — blago kraći, što je i očekivano jer ograničeni ekstrakt sadrži samo magistralne puteve i ne modeluje sve raskrsnice/petlje koje Valhalla uzima u obzir sa kompletnim grafom, a start/cilj pretrage su najbliži čvorovi grafa vazdušnoj liniji do date koordinate, ne tačno iste ulazno-izlazne rampe koje bi Valhalla izabrala.</p>
+<p><strong>Isključivanje na osnovu stvarnog OSM tag-a.</strong> Nad istim ekstraktom pronađena je stvarna deonica sa tagom <code>maxheight=4.3</code> u centralnoj zoni Beograda. Za vozilo visine 4.0m, Dijkstra pronalazi put od 4036m preko te deonice; za vozilo visine 4.5m (koje premašuje 4,3m ograničenje), pretraga korektno ne pronalazi nijedan put između istih dveju tačaka — u ovom ograničenom, samo-magistralnom ekstraktu ne postoji alternativna deonica koja bi vozilo moglo koristiti umesto isključene, pa je ishod potpuno odsustvo puta, a ne duži zaobilazni put. Ovaj test potvrđuje da mehanizam isključivanja radi korektno na <strong>stvarnim</strong>, ne samo ručno konstruisanim OSM podacima.</p>
+<p><strong>Poklapanje Dijkstra i A\<em>.</strong> Za isti par (Beograd, Novi Sad) i profil, Dijkstra i A</em> implementacija vraćaju identičnu cenu puta, što je i teorijski očekivano za dopustivu heuristiku (poglavlje 2.3) — A* ne pronalazi drugačiji (a kamoli lošiji) put, samo ga pronalazi pregledavajući manji broj čvorova. Vremenska analiza (Tabela 9.2) potvrđuje da je pretraga, nad grafom ove veličine, brza u odnosu na jednokratno parsiranje ulaznog XML fajla — 11,3 MB OSM XML-a.</p>
+<p><strong>Tabela 9.2.</strong> Vreme izvršavanja nad koridorom Beograd–Novi Sad (38 265 čvorova, 50 705 ivica)</p>
+<table>
+<thead><tr>
+<th>Korak</th>
+<th>Vreme</th>
+</tr></thead><tbody>
+<tr>
+<td>Učitavanje i parsiranje OSM XML ekstrakta (<code>LoadOSMXML</code>)</td>
+<td>≈ 405 ms</td>
+</tr>
+<tr>
+<td>Dijkstra pretraga (Beograd → Novi Sad)</td>
+<td>≈ 19,3 ms</td>
+</tr>
+<tr>
+<td>A* pretraga (Beograd → Novi Sad)</td>
+<td>≈ 17,1 ms</td>
+</tr>
+</tbody></table>
+<p>Rezultat u Tabeli 9.2 potvrđuje očekivanje iz poglavlja 2.3 i 6.4: sama pretraga, jednom kada je graf učitan u memoriju, izvršava se za desetine milisekundi i dominantno je ograničena parsiranjem ulaznih podataka, a ne samim algoritmom pretrage — što je i razlog zbog kojeg je u produkcionom putu ovog sistema izgradnja i održavanje grafa u celosti prepušteno Valhalla-i (poglavlje 5.2, 6.1), koja tu istu vrstu posla radi jednom, unapred, za ceo nacionalni graf, umesto pri svakom zahtevu.</p>
+<h2>9.3 Uticaj prilagođene funkcije rizika — studija slučaja</h2>
+<p>Doprinos sopstvenog sloja rangiranja (poglavlje 6.2) u odnosu na "sirov" izbor prve Valhalla alternative ilustrovan je konkretnim slučajem otkrivenim tokom testiranja, na ruti u okolini mesta Radalj. Rana verzija formule bodovanja, koja nije sadržala vremenski član (<code>timeTerm</code>), birala je kao "najbolju" alternativu rutu koja je bila <strong>47% duža i 30% sporija</strong> od druge ponuđene alternative, isključivo zato što je imala povoljniji odnos magistralne i lokalne deonice puta (<code>highwayTerm</code>). Sa stanovišta stvarnog transportnog troška (vreme, gorivo, habanje vozila), taj izbor je bio pogrešan — kraća/brža alternativa je bila objektivno bolji izbor uprkos manje povoljnom <code>highwayRatio</code>.</p>
+<p>Dodavanjem <code>timeTerm</code>-a, koji direktno kažnjava kandidata srazmerno njegovom relativnom kašnjenju u odnosu na najbrži kandidat u istom skupu alternativa (poglavlje 6.2, Listing 6.3), formula je počela korektno da favorizuje bržu/kraću rutu u ovom slučaju, bez uklanjanja postojećih članova formule (broj manevara, udeo magistralne deonice, potrošnja, oštri manevri) koji ostaju relevantni u slučajevima kada razlika u trajanju nije toliko izražena. Ovaj slučaj je dobar primer opšte lekcije o dizajnu heurističkih funkcija cene sa više članova: dodavanje novog signala treba motivisati <strong>konkretnim, uočenim lošim ishodom</strong> postojeće formule, a ne unapred pretpostavljenom kompletnošću — isti princip po kome je i ova formula, i funkcija cene u poglavlju 6.4, iz istog razloga ostala eksplicitno obeležena kao nekalibrisana, prva heuristička procena, a ne konačan, empirijski potvrđen model.</p>
+<h2>9.4 Ograničenja identifikovana testiranjem</h2>
+<p>Testiranje je otkrilo i granice sistema koje nisu greške u uobičajenom smislu, već posledice svesno odabranog obima rada:</p>
+<div style="page-break-after:always;break-after:page;"><ul>
+<li>Sopstveni Dijkstra/A* modul (poglavlje 6.4), primenjen na isti par koordinata za koji je poznat slučaj Novi Banovci (poglavlje 6.3), <strong>ne reprodukuje</strong> taj slučaj — u ograničenom, samo-magistralnom ekstraktu korišćenom za ovaj modul, u okolini Novih Banovaca ne postoji <code>maxheight</code> tag na way nivou. Najverovatnije objašnjenje, dokumentovano tokom razvoja, je da je stvarno ograničenje u tom slučaju zavedeno kao tačkasta (node) prepreka, ne kao way tag, i/ili da geometrijski najkraći put u ograničenom grafu jednostavno ne prolazi kroz tačno tu deonicu koju bi Valhalla, sa svojim potpuno drugačijim, kompletnim grafom i sopstvenom heuristikom, izabrala. Ovo je pošteno prijavljen negativan nalaz, ne prikriven — dodatno naglašava razliku u nameni dva sloja rutiranja u ovom sistemu: Valhalla (sa Explain mehanizmom, poglavlje 6.3) je taj koji stvarno rešava slučaj Novi Banovci u produkciji; sopstveni modul (6.4) demonstrira princip mehanizma isključivanja nad drugim, ali i dalje stvarnim, primerom istog tipa OSM ograničenja (maxheight=4,3 u centralnom Beogradu, poglavlje 9.2).</li>
+<li>Penal za skretanje u sopstvenoj pretrazi (6.4) je, kako je i dokumentovano u samom kodu, teorijsko pojednostavljenje koje u retkim slučajevima ne garantuje globalno optimalan put po ukupnom penalu za skretanje.</li>
+<li>Funkcija rizika (6.2) i funkcija cene sopstvene pretrage (6.4) koriste bazne koeficijente koji su prva heuristička procena, ne kalibrisani prema stvarnim podacima o potrošnji goriva, habanju vozila ili statistici saobraćajnih nezgoda — razlika u odnosu na produkcioni sistem bi bila prikupljanje takvih podataka i kalibracija koeficijenata regresijom ili sličnim metodom, što izlazi iz obima ovog rada.</li>
+</ul></div>
+<h1>10 Zaključak i budući rad</h1>
+<p>Ovaj rad je pokazao da se prihvatljivo tačan, transparentan i <strong>objašnjiv</strong> sistem za rutiranje teretnih vozila može izgraditi nad potpuno otvorenim geografskim podacima (OpenStreetMap) i otvorenim routing engine-om (Valhalla), uz sopstveni algoritamski doprinos koji tim alatima nedostaje. Implementiran je kompletan sistem koji obuhvata: pripremu geografskih podataka specifičnih za teretni saobraćaj (poglavlje 5), backend servis koji generiše, rangira sopstvenom funkcijom rizika i objašnjava predloženu rutu (poglavlje 6 i 7), sopstvenu, nezavisno testiranu Dijkstra/A* implementaciju nad ograničenim, ali stvarnim podacima (poglavlje 6.4, evaluirana u poglavlju 9.2), distribuiranu komunikaciju preko REST API-ja, RabbitMQ posrednika poruka i WebSocket veza (poglavlje 7), i mobilnu aplikaciju za dve različite korisničke uloge — vozača i dispečera (poglavlje 8). Konkretan slučaj (visinsko ograničenje kod Novih Banovaca, poglavlje 6.3) je korišćen kao stvaran, provaljen dokaz da mehanizam objašnjenja rute radi na pravom, a ne samo hipotetičkom problemu, a slučaj Radalj (poglavlje 9.3) kao konkretan primer u kome je sopstvena funkcija rizika ispravila objektivno pogrešan izbor rute.</p>
+<h2>10.1 Doprinosi rada</h2>
+<p>Glavni doprinosi rada su:</p>
+<ol>
+<li>Sopstveni sloj rangiranja alternativnih ruta prema riziku specifičnom za teretni saobraćaj i preferencama vozača, nad Valhalla alternativama koje engine sam ne rangira (poglavlje 6.2).</li>
+<li>Automatizovan mehanizam koji vozaču objašnjava zašto predložena ruta odstupa od geometrijski najkraćeg puta, sa geometrijskom (ne pozicionom) detekcijom mesta odstupanja, potvrđen na stvarnom slučaju (poglavlje 6.3).</li>
+<li>Samostalna, testirana Dijkstra/A* implementacija nad ograničenim podgrafom OSM podataka, sa sopstvenom funkcijom cene i isključivanjem ivica/čvorova na osnovu fizičkih ograničenja vozila, evaluirana nad stvarnim, a ne samo sintetičkim podacima (poglavlje 6.4, 9.2).</li>
+<li>Kompletan, iako po obimu ograničen, distribuiran sistem — REST API, asinhrona obrada porukama, WebSocket komunikacija u realnom vremenu — sa modelom uloga dispečer/vozač i mehanizmom ponude/prihvatanja ture (poglavlje 7).</li>
+</ol>
+<h2>10.2 Ograničenja rada</h2>
+<p>U skladu sa realno postavljenim obimom (obrazloženim već u poglavlju 1.2), rad svesno ne obuhvata:</p>
+<ul>
+<li><strong>Punu AETR regulativu</strong> o radnom vremenu i pauzama vozača (poglavlje 7.4) — trenutni prag od 270 minuta je pojednostavljena zamena, ne zakonski obavezujuća logika.</li>
+<li><strong>Elevacioni (nagibni) rizik rute</strong> — sistem nema pristup podacima o nagibu puta, pa je procena potrošnje goriva (poglavlje 6.2) relativna, ne apsolutna veličina.</li>
+<li><strong>Offline režim rada mobilne aplikacije</strong> — aplikacija zahteva internet konekciju za svaku operaciju; rad bez signala/na lokalnoj mreži nije podržan.</li>
+<li><strong>Podršku za više država</strong> — geografski podaci i pripremljen graf pokrivaju isključivo teritoriju Republike Srbije.</li>
+<li><strong>Produkcioni nivo bezbednosti</strong> — WebSocket <code>CheckOrigin</code> je propustljiv (poglavlje 4.3), a RabbitMQ topologija je minimalna (jedan topic exchange, bez retry/DLQ mehanizma), prihvatljivo za sistem sa jednim poznatim klijentom, ne za javni, višezakupčani servis.</li>
+<li><strong>Kalibraciju koeficijenata funkcije rizika i funkcije cene</strong> prema stvarnim empirijskim podacima (poglavlje 9.4) — koeficijenti su prva heuristička procena.</li>
+<li><strong>Prostorne upite nad geometrijom rute direktno u bazi</strong> — geometrija se čuva kao tekstualni polyline, ne PostGIS <code>geometry</code> kolona (poglavlje 7.2), iako je PostGIS ekstenzija već deo infrastrukture.</li>
+</ul>
+<h2>10.3 Pravci budućeg rada</h2>
+<div style="page-break-after:always;break-after:page;"><p>Na osnovu ograničenja iz 10.2, prirodni pravci budućeg razvoja su: (1) implementacija pune AETR logike, uključujući razliku između dnevnog i nedeljnog vremena vožnje i zakonski propisanih izuzetaka; (2) uvođenje elevacionih podataka (npr. iz SRTM ili sličnog izvora) u funkciju rizika, radi realnije procene potrošnje goriva na deonicama sa izraženim nagibom; (3) offline režim mobilne aplikacije sa lokalnim kešom poslednje poznate rute i odloženim slanjem GPS pozicija po povratku konekcije; (4) proširenje geografskog obuhvata na region ili celu Evropu, što bi zahtevalo i preispitivanje da li ograničeni, u memoriji učitan skup odmarališta (poglavlje 5.3) i dalje skalira, ili treba preći na PostGIS prostorni upit nad već postojećom ekstenzijom; (5) prikupljanje stvarnih podataka (npr. iz simulacije ili pilot upotrebe) radi kalibracije koeficijenata funkcije rizika (6.2) i funkcije cene sopstvenog algoritma (6.4) regresijom ili sličnim metodom, umesto ručno pretpostavljenih vrednosti; (6) bezbednosni hardening WebSocket sloja (stroža <code>CheckOrigin</code> provera, autentifikacija na nivou pojedinačne poruke) i proizvodna RabbitMQ topologija (retry, dead-letter queue) ako bi sistem prešao iz demonstracionog u produkcioni kontekst sa nepoznatim, nepoverljivim klijentima.</p></div>
+<h1>Literatura</h1>
+<div style="page-break-after:always;break-after:page;"><ol class="literature">
+<li id="ref1">G. B. Dantzig, J. H. Ramser, „The Truck Dispatching Problem“, <i>Management Science</i>, vol. 6, br. 1, str. 80–91, 1959.</li>
+<li id="ref2">A. S. Tanenbaum, M. van Steen, <i>Distributed Systems: Principles and Paradigms</i>, 3. izdanje, Pearson, 2017.</li>
+<li id="ref3">I. Fette, A. Melnikov, „The WebSocket Protocol“, RFC 6455, IETF, 2011.</li>
+<li id="ref4">E. W. Dijkstra, „A note on two problems in connexion with graphs“, <i>Numerische Mathematik</i>, vol. 1, str. 269–271, 1959.</li>
+<li id="ref5">P. E. Hart, N. J. Nilsson, B. Raphael, „A Formal Basis for the Heuristic Determination of Minimum Cost Paths“, <i>IEEE Transactions on Systems Science and Cybernetics</i>, vol. 4, br. 2, str. 100–107, 1968.</li>
+<li id="ref6">OpenStreetMap Wiki, „Map Features“, https://wiki.openstreetmap.org/wiki/Map_features (pristupljeno avgusta 2026).</li>
+<li id="ref7">„The Go Programming Language“, Google, https://go.dev.</li>
+<li id="ref8">„Flutter — Build apps for any screen“, Google, https://docs.flutter.dev.</li>
+<li id="ref9">„Valhalla Routing Engine“, dokumentacija, https://valhalla.github.io/valhalla/.</li>
+<li id="ref10">„PostGIS — Spatial and Geographic Objects for PostgreSQL“, https://postgis.net.</li>
+<li id="ref11">„RabbitMQ Documentation“, https://www.rabbitmq.com/documentation.html.</li>
+<li id="ref12">„Docker Compose overview“, https://docs.docker.com/compose/.</li>
+<li id="ref13">M. Jones, J. Bradley, N. Sakimura, „JSON Web Token (JWT)“, RFC 7519, IETF, 2015.</li>
+<li id="ref14">„Nominatim — OpenStreetMap geocoding“, https://nominatim.org.</li>
+<li id="ref15">„goose — database migration tool“, https://github.com/pressly/goose.</li>
+<li id="ref16">Geofabrik GmbH, „OpenStreetMap Data Extracts“, https://download.geofabrik.de (pristupljeno 2026).</li>
+<li id="ref17">„osmium-tool — command line tool for working with OpenStreetMap data“, https://osmcode.org/osmium-tool/.</li>
+<li id="ref18">Uredba (EZ) br. 561/2006 Evropskog parlamenta i Saveta o usklađivanju određenih socijalnih propisa u vezi sa drumskim saobraćajem (AETR).</li>
+</ol></div>
+<h1>Spisak skraćenica</h1>
+<div style="page-break-after:always;break-after:page;"><table>
+<thead><tr>
+<th>Skraćenica</th>
+<th>Značenje</th>
+</tr></thead><tbody>
+<tr>
+<td>AETR</td>
+<td>Evropski sporazum o radu posade vozila koja obavljaju međunarodne drumske prevoze (<em>Accord européen sur les Transports Routiers</em>)</td>
+</tr>
+<tr>
+<td>AMQP</td>
+<td><em>Advanced Message Queuing Protocol</em></td>
+</tr>
+<tr>
+<td>API</td>
+<td><em>Application Programming Interface</em></td>
+</tr>
+<tr>
+<td>CRUD</td>
+<td><em>Create, Read, Update, Delete</em></td>
+</tr>
+<tr>
+<td>ETA</td>
+<td><em>Estimated Time of Arrival</em> — procenjeno vreme dolaska</td>
+</tr>
+<tr>
+<td>GPS</td>
+<td><em>Global Positioning System</em></td>
+</tr>
+<tr>
+<td>HGV</td>
+<td><em>Heavy Goods Vehicle</em> — teško teretno vozilo</td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td><em>Hypertext Transfer Protocol</em></td>
+</tr>
+<tr>
+<td>JSON</td>
+<td><em>JavaScript Object Notation</em></td>
+</tr>
+<tr>
+<td>JWT</td>
+<td><em>JSON Web Token</em></td>
+</tr>
+<tr>
+<td>JWKS</td>
+<td><em>JSON Web Key Set</em></td>
+</tr>
+<tr>
+<td>MVP</td>
+<td><em>Minimum Viable Product</em></td>
+</tr>
+<tr>
+<td>OSM</td>
+<td><em>OpenStreetMap</em></td>
+</tr>
+<tr>
+<td>REST</td>
+<td><em>Representational State Transfer</em></td>
+</tr>
+<tr>
+<td>SMTP</td>
+<td><em>Simple Mail Transfer Protocol</em></td>
+</tr>
+<tr>
+<td>SQL</td>
+<td><em>Structured Query Language</em></td>
+</tr>
+<tr>
+<td>VRP</td>
+<td><em>Vehicle Routing Problem</em></td>
+</tr>
+<tr>
+<td>WS</td>
+<td>WebSocket</td>
+</tr>
+</tbody></table></div>
+<h1>Spisak slika</h1>
+<ul>
+<li>Slika 4.1. Arhitektura sistema — komponente i tok podataka</li>
+<li>Slika 6.1. Tok mehanizma objašnjenja rute (<code>explain.Explain</code>)</li>
+<li>Slika 7.1. Pregled entiteta baze podataka (skraćeno, bez svih kolona)</li>
+</ul>
+<h1>Spisak tabela</h1>
+<div style="page-break-after:always;break-after:page;"><ul>
+<li>Tabela 2.1. Poređenje pristupa rutiranju teretnih vozila</li>
+<li>Tabela 4.1. Servisi definisani u <code>docker-compose.yml</code></li>
+<li>Tabela 6.1. Faktor preferencije klase puta (<code>roadClassMultiplier</code>)</li>
+<li>Tabela 7.1. Pregled REST API endpoint-a (skraćeno)</li>
+<li>Tabela 7.2. Migracije šeme baze podataka</li>
+<li>Tabela 9.1. Broj automatizovanih testova po Go paketu</li>
+<li>Tabela 9.2. Vreme izvršavanja nad koridorom Beograd–Novi Sad</li>
+</ul></div>
+<h1>Biografija</h1>
+<p>[IME PREZIME] rođen/a je [DATUM ROĐENJA] godine u [MESTO ROĐENJA]. Osnovne akademske studije na Fakultetu tehničkih nauka Univerziteta u Novom Sadu, studijski program [STUDIJSKI PROGRAM], upisao/la je [GODINA UPISA] godine. Tokom studija se posebno interesovao/la za oblasti [OBLASTI INTERESOVANJA — npr. distribuirani sistemi, mobilne aplikacije, geografski informacioni sistemi]. Ovaj diplomski rad predstavlja rezultat rada na projektu razvoja sistema za rutiranje teretnih vozila, izrađenog pod mentorstvom [TITULA I IME MENTORA].</p>
+<p><em>(Ovaj odeljak popunjava kandidat/kinja ličnim podacima pre predaje rada.)</em></p>
+</body>
+</html>
