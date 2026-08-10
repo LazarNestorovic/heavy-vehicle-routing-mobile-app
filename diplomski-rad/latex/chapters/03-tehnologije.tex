@@ -1,0 +1,42 @@
+\chapter{Korišćene tehnologije}
+
+\section{Go}
+
+Backend servis je implementiran u programskom jeziku Go (Golang) \cite{go}, koji je razvio Google 2009. godine. Go je statički tipiziran, kompajliran jezik sa automatskim upravljanjem memorijom (\emph{garbage collection}) i ugrađenom podrškom za konkurentno programiranje preko \emph{goroutine}-a (lakih, korisnički upravljanih niti) i \emph{channel}-a (tipiziranih kanala za komunikaciju između goroutine-a). Za ovaj rad je Go izabran iz tri razloga: (1) standardna biblioteka već sadrži kompletan HTTP server (\texttt{net/http}, uz Go 1.22+ rutiranje po putanji i HTTP metodu preko \texttt{http.ServeMux}, korišćeno u \texttt{httpapi} paketu), bez potrebe za eksternim veb okvirom; (2) goroutine model konkurentnosti je pogodan za istovremeno opsluživanje mnogo WebSocket konekcija (poglavlje 7.5) i pozadinskog RabbitMQ potrošača (poglavlje 7.4) unutar istog procesa, bez složene infrastrukture za konkurentnost kakva bi bila potrebna u jednonitskim okruženjima; (3) statička tipizacija i kompajliranje u jedan izvršni fajl pogoduju jednostavnom kontejnerizovanju (poglavlje 3.7).
+
+\section{Flutter i Dart}
+
+Mobilna aplikacija je implementirana u Flutter okviru \cite{flutter}, koji koristi programski jezik Dart (oba razvijena od strane Google-a). Flutter kompajlira aplikaciju u nativni kod za Android i iOS iz jedinstvene baze izvornog koda, a korisnički interfejs se ne oslanja na nativne widgete platforme već na sopstveni \emph{rendering engine} (Skia/Impeller), čime se postiže vizuelna konzistentnost između platformi. Za potrebe ovog rada korišćene su, između ostalih, biblioteke \texttt{geolocator} (pristup GPS senzoru uređaja), \texttt{flutter\_map} odnosno OSM/vector tile prikaz mape, \texttt{web\_socket\_channel} za WebSocket konekcije i \texttt{google\_sign\_in} za prijavu preko Google naloga.
+
+\section{Valhalla}
+
+Valhalla \cite{valhalla} je otvoreni (open source) routing engine specijalizovan za rad nad OpenStreetMap podacima, originalno razvijen u kompaniji Mapzen. Za razliku od routing engine-a koji graf i cenu puta fiksiraju u trenutku izgradnje (tzv. \emph{preprocessing}, kakav koristi npr. OSRM sa \emph{contraction hierarchies}), Valhalla dozvoljava da se većina parametara cene puta (costing) prosledi \textbf{po zahtevu} (\emph{per-request}), uključujući ceo \texttt{truck} profil vozila — što znači da nije potrebno iznova graditi graf niti pokretati novu instancu servisa za svako vozilo ili promenu profila. Valhalla graf se organizuje u hijerarhijske "pločice" (\emph{tiles}), izgrađene alatom \texttt{valhalla\_build\_tiles} iz \texttt{.osm.pbf} ekstrakta (poglavlje 5.2), a HTTP API (\texttt{valhalla\_service}) prihvata zahteve na endpoint-u \texttt{/route} sa JSON telom koje uključuje lokacije, tip costing modela (\texttt{truck}) i njegove opcije. Detaljna upotreba Valhalla-inog truck costing modela u ovom radu opisana je u poglavlju 6.1.
+
+\section{PostgreSQL i PostGIS}
+
+PostgreSQL je korišćen kao relaciona baza podataka za skladištenje vozila, vozača, tura i pratećih entiteta (poglavlje 7.2). PostGIS \cite{postgis} je ekstenzija za PostgreSQL koja dodaje geografske tipove podataka i prostorne upite (npr. "sve tačke u krugu od 3km oko date koordinate"). Iako trenutna implementacija čuva geometriju rute kao enkodovan tekstualni \emph{polyline} (a ne PostGIS \texttt{geometry} kolonu — videti poglavlje 7.2 i ograničenja u poglavlju 10), PostGIS ekstenzija je uključena u korišćenu Docker sliku (\texttt{postgis/postgis:16-3.4-alpine}) kao osnova za prostorne upite koje bi budući razvoj (npr. pretraga "najbliže odmaralište" direktno u bazi umesto u memoriji, poglavlje 7.4) mogao iskoristiti bez promene infrastrukture.
+
+\section{RabbitMQ}
+
+RabbitMQ \cite{rabbitmq} je posrednik poruka (\emph{message broker}) koji implementira AMQP 0-9-1 protokol. U ovom sistemu se koristi \emph{topic exchange} (razmenjivač po temi) nazvan \texttt{trip.events}: proizvođač (backend) objavljuje poruku sa \emph{routing key}-em \texttt{trip.started} kada vozač pokrene turu, a worker proces (poglavlje 7.4) je preuzima iz reda vezanog za taj routing key, obrađuje je i upisuje rezultat (predlog pauze) u bazu. RabbitMQ je izabran zbog ugrađene podrške za potvrdu obrade poruke (\emph{acknowledgment}) i automatsko ponovno slanje neuspešno obrađene poruke (\emph{requeue}), što sistemu daje otpornost na privremeni pad worker procesa bez gubitka podataka o događaju.
+
+\section{WebSocket}
+
+Za real-time komunikaciju (praćenje pozicije vozila uživo i chat) korišćena je biblioteka \texttt{gorilla/websocket} na backend strani i \texttt{web\_socket\_channel} na Flutter strani, obe implementacije WebSocket protokola (RFC 6455 \cite{websocket}) nad HTTP/1.1 \emph{upgrade} mehanizmom. Detalji implementacije dati su u poglavlju 7.5.
+
+\section{Docker i docker-compose}
+
+Svi serverski delovi sistema (Go backend, PostgreSQL, RabbitMQ, Valhalla) su kontejnerizovani Docker slikama \cite{docker} i orkestrisani preko \texttt{docker-compose}, alata koji na osnovu deklarativnog YAML fajla pokreće, povezuje u zajedničku mrežu i redosledom health-check zavisnosti startuje više kontejnera jednom komandom (\texttt{docker compose up}). Ovo omogućava da se ceo backend deo sistema pokrene na bilo kojoj mašini sa Docker-om instaliranim, bez ručne instalacije PostgreSQL-a, RabbitMQ-a ili Valhalla-e — što je posebno važno za predvidljivost demonstracije rada (poglavlje 9). Detalji konfiguracije dati su u poglavlju 4.2.
+
+\section{Ostale biblioteke i servisi}
+
+\begin{itemize}
+\item \textbf{JWT (JSON Web Token, RFC 7519 \cite{jwt})} — format za autentifikacione tokene korišćen preko biblioteke \texttt{golang-jwt/jwt}, sa HS256 potpisom; nosi identitet vozača i broj verzije tokena (\texttt{token\_version}), koji se koristi za "odjavu sa svih uređaja" bez potrebe za posebnom listom opozvanih tokena (poglavlje 4.3).
+\item \textbf{bcrypt} — algoritam za heširanje lozinki sa ugrađenom "solju" i podesivim faktorom rada, korišćen umesto čuvanja lozinki u čistom tekstu ili prostog heša.
+\item \textbf{Google Sign-In / JWKS} — prijava preko Google naloga verifikuje se ručnom proverom Google-ovog ID token-a nad javnim skupom ključeva (JWKS) preko biblioteke \texttt{MicahParks/keyfunc}, bez uvođenja celog Firebase SDK-a kao zavisnosti.
+\item \textbf{Nominatim \cite{nominatim}} — javni servis za geokodiranje (pretvaranje adrese u koordinate i obrnuto) projekta OpenStreetMap, korišćen za pretragu adresa u mobilnoj aplikaciji (poglavlje 7.1), sa ograničenjem brzine poziva (throttling) u skladu sa politikom korišćenja servisa.
+\item \textbf{goose \cite{goose}} — alat za upravljanje migracijama šeme baze podataka preko numerisanih SQL fajlova (poglavlje 7.2), koji garantuje da se svaka migracija primeni tačno jednom.
+\item \textbf{osmium-tool} — komandolinijski alat za filtriranje i obradu \texttt{.osm}/\texttt{.osm.pbf} fajlova, korišćen u pripremi geografskih podataka (poglavlje 5.1).
+\end{itemize}
+
+\clearpage

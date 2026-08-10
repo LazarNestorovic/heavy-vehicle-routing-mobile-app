@@ -33,6 +33,7 @@ postgres:
     timeout: 5s
     retries: 5
 ```
+
 **Listing 4.1.** Definicija PostgreSQL/PostGIS servisa u `docker-compose.yml`
 
 Tabela 4.1 sumira sve servise definisane u `docker-compose.yml`, njihovu ulogu i portove koje izlažu na host mašini.
@@ -79,6 +80,7 @@ osmium tags-filter \
   r/type=restriction \
   --output serbia-hvt.osm.pbf --overwrite
 ```
+
 **Listing 5.1.** Osmium filter za ekstrakciju podataka relevantnih za teretni saobraćaj
 
 Filter čuva way-eve (`w/`) sa tagovima relevantnim za geometriju i ograničenja puta (`highway`, `maxheight`, `maxweight`, `maxwidth`, `hgv`, `hazmat`, `bridge`, `tunnel`, `surface`, `maxspeed`), relacije (`r/`) tipa `restriction` (ograničenja skretanja) i, što je bilo kritično ispraviti tokom razvoja (videti dalje u ovom poglavlju), node-ove (`n/`) sa tagovima `amenity=fuel`, `amenity=parking`, `highway=rest_area` i `barrier`. Way i node su, kako je objašnjeno u poglavlju 2.4, dva različita nivoa na kojima OSM podaci nose ograničenja relevantna za teretna vozila — way-evi obično nose ograničenje za celu deonicu (npr. `maxheight` na mostu), a node-ovi tačkastu prepreku (npr. rampu ili stub na ulazu u parking).
@@ -126,6 +128,7 @@ POST /route
   "alternates": 2
 }
 ```
+
 **Listing 6.1.** Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)
 
 Backend mapira sopstveni `TruckProfile` (u SI jedinicama — metrima i kilogramima, radi konzistentnosti sa ostatkom sistema) u Valhalla-ine jedinice (metri za dimenzije, metrički toni za masu), i parsira odgovor u sopstvenu strukturu `RouteCandidate` koja, pored rastojanja i trajanja, izdvaja i broj manevara, udeo puta na magistralnim/autoputskim deonicama (`HighwayRatio`), prisustvo trajekta ili putarine, kao i nazive ulica i tačke svakog manevra — signale koje ne izlaže sam sažetak rute, ali su neophodni za sloj rangiranja (6.2) i objašnjenja (6.3). Listing 6.2 prikazuje deo implementacije koja šalje zahtev i mapira profil vozila.
@@ -161,6 +164,7 @@ func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon
 	// ... serijalizacija, HTTP POST na baseURL+"/route", parsiranje odgovora
 }
 ```
+
 **Listing 6.2.** `valhalla.Client.RouteAlternates` — mapiranje profila vozila u Valhalla `costing_options` (`backend/internal/valhalla/client.go`)
 
 Ograničenje ovog pristupa je da odgovor običnog `/route` poziva ne izlaže *koja tačno* ivica grafa je isključena niti njenu tačnu vrednost ograničenja (npr. tačnu visinu nadvožnjaka) — ta informacija bi zahtevala poziv Valhalla-inog `/trace_attributes` endpoint-a nad već izračunatom rutom, ili direktan pristup OSM podacima nezavisno od Valhalla-e. Ovo ograničenje je direktno motivisalo modul opisan u 6.4, koji, radeći nad sopstvenim, manjim grafom, ima pristup tačnim OSM tagovima svake ivice.
@@ -198,6 +202,7 @@ func score(c valhalla.RouteCandidate, prefs Preferences, vehicleWeightKg,
 	return s
 }
 ```
+
 **Listing 6.3.** Funkcija bodovanja rute (`backend/internal/scoring/scoring.go`) — manji rezultat je bolji
 
 Vrednost `timeTerm` je relativno kašnjenje kandidata u odnosu na najbrži kandidat u istom skupu alternativa (0% ako je kandidat najbrži), a `fuelProxy` je relativna procena "potrošnje" izvedena iz rastojanja i mase vozila (nema pristupa podacima o nagibu puta, pa ovo nije stvarna potrošnja u litrima, već relativan signal za poređenje kandidata međusobno). Autor koda je u komentarima izričito naglasio da su bazne težine (`maneuverWeight`, `nonHighwayScale`, `ferryPenalty` itd.) prva heuristička procena, nekalibrisana prema stvarnim podacima o potrošnji ili nesrećama — što je pošteno i namerno ograničenje, razmatrano dalje u poglavlju 9.3 kroz konkretan primer greške koju je ova formula ispravila.
@@ -271,6 +276,7 @@ func cost(e Edge) float64 {
 	return base
 }
 ```
+
 **Listing 6.4.** Isključivanje nedopustivih ivica i funkcija cene (`backend/internal/algorithm/cost.go`)
 
 **Pretraga.** Dijkstra i A* dele istu implementaciju pretrage (funkcija `search`), sa jedinom razlikom u heuristici prosleđenoj prioritetnom redu: Dijkstra koristi heuristiku koja je uvek nula (ekvivalentno standardnom Dijkstra algoritmu), a A* koristi haversine udaljenost od trenutnog čvora do cilja. Pretraga koristi binarnu gomilu (`container/heap`) kao prioritetni red i prekida se čim je ciljni čvor skinut sa reda, umesto da izračuna najkraći put do svih čvorova u grafu. Listing 6.5 prikazuje deljenu funkciju pretrage.
@@ -312,6 +318,7 @@ func search(g *Graph, start, goal int64, profile VehicleProfile,
 	return Result{}, errNoPath
 }
 ```
+
 **Listing 6.5.** Deljena implementacija Dijkstra i A* pretrage (`backend/internal/algorithm/dijkstra.go`)
 
 **Poznato, dokumentovano pojednostavljenje.** Penal za skretanje se računa na osnovu **jednog** prethodno fiksiranog puta do trenutnog čvora (`prev[current]`), a ne na osnovu para (čvor, dolazna ivica), koje bi bilo teorijski korektnije (jer bi omogućilo da se do istog čvora stigne različitim uglovima dolaska i time različitim penalom za naredno skretanje). Ovo je jeftinije i jednostavnije za implementaciju od praćenja stanja pretrage po paru (čvor, ivica), po cenu da pretraga, u retkim slučajevima, ne mora biti globalno optimalna po ukupnom penalu za skretanje — pojednostavljenje koje je u samom kodu izričito i pošteno dokumentovano, u istom duhu kao i nekalibrisani koeficijenti pomenuti ranije u ovom poglavlju. Evaluacija ovog modula nad stvarnim podacima data je u poglavlju 9.2.
@@ -397,6 +404,7 @@ CREATE TABLE IF NOT EXISTS trips (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+
 **Listing 7.1.** Osnovna šema tabela `vehicles` i `trips` (`00001_initial_schema.sql`)
 
 Geometrija rute (`trips.shape`) čuva se kao enkodovan tekstualni polyline (isti format koji vraća Valhalla), a ne kao PostGIS `geometry` kolona — pragmatičan izbor koji izbegava dekodiranje/enkodiranje geometrije pri svakom čitanju iz baze, po cenu da prostorni upiti nad geometrijom rute (npr. "sve ture koje prolaze kroz ovaj region") nisu mogući direktno u bazi, već bi zahtevali dekodiranje u aplikacionom sloju — razmatrano kao mogući pravac budućeg rada u poglavlju 10.
@@ -438,6 +446,7 @@ func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store
 	return suggestion
 }
 ```
+
 **Listing 7.2.** Proračun predloga pauze u `TripWorker` (`backend/internal/worker/trip_worker.go`)
 
 Rezultat se upisuje u samu turu (`trips.rest_stop_*` kolone) i u dnevnik događaja (`trip_events`, tip `rest_stop_suggested`), koji mobilna aplikacija prikazuje vozaču kao vremensku liniju (poglavlje 8.1). Za vozila koja prevoze opasan teret, pretraga preferira benzinske stanice nad parkinzima (u granicama tolerancije rastojanja), a rezultat u svim slučajevima favorizuje vozačevu omiljenu ili brend-specifičnu stanicu, ako se takva nalazi u koridoru trase.

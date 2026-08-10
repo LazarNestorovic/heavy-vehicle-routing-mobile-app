@@ -1,0 +1,34 @@
+\chapter{Priprema geografskih podataka — OSM ekstrakcija za teretna vozila u Srbiji}
+
+\section{Izvor podataka i osmium filter}
+
+Osnovni izvor geografskih podataka je Geofabrik-ov dnevno ažuriran ekstrakt OpenStreetMap podataka za Srbiju (\texttt{serbia-latest.osm.pbf}) \cite{geofabrik}, preuzet automatizovanim \texttt{update-osm.sh} skriptom koja, pored preuzimanja, provera integritet fajla preko MD5 kontrolne sume koju Geofabrik objavljuje uz sam ekstrakt. Kompletan \texttt{.osm.pbf} fajl za Srbiju sadrži ogroman broj tagova nepotrebnih za rutiranje teretnih vozila (npr. sve poljoprivredne parcele, granice popisnih krugova, turističke oznake), pa se filtrira alatom \texttt{osmium-tools} \cite{osmium} pre nego što se prosledi Valhalla-i.
+
+Listing 5.1 prikazuje tačnu \texttt{osmium tags-filter} komandu korišćenu u projektu.
+
+\begin{lstlisting}[caption={Osmium filter za ekstrakciju podataka relevantnih za teretni saobraćaj}]
+osmium tags-filter \
+  serbia-latest.osm.pbf \
+  w/highway w/maxheight w/maxweight w/maxwidth \
+  w/hgv w/hazmat w/bridge w/tunnel \
+  w/surface w/maxspeed \
+  n/amenity=fuel,parking n/highway=rest_area n/barrier \
+  r/type=restriction \
+  --output serbia-hvt.osm.pbf --overwrite
+\end{lstlisting}
+
+Filter čuva way-eve (\texttt{w/}) sa tagovima relevantnim za geometriju i ograničenja puta (\texttt{highway}, \texttt{maxheight}, \texttt{maxweight}, \texttt{maxwidth}, \texttt{hgv}, \texttt{hazmat}, \texttt{bridge}, \texttt{tunnel}, \texttt{surface}, \texttt{maxspeed}), relacije (\texttt{r/}) tipa \texttt{restriction} (ograničenja skretanja) i, što je bilo kritično ispraviti tokom razvoja (videti dalje u ovom poglavlju), node-ove (\texttt{n/}) sa tagovima \texttt{amenity=fuel}, \texttt{amenity=parking}, \texttt{highway=rest\_area} i \texttt{barrier}. Way i node su, kako je objašnjeno u poglavlju 2.4, dva različita nivoa na kojima OSM podaci nose ograničenja relevantna za teretna vozila — way-evi obično nose ograničenje za celu deonicu (npr. \texttt{maxheight} na mostu), a node-ovi tačkastu prepreku (npr. rampu ili stub na ulazu u parking).
+
+\textbf{Napomena o razvoju filtera.} Prva verzija filtera korišćena u ranoj fazi razvoja sadržala je samo \texttt{w/} i \texttt{r/} pravila, bez ijednog \texttt{n/} pravila — što je značilo da su svi node-ovi sa \texttt{amenity=fuel}, \texttt{amenity=parking}, \texttt{highway=rest\_area} i \texttt{barrier} tagovima bili odbačeni pri filtriranju, iako su neophodni za modul predloga pauze vozača (poglavlje 7.4). Ovaj propust je otkriven i ispravljen tokom pripreme podataka za rad — dodavanjem tri \texttt{n/} pravila filtrirani fajl je narastao sa 68 121 223 na 68 402 528 bajtova, a Valhalla graf je ponovo izgrađen sa ispravljenim skupom podataka. Ovaj slučaj ilustruje opštu lekciju vezanu za pripremu OSM podataka: filter koji izgleda kompletan gledano samo kroz way tagove tiho odbacuje čitavu kategoriju informacija zavedenih na node nivou, a greška se ne manifestuje kao pad sistema već kao \emph{nedostajuća} funkcionalnost koja se lako previdi dok se posebno ne testira.
+
+\section{Izgradnja Valhalla grafa}
+
+Filtriran \texttt{.osm.pbf} fajl se prosleđuje alatu \texttt{valhalla\_build\_tiles}, koji ga parsira i izgrađuje hijerarhijski graf organizovan u pločice (\emph{tiles}) — trajni format koji Valhalla HTTP servis (\texttt{valhalla\_service}) učitava pri startu i koristi za sve naredne \texttt{/route} zahteve. Ovaj korak je u sistemu izdvojen u poseban Docker Compose servis (\texttt{valhalla-build}, poglavlje 4.2), koji se pokreće samo kada treba ponovo izgraditi graf, a ne pri svakom pokretanju sistema (jer izgradnja traje nekoliko minuta i, s obzirom na to da se OSM podaci ne menjaju u toku jedne demonstracije rada, nije potrebno da se ona izvršava pri svakom \texttt{docker compose up}).
+
+Nakon ispravke filtera opisane u 5.1, ponovo izgrađen graf za teritoriju Republike Srbije sadrži 898 337 čvorova i 2 216 948 usmerenih ivica (grana). Ovaj graf koristi isključivo Valhalla, preko HTTP \texttt{/route} poziva (poglavlje 6.1) — nije direktno dostupan Go backend-u niti bilo kom drugom delu sistema, čime se čitava logika parsiranja OSM podataka i izgradnje efikasne rutne strukture prepušta Valhalla-i, u skladu sa odlukom (obrazloženom u poglavlju 6) da se produkcioni put ne oslanja na sopstvenu implementaciju pretrage nad grafom cele države.
+
+\section{Ekstrakcija podataka o odmaralištima}
+
+Za modul predloga pauze vozača (poglavlje 7.4) backend ne poziva Valhallu, već direktno učitava, pri pokretanju, sve node-ove sa tagovima \texttt{amenity=fuel}, \texttt{amenity=parking} i \texttt{highway=rest\_area} iz filtriranog OSM ekstrakta (istog fajla korišćenog za izgradnju Valhalla grafa, poglavlje 5.1) u memoriju procesa — oko 2000 node-ova za teritoriju Srbije. Ova lista se pri svakom predlogu pauze pretražuje geometrijski: kandidat mora biti unutar zadatog radijusa od tačke na ruti u kojoj bi vozilo teorijski bilo nakon isteka praga vožnje (poglavlje 7.4), i mora zaista biti u koridoru trase (a ne, na primer, geometrijski najbliža tačka vazdušnom linijom koja se nalazi na potpuno drugom putu). Rezultat pretrage dodatno favorizuje omiljene ili brend-specifične lokacije vozača, a za vozila koja prevoze opasan teret preferira benzinske stanice nad parkinzima u granicama tolerancije rastojanja — detalji ove logike dati su u poglavlju 7.4.
+
+\clearpage

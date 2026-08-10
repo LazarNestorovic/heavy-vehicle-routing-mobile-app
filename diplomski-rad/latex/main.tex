@@ -1,0 +1,127 @@
+% !TEX program = xelatex
+% Diplomski rad - LaTeX izvor
+% Kompajlirati sa XeLaTeX ili LuaLaTeX (koristi fontspec/polyglossia, ne pdfLaTeX).
+%   xelatex main.tex && bibtex main && xelatex main.tex && xelatex main.tex
+%   ili: latexmk -xelatex main.tex
+%
+% Overleaf: gornji "!TEX program" komentar bi trebalo automatski da prebaci
+% compiler na XeLaTeX. Ako ne uspe (npr. ako je compiler ranije rucno
+% postavljen), promeni ga rucno: Menu (gore levo) -> Compiler -> XeLaTeX.
+%
+% Ako lokalno nemate TeX Live, radi i besplatno na https://overleaf.com
+% ili preko prenosivog `tectonic` engine-a
+% (https://tectonic-typesetting.github.io), bez potrebe za sudo/root.
+
+\documentclass[12pt,a4paper]{report}
+
+% --- Fontovi i jezik ---
+\usepackage{fontspec}
+\setmainfont{Liberation Serif}      % metrički zamenjiv sa Times New Roman
+\setmonofont{Liberation Mono}[Scale=0.88]
+\usepackage{polyglossia}
+\setmainlanguage{serbian}           % latinica
+
+% Reduce overfull \hbox warnings from long, unhyphenatable inline
+% code/identifier tokens (\texttt{}) that don't quite fit the line width.
+\emergencystretch=2.5em
+
+% --- Stranica ---
+\usepackage[a4paper,left=30mm,right=25mm,top=25mm,bottom=25mm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Poglavlja/sekcije - "1 Uvod" stil, bez reci "Chapter"/"Glava" ---
+\usepackage{titlesec}
+\titleformat{\chapter}
+  {\Large\bfseries}{\thechapter}{1em}{}[{\vspace{2pt}\titlerule[0.8pt]}]
+\titlespacing*{\chapter}{0pt}{0pt}{18pt}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\bfseries\itshape}{\thesubsection}{0.8em}{}
+
+% --- Slike, tabele, listinzi - numerisani po poglavlju (Slika 6.1, Tabela 7.1, Listing 6.3) ---
+\usepackage{chngcntr}
+\counterwithin{figure}{chapter}
+\counterwithin{table}{chapter}
+
+% --- Grafika, tabele ---
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+
+% --- Kod (Listing okruzenje, sa okvirom kao u primerima FTN radova) ---
+\usepackage{listings}
+\renewcommand{\lstlistingname}{Listing}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  backgroundcolor=\color{black!4},
+  frame=single,
+  rulecolor=\color{black!40},
+  framesep=6pt,
+  xleftmargin=2pt,
+  xrightmargin=2pt,
+  tabsize=2,
+  captionpos=b,
+  numbers=none,
+}
+
+% --- Citati / literatura (klasican BibTeX - dostupan u svakoj LaTeX
+% instalaciji, uklj. Overleaf, bez potrebe za biber-om) ---
+\usepackage{cite}
+
+% --- Ostalo ---
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black!60}
+\usepackage{enumitem}
+\setlist{itemsep=1pt, topsep=3pt}
+
+\newcommand{\Naslov}{Razvoj aplikacije za rutiranje teretnih vozila prilago\-đe\-ne fizičkim ograničenjima vozila i terena}
+\newcommand{\Autor}{[IME PREZIME]}
+\newcommand{\Mentor}{[TITULA I IME MENTORA]}
+
+\begin{document}
+
+% polyglossia's "serbian" sets these captions to CYRILLIC via an
+% \AtBeginDocument hook that runs after the preamble, so overriding them in
+% the preamble gets silently clobbered - these must come after \begin{document}
+% (and after polyglossia's own hook) to actually stick.
+\renewcommand{\contentsname}{Sadržaj}
+\renewcommand{\figurename}{Slika}
+\renewcommand{\tablename}{Tabela}
+\renewcommand{\bibname}{Literatura}
+\renewcommand{\listfigurename}{Spisak slika}
+\renewcommand{\listtablename}{Spisak tabela}
+
+\pagenumbering{roman}
+\input{chapters/00-frontmatter}
+
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\input{chapters/01-uvod}
+\input{chapters/02-pregled}
+\input{chapters/03-tehnologije}
+\input{chapters/04-arhitektura}
+\input{chapters/05-osm}
+\input{chapters/06-algoritam}
+\input{chapters/07-backend}
+\input{chapters/08-mobilna}
+\input{chapters/09-testiranje}
+\input{chapters/10-zakljucak}
+
+% \bibliography{} below prints its own \chapter*{\bibname} heading (see the
+% \renewcommand{\bibname}{...} above) - do not also \chapter*{} it here, that
+% would produce two headings.
+\addcontentsline{toc}{chapter}{Literatura}
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\input{chapters/12-spiskovi}
+\input{chapters/13-biografija}
+
+\end{document}

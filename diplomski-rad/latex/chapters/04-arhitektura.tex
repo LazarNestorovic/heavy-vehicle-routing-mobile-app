@@ -1,0 +1,68 @@
+\chapter{Arhitektura sistema}
+
+\section{Pregled arhitekture i tok podataka}
+
+Sistem se sastoji od pet nezavisnih procesa: Flutter mobilne aplikacije (klijent, vozač ili dispečer), Go backend servisa (centralna tačka logike), Valhalla routing engine-a, PostgreSQL/PostGIS baze podataka i RabbitMQ posrednika poruka. Slika 4.1 prikazuje njihov međusobni odnos i osnovni tok podataka pri planiranju i praćenju jedne ture.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.88\textwidth]{diagrams/architecture.pdf}
+\caption{Arhitektura sistema — komponente i tok podataka}
+\label{fig:architecture}
+\end{figure}
+
+Tok pri planiranju rute je sledeći: mobilna aplikacija šalje \texttt{POST /api/v1/routes} sa profilom vozila, polazištem i odredištem; backend mapira profil vozila u Valhalla-in \texttt{truck} costing model (poglavlje 6.1) i traži do tri alternativne rute; svaka alternativa se rangira sopstvenom funkcijom rizika (poglavlje 6.2), a za izabranu (najbolje rangiranu) rutu se, ako odstupa od geometrijski najkraćeg puta, generiše tekstualno objašnjenje (poglavlje 6.3); odgovor sa geometrijom, rizikom i objašnjenjem se vraća klijentu. Kada vozač zaista pokrene turu (\texttt{POST /api/v1/trips}, zatim prelazak u status \texttt{in\_progress}), backend objavljuje \texttt{trip.started} događaj na RabbitMQ, koji worker procès preuzima i računa predlog pauze (poglavlje 7.4); istovremeno se otvara WebSocket veza (\texttt{GET /ws/trips/\{id\}}) preko koje se, dok vozač šalje periodične GPS pozicije (\texttt{POST /api/v1/trips/\{id\}/position}), te pozicije prosleđuju svim zainteresovanim klijentima uživo — vozačevom sopstvenom ekranu i, ako postoji, njegovom dispečeru koji sistem preko sopstvene, paralelne WebSocket konekcije prati na jednoj mapi (poglavlje 7.5, 8.2).
+
+Sistem sledi troslojnu podelu odgovornosti sličnu klasičnoj veb arhitekturi \cite{tanenbaum}: sloj prezentacije (Flutter aplikacija), sloj obrade (Go backend, uključujući scoring i explain module) i sloj perzistencije (PostgreSQL). Razlika u odnosu na uobičajenu troslojnu veb aplikaciju je što backend za svaki zahtev za rutu sam postaje klijent eksternog servisa (Valhalla), a deo obrade (predlog pauze) je pomeren u nezavisan, asinhron proces (worker), radi rasterećenja glavne HTTP niti obrade zahteva.
+
+\section{Kontejnerizacija i orkestracija servisa}
+
+Svi serverski delovi sistema definisani su u jednom \texttt{docker-compose.yml} fajlu i pokreću se komandom \texttt{docker compose up}. Listing 4.1 prikazuje definiciju PostgreSQL servisa, sa health-check-om koji ostali servisi (backend) koriste kao uslov za sopstveni start preko \texttt{depends\_on: condition: service\_healthy} — čime se garantuje da backend ne pokuša konekciju na bazu koja još nije spremna za prihvat konekcija.
+
+\begin{lstlisting}[caption={Definicija PostgreSQL/PostGIS servisa u \texttt{docker-compose.yml}}]
+postgres:
+  image: postgis/postgis:16-3.4-alpine
+  environment:
+    POSTGRES_USER: hvr
+    POSTGRES_PASSWORD: hvr_dev_password
+    POSTGRES_DB: hvr
+  ports:
+    - "5433:5432"
+  volumes:
+    - pgdata:/var/lib/postgresql/data
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U hvr -d hvr"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+\end{lstlisting}
+
+Tabela 4.1 sumira sve servise definisane u \texttt{docker-compose.yml}, njihovu ulogu i portove koje izlažu na host mašini.
+
+\begin{longtable}{@{}p{0.235\textwidth}p{0.235\textwidth}p{0.235\textwidth}p{0.235\textwidth}@{}}
+\caption{Servisi definisani u \texttt{docker-compose.yml}}\label{tab:4-1}\\
+\toprule
+\textbf{Servis} & \textbf{Slika} & \textbf{Uloga} & \textbf{Port (host)} \\
+\midrule
+\endhead
+\texttt{postgres} & \texttt{postgis/postgis:16-3.4-alpine} & Relaciona baza + PostGIS ekstenzija & 5433 → 5432 \\
+\texttt{rabbitmq} & \texttt{rabbitmq:3-management-alpine} & Posrednik poruka (AMQP) + web konzola & 5672, 15672 \\
+\texttt{valhalla} & \texttt{ghcr.io/valhalla/valhalla:latest} & HTTP routing servis (\texttt{valhalla\_service}) & 8002 \\
+\texttt{valhalla-build} & \texttt{ghcr.io/valhalla/valhalla:latest} & Jednokratna izgradnja grafa iz OSM ekstrakta (profil \texttt{build}, ne pokreće se pri običnom \texttt{up}) & — \\
+\texttt{backend} & sopstveni Go build & REST API, WebSocket gateway, worker & 8080 \\
+\bottomrule
+\end{longtable}
+
+\texttt{valhalla-build} je definisan sa Docker Compose \emph{profilom} \texttt{build}, što znači da se ne pokreće automatski pri \texttt{docker compose up} — pokreće se izričito (\texttt{docker compose --profile build up valhalla-build}) samo kada treba ponovo izgraditi graf (npr. nakon promene OSM ekstrakta, poglavlje 5), i radi sa \texttt{network\_mode: none} jer mu za samu izgradnju grafa nije potrebna mrežna konekcija, čime se smanjuje površina za eventualni bezbednosni problem tog koraka. Mobilna aplikacija i sopstveni algoritamski modul (poglavlje 6.4) nisu deo \texttt{docker-compose.yml} — Flutter aplikacija se pokreće lokalno na razvojnoj mašini ili emulatoru, a algoritamski modul je čista Go biblioteka koja se pokreće isključivo kroz testove, bez sopstvenog servisa (obrazloženo u poglavlju 6.4).
+
+\section{Sigurnost i autentifikacija}
+
+Autentifikacija vozača i dispečera zasniva se na JWT tokenima (RFC 7519 \cite{jwt}) potpisanim HMAC SHA-256 algoritmom (HS256). Nakon prijave (\texttt{POST /auth/login} sa korisničkim imenom i lozinkom, ili \texttt{POST /auth/google} sa Google ID tokenom), backend izdaje token koji, pored identifikatora vozača, nosi i celobrojno polje \texttt{token\_version}. Ovo polje se upoređuje sa vrednošću \texttt{token\_version} iz baze na svakom autentifikovanom zahtevu (\texttt{RequireAuth} middleware) — kada vozač zatraži odjavu sa svih uređaja (\texttt{POST /auth/logout-all}), backend samo inkrementira \texttt{token\_version} u bazi, čime svi ranije izdati tokeni (koji nose stariju vrednost) trenutno postaju nevažeći, bez potrebe za posebnom, rastućom tabelom opozvanih tokena (\emph{blocklist}) koja bi morala da se proverava na svakom zahtevu.
+
+Lozinke se ne čuvaju u čistom tekstu, već kao bcrypt heš, algoritam koji ugrađuje nasumičnu "sol" po lozinci (čime dve identične lozinke dva različita korisnika dobijaju različit heš) i podesivi faktor rada (koji direktno određuje koliko dugo traje jedan pokušaj heširanja, pa time i koliko dugo traje jedan pokušaj brute-force napada). Nalozi kreirani preko Google prijave nemaju lozinku (\texttt{password\_hash} je \texttt{NULL}) — identifikuju se preko stabilnog Google identifikatora naloga (\texttt{google\_sub}, \texttt{sub} polje iz Google ID tokena), koji backend verifikuje samostalno preko Google-ovog javnog skupa ključeva (JWKS), bez uvođenja Firebase SDK-a kao zavisnosti.
+
+Za obnovu zaboravljene lozinke (\texttt{POST /auth/forgot-password}) i verifikaciju email adrese (\texttt{GET /auth/verify-email}) koristi se model jednokratnog, vremenski ograničenog tokena zapisanog u posebnoj tabeli (\texttt{password\_reset\_tokens}, \texttt{email\_verification\_tokens}) sa poljima \texttt{expires\_at} i \texttt{used\_at} — link poslat emailom prestaje da važi i po isteku vremena i po jednokratnoj upotrebi, a backend razlikuje ta dva slučaja radi jasnije poruke korisniku. Slanje emaila (link za verifikaciju/reset) realizovano je preko \texttt{net/smtp} paketa iz Go standardne biblioteke, bez eksternog transakcionog email API-ja — servis je no-op (ne šalje ništa, samo zapisuje u log) ako promenljiva okruženja \texttt{SMTP\_HOST} nije podešena, čime ostatak sistema radi i bez konfigurisanog email servisa (npr. u razvojnom okruženju).
+
+Sistem u trenutnom obliku ima namerno ograničen bezbednosni obim, obrazložen u poglavlju 10 — WebSocket \texttt{CheckOrigin} provera je trenutno propustljiva (prihvata sve origin-e), pošto je aplikacija zamišljena kao rad sa jednim poznatim, poverljivim klijentom (sopstvena Flutter aplikacija), a ne kao javni, višezakupčani (multi-tenant) servis.
+
+\clearpage

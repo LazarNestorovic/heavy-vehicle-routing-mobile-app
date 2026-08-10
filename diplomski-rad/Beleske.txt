@@ -1,13 +1,13 @@
 Izmene na diplomskom radu:
 
-- U SADRZAJ dodati sa desne strane brojeve stranica gde sekcije pocinju.
-- U UVODU izmeniti "favorizovane benzijske stanice" u "Favorizovane lokacije na mapi" Na delu koji nabraja slojeve koji su dodati.
+- (IZMENJENO)U UVODU izmeniti "favorizovane benzijske stanice" u "Favorizovane lokacije na mapi" Na delu koji nabraja slojeve koji su dodati.
 - U 10 pise da su Banovci primer "provaljen dokaz", proveriti i pokusati da se zameni izraz.
-- U 1.3 Neka objasnjenje svakog poglavlje pocinje novim redom.
-- Brojeve i nazive tabela ili kodova staviti ispod tabele/koda.
-- 2.2 prvi pasus napisano "djeluju" promeniti u "deluju".
-- 2.3 Napisano A/, a ne A*.
-- 2.3 Ogranicena(constrained) pretraga deo pisa "historijski" treba "istorijski"
+- (ISPRAVLJENO)U 1.3 Neka objasnjenje svakog poglavlje pocinje novim redom.
+- (Ispravljeno)2.1 Napraviti bolju tabelu - necitko
+- (ISPRAVLJENO)2.2 prvi pasus napisano "djeluju" promeniti u "deluju".
+- 2.3 U delu za Dijkstra algoritam - kaze za prioritetni red(u ovom radu binarna goima - proveriti prevod)
+- (ISPRAVLJENO)2.3 Napisano A/, a ne A*.
+- (ISPRAVLJENO)2.3 Ogranicena(constrained) pretraga deo pisa "historijski" treba "istorijski"
 - 3.2 proveriti kaze da je koristeno flutter_map za prikaz OSM/vector tile prikaz mape(na kraju je koristena google mapa)PROVERITI.
 - 3.8 osmiuim-tool, napisano je "komandolinijski", vrv treba "komandnolinijski".
 - 4.1 bolje napraviti grafik arhitekture.

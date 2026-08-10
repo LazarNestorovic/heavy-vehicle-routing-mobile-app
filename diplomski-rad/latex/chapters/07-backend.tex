@@ -1,0 +1,148 @@
+\chapter{Backend servis i model podataka}
+
+\section{REST API}
+
+Backend izlaže REST API organizovan oko pet grupa resursa: autentifikacija, vozila, ture (trips), dispečerski odnosi i chat. Tabela 7.1 sumira najvažnije endpoint-e; kompletan spisak obuhvata i dodatne varijante (npr. \texttt{PATCH}, \texttt{PUT}) koje ovde nisu posebno izdvojene.
+
+\begin{longtable}{@{}p{0.313\textwidth}p{0.313\textwidth}p{0.313\textwidth}@{}}
+\caption{Pregled REST API endpoint-a (skraćeno)}\label{tab:7-1}\\
+\toprule
+\textbf{Grupa} & \textbf{Endpoint} & \textbf{Opis} \\
+\midrule
+\endhead
+Autentifikacija & \texttt{POST /auth/register}, \texttt{POST /auth/login}, \texttt{POST /auth/google} & Registracija i prijava (lozinka ili Google) \\
+Autentifikacija & \texttt{GET /auth/verify-email}, \texttt{POST /auth/resend-verification} & Verifikacija email adrese \\
+Autentifikacija & \texttt{POST /auth/forgot-password}, \texttt{GET}/\texttt{POST /auth/reset-password} & Obnova zaboravljene lozinke \\
+Autentifikacija & \texttt{GET /auth/me}, \texttt{POST /auth/logout-all} & Podaci o naloгu, odjava sa svih uređaja \\
+Vozila & \texttt{POST}/\texttt{GET}/\texttt{PUT}/\texttt{DELETE /vehicles} & CRUD nad profilom vozila \\
+Vozila & \texttt{PATCH /vehicles/\{id\}/status}, \texttt{GET /vehicles/\{id\}/hours} & Nivo goriva/servis, sati vožnje \\
+Rutiranje & \texttt{POST /api/v1/routes} & Generisanje, rangiranje i objašnjenje rute (bez čuvanja) \\
+Ture & \texttt{POST}/\texttt{GET /trips}, \texttt{GET}/\texttt{PUT /trips/\{id\}} & Kreiranje i pregled tura \\
+Ture & \texttt{POST /trips/\{id\}/accept} (i \texttt{reject}, \texttt{start}, \texttt{position}, \texttt{reroute}, \texttt{complete}) & Prelazi statusne mašine ture \\
+Ture & \texttt{GET /trips/\{id\}/events} & Dnevnik događaja tokom vožnje \\
+Dispečer & \texttt{GET /dispatcher/drivers}, \texttt{GET /dispatcher/available-drivers} & Pregled vozača dispečera / dostupnih vozača \\
+Dispečer & \texttt{POST /dispatcher/requests}, \texttt{GET /dispatcher/requests}, \texttt{GET /driver/requests}, \texttt{POST /driver/requests/\{id\}/respond} & Zahtev za povezivanje dispečer↔vozač \\
+Chat & \texttt{GET /chats}, \texttt{GET}/\texttt{POST /chats/\{driverId\}/messages} & Pregled i slanje poruka \\
+Real-time & \texttt{GET /ws/trips/\{id\}}, \texttt{GET /ws/chats/\{counterpartId\}} & WebSocket veze (poglavlje 7.5) \\
+Geokodiranje & \texttt{GET /geocode}, \texttt{GET /geocode/reverse} & Proxy ka Nominatim servisu \\
+\bottomrule
+\end{longtable}
+
+Endpoint \texttt{POST /api/v1/routes} je \emph{stateless} — samo generiše i vraća pregled rute (uz rizik i objašnjenje), bez upisa u bazu — dok \texttt{POST /trips} kreira stvarnu turu koja prolazi kroz statusnu mašinu opisanu u nastavku. Ovo razdvajanje omogućava vozaču da pregleda više varijanti rute (npr. sa različitim profilom vozila ili preferencama) bez posledica u bazi, pre nego što se konkretna ruta konvertuje u turu.
+
+\textbf{Statusna mašina ture.} Tura prolazi kroz stanja: \texttt{offered} (ponuđena vozaču od strane dispečera, čeka odgovor) → \texttt{accepted} (vozač prihvatio ponudu) / \texttt{rejected} (vozač odbio, terminalno stanje) → \texttt{created} (samostalno kreirana od strane vozača, bez posrednog \texttt{offered} stanja) → \texttt{in\_progress} (vozač pokrenuo turu) → \texttt{completed}. Backend, preko \texttt{HasActiveTrip}/\texttt{HasPendingOffer} provera, sprečava da vozač ima paralelno više aktivnih tura ili više neodgovorenih ponuda istovremeno.
+
+\section{Model podataka}
+
+Slika 7.1 prikazuje pregled entiteta baze podataka i njihovih veza; potpuna šema, uključujući sve kolone, definisana je preko četiri \texttt{goose} migracije opisane u nastavku.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.88\textwidth]{diagrams/erd.pdf}
+\caption{Pregled entiteta baze podataka (skraćeno, bez svih kolona)}
+\label{fig:erd}
+\end{figure}
+
+Šema baze je organizovana u četiri numerisane, hronološke migracije, upravljane alatom \texttt{goose}, koji garantuje da se svaka migracija primeni tačno jednom, bez obzira na to koliko puta se sistem pokrene. Tabela 7.2 sumira sadržaj svake migracije.
+
+\begin{longtable}{@{}p{0.470\textwidth}p{0.470\textwidth}@{}}
+\caption{Migracije šeme baze podataka}\label{tab:7-2}\\
+\toprule
+\textbf{Migracija} & \textbf{Sadržaj} \\
+\midrule
+\endhead
+\texttt{00001\_initial\_schema.sql} & Osnovna šema: \texttt{drivers}, \texttt{vehicles}, \texttt{trips}, \texttt{driver\_preferences}, \texttt{driver\_favorite\_stops}, \texttt{trip\_events}, \texttt{chat\_messages} \\
+\texttt{00002\_dispatcher\_roles.sql} & \texttt{drivers.role}/\texttt{dispatcher\_id}, \texttt{vehicles.dispatcher\_id}, \texttt{trips.assigned\_by\_id}, tabela \texttt{dispatcher\_requests} \\
+\texttt{00003\_google\_and\_email\_auth.sql} & \texttt{drivers.google\_sub}/\texttt{email}/\texttt{email\_verified}, tabela \texttt{email\_verification\_tokens} \\
+\texttt{00004\_password\_reset\_and\_logout\_all.sql} & \texttt{drivers.token\_version}, tabela \texttt{password\_reset\_tokens} \\
+\bottomrule
+\end{longtable}
+
+Listing 7.1 prikazuje deo osnovne šeme — tabele \texttt{vehicles} i \texttt{trips}, sa CHECK ograničenjem koje garantuje da osovinsko opterećenje vozila ne može biti veće od njegove ukupne mase (integritetno ograničenje na nivou baze, ne samo na nivou aplikacije).
+
+\begin{lstlisting}[caption={Osnovna šema tabela \texttt{vehicles} i \texttt{trips} (\texttt{00001\_initial\_schema.sql})}]
+CREATE TABLE IF NOT EXISTS vehicles (
+    id SERIAL PRIMARY KEY,
+    height_m DOUBLE PRECISION NOT NULL,
+    width_m DOUBLE PRECISION NOT NULL,
+    length_m DOUBLE PRECISION NOT NULL,
+    weight_kg DOUBLE PRECISION NOT NULL,
+    axle_load_kg DOUBLE PRECISION NOT NULL,
+    hazmat BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (axle_load_kg <= weight_kg)
+);
+
+CREATE TABLE IF NOT EXISTS trips (
+    id SERIAL PRIMARY KEY,
+    vehicle_id INTEGER NOT NULL REFERENCES vehicles(id),
+    origin_lat DOUBLE PRECISION NOT NULL,
+    origin_lon DOUBLE PRECISION NOT NULL,
+    destination_lat DOUBLE PRECISION NOT NULL,
+    destination_lon DOUBLE PRECISION NOT NULL,
+    distance_km DOUBLE PRECISION NOT NULL,
+    duration_min DOUBLE PRECISION NOT NULL,
+    risk_score DOUBLE PRECISION NOT NULL,
+    shape TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'created',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+\end{lstlisting}
+
+Geometrija rute (\texttt{trips.shape}) čuva se kao enkodovan tekstualni polyline (isti format koji vraća Valhalla), a ne kao PostGIS \texttt{geometry} kolona — pragmatičan izbor koji izbegava dekodiranje/enkodiranje geometrije pri svakom čitanju iz baze, po cenu da prostorni upiti nad geometrijom rute (npr. "sve ture koje prolaze kroz ovaj region") nisu mogući direktno u bazi, već bi zahtevali dekodiranje u aplikacionom sloju — razmatrano kao mogući pravac budućeg rada u poglavlju 10.
+
+\section{Uloge vozač/dispečer}
+
+Sistem razlikuje dve uloge vozača: \textbf{vozač} (\texttt{driver}) i \textbf{dispečer} (\texttt{dispatcher}), zapisane u koloni \texttt{drivers.role}. Veza dispečer↔vozač se, namerno, ne uspostavlja pri registraciji, već isključivo preko mehanizma zahteva i odobrenja: dispečer šalje zahtev (\texttt{POST /dispatcher/requests}) izabranom vozaču, a vozač ga prihvata ili odbija (\texttt{POST /driver/requests/\{id\}/respond}); prihvatanje postavlja \texttt{drivers.dispatcher\_id} na identifikator dispečera. Vozač u svakom trenutku može napustiti dispečera (\texttt{POST /driver/leave-dispatcher}), čime se ta veza raskida.
+
+Vozilo (\texttt{vehicles}) pripada tačno jednom od dva vlasnika — \texttt{driver\_id} ili \texttt{dispatcher\_id} — nikad oboma. Ovim se modeluje realan scenario iz transportne prakse: vozač koji radi za dispečera može voziti vozilo koje je u vlasništvu firme (dispečera), ali isto tako može, paralelno, imati i sopstveno vozilo kojim upravlja samostalno — provera koje vozilo vozač trenutno može koristiti (\texttt{vehicleAccessible}/\texttt{vehicleMutable}) implementirana je na nivou Go handler-a, a ne kao ograničenje baze, jer zavisi i od trenutne dispečer-vozač veze, koja se može promeniti tokom vremena.
+
+Kada dispečer kreira turu za vozača (\texttt{assigned\_by\_id} postavljen na dispečera), ruta se generiše i rangira prema \textbf{dispečerovom} profilu preferenci, ne vozačevom — s obzirom na to da je dispečer taj koji donosi odluku o ruti u ime firme, a preference u ovom sistemu modeluju stil odlučivanja o ruti, ne lične navike vozača u vožnji.
+
+\section{Asinhrona obrada — RabbitMQ i modul pauza vozača}
+
+Kada vozač pokrene turu, backend objavljuje \texttt{trip.started} poruku na \texttt{trip.events} topic exchange RabbitMQ-a. Nezavisan worker proces, pokrenut kao goroutine unutar istog backend binarnog fajla (ne kao poseban kontejner), konzumira tu poruku i računa jednostavan predlog pauze: ako je planirano trajanje ture veće od praga od 270 minuta (4.5h — pojednostavljena zamena za stvarno AETR pravilo o obaveznoj pauzi nakon određenog vremena vožnje \cite{aetr}, obrazloženo dalje u ovom poglavlju), worker pronalazi tačku na ruti gde bi se vozilo teorijski nalazilo nakon isteka tog vremena (pod pretpostavkom konstantne brzine duž rute), i traži najbliže odmaralište iz skupa OSM node-ova učitanih u poglavlju 5.3 koje je stvarno u koridoru trase. Listing 7.2 prikazuje deo implementacije koja računa predlog.
+
+\begin{lstlisting}[caption={Proračun predloga pauze u \texttt{TripWorker} (\texttt{backend/internal/worker/trip\_worker.go})}]
+const restThresholdMin = 270 // 4.5h - stand-in za AETR pravilo
+
+func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store.RestStopSuggestion {
+	if trip.DurationMin <= restThresholdMin {
+		return store.RestStopSuggestion{}
+	}
+	afterMin := float64(restThresholdMin)
+	suggestion := store.RestStopSuggestion{AfterMinutes: &afterMin}
+
+	points := valhalla.DecodePolyline6(trip.Shape)
+	fraction := restThresholdMin / trip.DurationMin
+	at := valhalla.PointAtFraction(points, fraction)
+
+	// ... učitavanje preferenci vozača i omiljenih stanica ...
+	stop, _, found := w.RestStops.NearestOnRoute(at.Lat, at.Lon, brand, favorites,
+		reststop.DefaultPreferredRadiusM, routePoints, reststop.DefaultRouteCorridorRadiusM, hazmat)
+	if !found {
+		return suggestion
+	}
+	suggestion.Lat, suggestion.Lon = &stop.Lat, &stop.Lon
+	suggestion.Amenity = &stop.Amenity
+	return suggestion
+}
+\end{lstlisting}
+
+Rezultat se upisuje u samu turu (\texttt{trips.rest\_stop\_*} kolone) i u dnevnik događaja (\texttt{trip\_events}, tip \texttt{rest\_stop\_suggested}), koji mobilna aplikacija prikazuje vozaču kao vremensku liniju (poglavlje 8.1). Za vozila koja prevoze opasan teret, pretraga preferira benzinske stanice nad parkinzima (u granicama tolerancije rastojanja), a rezultat u svim slučajevima favorizuje vozačevu omiljenu ili brend-specifičnu stanicu, ako se takva nalazi u koridoru trase.
+
+\textbf{Namerno pojednostavljenje.} Prag od 270 minuta je jednostavna, fiksna zamena za stvarnu evropsku AETR regulativu o radnom vremenu i obaveznim pauzama vozača teretnih vozila \cite{aetr}, koja u stvarnosti razlikuje dnevno i nedeljno vreme vožnje, obavezne dnevne i nedeljne odmore, i dozvoljava određena izuzeća. Puna implementacija te regulative izlazi iz obima ovog rada (obrazloženo u poglavlju 10) — cilj modula je da demonstrira \textbf{mehanizam} (asinhrono računanje predloga na osnovu proteklog vremena vožnje i geografske pretrage najbliže odgovarajuće lokacije), a ne da zameni stvarnu, zakonski obavezujuću logiku.
+
+\textbf{Napomena o evoluciji sistema.} U ranoj fazi razvoja bio je planiran i drugi tok poruka — \texttt{trip.eta\_updated}, koji bi worker objavljivao nakon računanja ETA, a WebSocket gateway (7.5) konzumirao radi guranja ka klijentu. Taj tok je napušten kada je uvedeno praćenje stvarne GPS pozicije vozila (umesto simulacije), pošto je ETA tada postalo jednostavnije računati direktno u WebSocket gateway-u, iz svake nove GPS pozicije (poglavlje 7.5) — čime je \texttt{trip.eta\_updated} poruka postala "mrtav kod" (niko je nije konzumirao) i uklonjena je iz sistema. Ovo je uobičajena i zdrava evolucija u razvoju asinhronog sistema: mehanizam koji je u jednom trenutku bio neophodan postaje suvišan kada se promeni pretpostavka na kojoj je zasnovan, i treba ga ukloniti umesto ostaviti kao neaktivan kod.
+
+\section{Real-time komunikacija — WebSocket gateway}
+
+Paket \texttt{ws} implementira dva WebSocket gateway-a nad istom osnovnom idejom: relej poruka svim zainteresovanim klijentima jedne "teme" (ture ili konverzacije), bez čuvanja stanja konverzacije unutar samog WebSocket sloja.
+
+\textbf{Praćenje pozicije uživo.} Za svaku turu koja je u toku, gateway drži strukturu \texttt{liveTrip} sa skupom pretplatnika (otvorenih WebSocket konekcija) i poslednjom emitovanom pozicijom. Kada vozačev telefon prijavi novu GPS poziciju (\texttt{POST /api/v1/trips/\{id\}/position}), gateway izračunava preostalo rastojanje do odredišta (haversine formula) i procenjeno vreme dolaska na osnovu prosečnog planiranog tempa ture, i tu poruku emituje svim trenutno povezanim pretplatnicima — vozačevom sopstvenom ekranu i, ako postoji, njegovom dispečeru koji istu turu prati na svojoj live mapi (poglavlje 8.2). Novi pretplatnik koji se poveže (ili ponovo poveže) odmah prima poslednju poznatu poziciju, umesto da čeka narednu GPS prijavu — bez ovoga, dispečer koji zatvori i ponovo otvori live mapu ne bi video ništa do naredne GPS prijave vozila, koja može kasniti minutima ako se vozilo ne kreće (GPS prijave se šalju na pomak od određenog broja metara, ne na fiksni interval).
+
+\textbf{Napomena o evoluciji sistema.} Prva verzija ovog gateway-a je, kada još nije stigla nijedna stvarna GPS prijava, simulirala kretanje vozila "hodanjem" duž geometrije rute fiksnim korakom, kao zamenu za stvarni GPS signal tokom razvoja bez pristupa fizičkom vozilu. Kada je testiranje sa stvarnim telefonom postalo dostupno, simulacija je počela da pravi vidljiv "skok" na ekranu u trenutku kada bi stigla prva stvarna GPS prijava (jer se stvarna pozicija po pravilu nije poklapala sa simuliranom) — problem koji je rešen potpunim uklanjanjem simulacije, pošto je do tog trenutka mobilna aplikacija već zahtevala stvaran GPS fix pre nego što dozvoli pokretanje ture (provera blizine polazištu, poglavlje 8.1), čime je simulacija izgubila i svoju originalnu svrhu.
+
+\textbf{Chat.} Chat poruke se, za razliku od pozicije, trajno čuvaju u bazi (\texttt{chat\_messages}) preko REST endpoint-a (\texttt{POST /chats/\{driverId\}/messages}) — REST je "izvor istine" za istoriju razgovora. WebSocket veza (\texttt{GET /ws/chats/\{counterpartId\}}) služi isključivo za isporuku uživo dok je druga strana trenutno povezana: backend objavljuje poslatu poruku na RabbitMQ (\texttt{chat.events} exchange), a WS gateway je samo prosleđuje pretplatniku ako je u tom trenutku povezan — ako nije, poruka je već sačuvana u bazi preko REST poziva i biće učitana pri narednom otvaranju razgovora, bez potrebe za posebnim mehanizmom "neisporučenih" poruka.
+
+\clearpage

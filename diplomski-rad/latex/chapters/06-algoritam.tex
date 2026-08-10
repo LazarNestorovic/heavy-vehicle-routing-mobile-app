@@ -1,0 +1,224 @@
+\chapter{Algoritam rutiranja prilagođen vozilu}
+
+Ovo poglavlje je centralni algoritamski doprinos rada. Sistem koristi \textbf{dvoslojni pristup}: (1) u produkcionom putu, Valhalla generiše fizički dopustive alternativne rute preko svog \texttt{truck} costing modela (6.1), nad kojima sopstveni Go modul dodaje rangiranje po riziku (6.2) i objašnjenje odstupanja rute (6.3), pošto to Valhalla nativno ne radi; (2) kao odvojena, algoritamska celina namenjena evaluaciji i demonstraciji principa, implementirana je sopstvena Dijkstra/A* pretraga nad ograničenim podgrafom putne mreže, direktno nad OSM podacima, bez ikakve zavisnosti od Valhalla-e (6.4). Ovaj pristup je posledica realne procene obima rada: reimplementacija efikasnog nacionalnog routing engine-a nad grafom od skoro milion čvorova (poglavlje 5.2) nije realan cilj jednog diplomskog rada, dok je razumevanje i demonstracija principa na kojima takav engine počiva — kroz sopstvenu, testiranu implementaciju nad manjim, ali realnim podgrafom — sasvim ostvarivo i akademski relevantno.
+
+\section{Valhalla truck costing}
+
+Valhalla-in \texttt{truck} costing model prihvata profil vozila kao deo tela HTTP \texttt{/route} zahteva, bez potrebe da se graf iznova izgradi za svako vozilo. Listing 6.1 prikazuje tipičan zahtev korišćen u ovom sistemu.
+
+\begin{lstlisting}[caption={Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)}]
+POST /route
+{
+  "locations": [
+    {"lat": 44.8, "lon": 20.4},
+    {"lat": 45.25, "lon": 19.85}
+  ],
+  "costing": "truck",
+  "costing_options": {
+    "truck": {
+      "height": 4.0,
+      "width": 2.55,
+      "length": 16.5,
+      "weight": 40,
+      "axle_load": 11.5,
+      "hazmat": false
+    }
+  },
+  "alternates": 2
+}
+\end{lstlisting}
+
+Backend mapira sopstveni \texttt{TruckProfile} (u SI jedinicama — metrima i kilogramima, radi konzistentnosti sa ostatkom sistema) u Valhalla-ine jedinice (metri za dimenzije, metrički toni za masu), i parsira odgovor u sopstvenu strukturu \texttt{RouteCandidate} koja, pored rastojanja i trajanja, izdvaja i broj manevara, udeo puta na magistralnim/autoputskim deonicama (\texttt{HighwayRatio}), prisustvo trajekta ili putarine, kao i nazive ulica i tačke svakog manevra — signale koje ne izlaže sam sažetak rute, ali su neophodni za sloj rangiranja (6.2) i objašnjenja (6.3). Listing 6.2 prikazuje deo implementacije koja šalje zahtev i mapira profil vozila.
+
+\begin{lstlisting}[caption={\texttt{valhalla.Client.RouteAlternates} — mapiranje profila vozila u Valhalla \texttt{costing\_options} (\texttt{backend/internal/valhalla/client.go})}]
+// TruckProfile mirrors Valhalla's truck costing_options, in SI units (meters, kilograms).
+type TruckProfile struct {
+	HeightM    float64
+	WidthM     float64
+	LengthM    float64
+	WeightKg   float64
+	AxleLoadKg float64
+	Hazmat     bool
+}
+
+func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon,
+	profile TruckProfile, numAlternates int) ([]RouteCandidate, error) {
+	body := routeRequest{
+		Locations: []LatLon{origin, destination},
+		Costing:   "truck",
+		CostingOptions: map[string]truckCostingOpt{
+			"truck": {
+				Height:   profile.HeightM,
+				Width:    profile.WidthM,
+				Length:   profile.LengthM,
+				Weight:   profile.WeightKg / 1000,   // Valhalla expects metric tons
+				AxleLoad: profile.AxleLoadKg / 1000,
+				Hazmat:   profile.Hazmat,
+			},
+		},
+		Alternates: numAlternates,
+	}
+	// ... serijalizacija, HTTP POST na baseURL+"/route", parsiranje odgovora
+}
+\end{lstlisting}
+
+Ograničenje ovog pristupa je da odgovor običnog \texttt{/route} poziva ne izlaže \emph{koja tačno} ivica grafa je isključena niti njenu tačnu vrednost ograničenja (npr. tačnu visinu nadvožnjaka) — ta informacija bi zahtevala poziv Valhalla-inog \texttt{/trace\_attributes} endpoint-a nad već izračunatom rutom, ili direktan pristup OSM podacima nezavisno od Valhalla-e. Ovo ograničenje je direktno motivisalo modul opisan u 6.4, koji, radeći nad sopstvenim, manjim grafom, ima pristup tačnim OSM tagovima svake ivice.
+
+\section{Prilagođena funkcija rizika (scoring)}
+
+Valhalla po zahtevu vraća do tri alternativne rute, ali ih ne rangira po bilo kom kriterijumu specifičnom za teretni saobraćaj — sve tri su, sa njene tačke gledišta, fizički dopustive. Paket \texttt{scoring} dodaje taj nedostajući sloj: svaku alternativu bodira heurističkom funkcijom rizika koja kombinuje rastojanje, broj manevara, udeo puta van magistralnih deonica, prisustvo trajekta/putarine, procenu potrošnje goriva u odnosu na masu vozila, broj "oštrih" manevara (proxy za rizik pomeranja tereta) i blizinu omiljenih/brend benzinskih stanica vozača — a zatim vraća alternative sortirane od najboljeg (najmanji rizik) ka najgorem rezultatu.
+
+Svaka dimenzija skalira se prema preferenci vozača, izraženoj kao ceo broj od 1 do 5 (gde je 3 neutralna, podrazumevana vrednost) preko faktora \texttt{priority/3} — vozač koji nikad ne podesi svoje preference dobija rezultat identičan fiksnoj, uravnoteženoj formuli. Listing 6.3 prikazuje centralnu funkciju bodovanja.
+
+\begin{lstlisting}[caption={Funkcija bodovanja rute (\texttt{backend/internal/scoring/scoring.go}) — manji rezultat je bolji}]
+func score(c valhalla.RouteCandidate, prefs Preferences, vehicleWeightKg,
+	fastestDurationMin float64, preferredStops []valhalla.LatLon) float64 {
+	var timeTerm float64
+	if fastestDurationMin > 0 {
+		timeTerm = (c.DurationMin - fastestDurationMin) / fastestDurationMin * timeScale
+	}
+	highwayTerm := (1 - c.HighwayRatio) * nonHighwayScale
+	fuelTerm := fuelProxy(c, vehicleWeightKg)
+	cargoTerm := float64(c.SharpManeuverCount) * sharpManeuverWt
+
+	s := scalar(prefs.TimePriority)*timeTerm +
+		scalar(prefs.HighwayPriority)*highwayTerm +
+		scalar(prefs.FuelPriority)*fuelTerm +
+		scalar(prefs.CargoPriority)*cargoTerm +
+		float64(c.ManeuverCount)*maneuverWeight
+
+	if c.HasFerry {
+		s += ferryPenalty
+	}
+	if c.HasToll {
+		s += tollPenalty
+	}
+	s += preferredStopDiscount(c.Shape, preferredStops)
+	return s
+}
+\end{lstlisting}
+
+Vrednost \texttt{timeTerm} je relativno kašnjenje kandidata u odnosu na najbrži kandidat u istom skupu alternativa (0\% ako je kandidat najbrži), a \texttt{fuelProxy} je relativna procena "potrošnje" izvedena iz rastojanja i mase vozila (nema pristupa podacima o nagibu puta, pa ovo nije stvarna potrošnja u litrima, već relativan signal za poređenje kandidata međusobno). Autor koda je u komentarima izričito naglasio da su bazne težine (\texttt{maneuverWeight}, \texttt{nonHighwayScale}, \texttt{ferryPenalty} itd.) prva heuristička procena, nekalibrisana prema stvarnim podacima o potrošnji ili nesrećama — što je pošteno i namerno ograničenje, razmatrano dalje u poglavlju 9.3 kroz konkretan primer greške koju je ova formula ispravila.
+
+\textbf{Motivacija dodavanja vremenskog člana.} Rana verzija formule nije sadržala \texttt{timeTerm} — bodovala je isključivo na osnovu udela magistralne deonice (\texttt{highwayTerm}) i broja manevara. Testiranjem na konkretnoj ruti (Radalj, poglavlje 9.3) uočeno je da takva formula bira rutu koja je 47\% duža i 30\% sporija od alternative samo zato što ima nešto povoljniji odnos magistralne i lokalne deonice puta — očigledno pogrešan ishod sa stanovišta stvarnog transportnog troška. Dodavanje \texttt{timeTerm}-a, koji direktno kažnjava kandidata srazmerno tome koliko je sporiji od najbržeg u skupu, ispravilo je taj slučaj bez uklanjanja postojećih članova formule.
+
+\section{Objašnjenje predložene rute — slučaj Novi Banovci}
+
+Kada izabrana ruta odstupa od geometrijski najkraćeg puta, vozaču nije dovoljno prikazati \emph{šta} je predloženo — potrebno mu je objašnjenje \emph{zašto}. Paket \texttt{explain} implementira taj mehanizam prema principu binarne pretrage po dimenzijama profila vozila:
+
+\begin{enumerate}
+\item Zahteva se "referentna" ruta sa svim dimenzijama profila veštački opuštenim na nerealno velike vrednosti (npr. visina 100m, masa 900 000 kg) — ruta koju bi Valhalla predložila da fizička ograničenja vozila ne postoje.
+\item Ako se izabrana ruta (sa stvarnim profilom vozila) po rastojanju ne razlikuje značajno od referentne (manje od 1km), nema odstupanja koje treba objasniti.
+\item U suprotnom, dimenzije profila (visina, masa, osovinsko opterećenje, širina, prevoz opasnog tereta) se redom, jedna po jedna, "oslobađaju" na referentnu vrednost, i ruta se ponovo traži — dimenzija čije oslobađanje vrati rutu na rastojanje referentne rute je \textbf{vezujuće ograničenje} za taj segment puta.
+\item Mesto odstupanja se određuje geometrijski: dekodirane geometrije (polyline) izabrane i referentne rute se upoređuju tačku po tačku, a prva tačka izabrane rute čija je udaljenost od svake tačke referentne rute veća od 200m proglašava se tačkom divergencije; njoj se pridružuje naziv ulice najbližeg manevra izabrane rute.
+\item Generiše se poruka vozaču, npr.: \emph{"Ruta skreće kod [ulica] jer visina vozila (4.7m) ne zadovoljava ograničenje na toj deonici."}
+\end{enumerate}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.88\textwidth]{diagrams/explain.pdf}
+\caption{Tok mehanizma objašnjenja rute (\texttt{explain.Explain})}
+\label{fig:explain}
+\end{figure}
+
+\textbf{Slučaj Novi Banovci.} Ovaj mehanizam je razvijen i potvrđen na konkretnom, stvarnom slučaju: ručnom binarnom pretragom (ponavljanjem \texttt{/route} poziva sa različitim vrednostima visine) utvrđeno je da na auto-putu A1, u okolini čvora Novi Banovci (izlaz 21/22), postoji ograničenje visine između 4.5m i 4.6m. Za vozilo profila korišćenog u testu (visina 4.7m), Valhalla je korektno birala detour preko lokalnog puta umesto direktnog nastavka auto-putem — a mehanizam opisan u ovom poglavlju automatizuje upravo tu istu binarnu pretragu, koju je autor prvo sproveo ručno da bi potvrdio da je ponašanje Valhalla-e (i, posledično, sistema) tačno.
+
+Bitna napomena o ovom mehanizmu je jedna poznata, dokumentovana greška otkrivena tokom razvoja i potom ispravljena: rana verzija je poredila listu manevara (\texttt{street\_names}) izabrane i referentne rute \textbf{po pozicionom indeksu u nizu} (manevar broj $i$ izabrane rute sa manevrom broj $i$ referentne rute). Ovo je radilo dobro kada su rute delile zajednički početni deo puta i lokalno se razdvajale, ali je davalo pogrešnu (preraniju) lokaciju za vozila sa toliko strogim ograničenjem da Valhalla za njih bira \textbf{globalno drugačiju strategiju rute od samog početka} — tada indeks $i$ ne odgovara istom mestu na putu kod obe rute. Zamena poređenja po indeksu geometrijskim poređenjem (korak 4 gore) rešila je ovaj problem, jer geometrija ne zavisi od toga kako su manevri indeksirani, već isključivo od toga gde se putevi fizički razilaze. Ovaj slučaj je vredan pomena u radu jer ilustruje opštu lekciju: kada se dva niza podataka (manevri dve različite rute) upoređuju da bi se pronašla tačka razlike, poređenje po \textbf{pozicionoj strukturi} (indeksu) je lažno pouzdano — tačno je samo dok se strukture podudaraju, a tiho daje pogrešan rezultat kada se globalno razlikuju; poređenje po \textbf{sadržaju} (u ovom slučaju, stvarnoj geografskoj geometriji) je robusnije jer ne pretpostavlja da strukture uopšte odgovaraju jedna drugoj.
+
+\section{Sopstvena implementacija pretrage puta nad ograničenim podgrafom}
+
+Kao samostalna algoritamska celina, odvojena od produkcionog puta (nije uvezana u \texttt{main.go} niti u REST API — koristi se isključivo kroz sopstvene testove), implementirana je sopstvena Dijkstra i A\emph{ pretraga najkraćeg puta koja radi direktno nad OSM XML podacima, bez ikakve zavisnosti od Valhalla-e. Svrha ovog modula nije da zameni Valhallu u produkciji (poglavlje 5.2 objašnjava zašto bi reimplementacija efikasnog routing engine-a nad grafom cele države bila nerealan cilj za obim ovog rada), već da (a) demonstrira, kroz sopstveni, testiran kod, principe na kojima Valhalla interno počiva (isključivanje fizički nedopustivih grana, pretraga najkraćeg puta uz heuristiku), i (b) da posluži kao alat za evaluaciju i poređenje Dijkstra i A} pristupa nad istim, realnim podacima (poglavlje 9.2), sa direktnim pristupom OSM tagovima koje obični Valhalla \texttt{/route} odgovor ne izlaže (poglavlje 6.1).
+
+\textbf{Graf i model podataka.} Graf se učitava iz \texttt{.osm} (XML) ekstrakta funkcijom \texttt{LoadOSMXML}, koja parsira way-eve sa tagom \texttt{highway} u usmerene ivice (\texttt{Edge}), čuvajući po ivici dužinu, klasu puta (\texttt{RoadClass}), podlogu (\texttt{Surface}) i, ako postoje, ograničenja \texttt{maxheight}/\texttt{maxweight}/\texttt{hazmat} preuzeta sa way-a. Node-ovi koji imaju sopstveni \texttt{barrier} tag sa \texttt{maxheight}/\texttt{maxweight} (npr. rampa niže visine na inače prohodnom putu) čuvaju se kao ograničenje na samom čvoru (\texttt{Node.MaxHeightM}), odvojeno od ograničenja na ivici — jer, kako je objašnjeno u poglavlju 2.4, OSM te dve vrste ograničenja zavodi na dva različita nivoa.
+
+\textbf{Funkcija cene.} Cena prelaska ivice je njena dužina u metrima, uvećana za faktor lošije podloge (\texttt{unpaved}, \texttt{gravel}, \texttt{dirt}, \texttt{sett} — 30\% penal) i skalirana faktorom preferencije klase puta (Tabela 6.1) — magistralni putevi i auto-putevi imaju blagi popust u ceni (manje raskrsnica/prilaza po kilometru za veliko vozilo), dok sekundarni putevi imaju blagi penal. Na svaki prelaz sa ivice na ivicu (skretanje) dodaje se i penal za oštrinu ugla skretanja, izražen u istoj jedinici ("metar") kao i osnovna cena, radi jednostavnog sabiranja — svi ovi koeficijenti su, kao i kod paketa \texttt{scoring} (6.2), heuristička, nekalibrisana prva procena, što je u kodu izričito dokumentovano.
+
+\begin{longtable}{@{}p{0.470\textwidth}p{0.470\textwidth}@{}}
+\caption{Faktor preferencije klase puta (\texttt{roadClassMultiplier})}\label{tab:6-1}\\
+\toprule
+\textbf{Klasa puta (OSM \texttt{highway})} & \textbf{Faktor} \\
+\midrule
+\endhead
+\texttt{motorway} & 0.85 \\
+\texttt{motorway\_link} & 0.90 \\
+\texttt{trunk} & 0.90 \\
+\texttt{trunk\_link} & 0.95 \\
+\texttt{primary} & 1.00 \\
+\texttt{primary\_link} & 1.05 \\
+\texttt{secondary} & 1.15 \\
+\texttt{secondary\_link} & 1.20 \\
+\bottomrule
+\end{longtable}
+
+Listing 6.4 prikazuje isključivanje nedopustivih ivica i čvorova (tvrdo ograničenje, princip identičan Valhalla-inom \texttt{truck} costing-u, poglavlje 2.3) i funkciju cene ivice.
+
+\begin{lstlisting}[caption={Isključivanje nedopustivih ivica i funkcija cene (\texttt{backend/internal/algorithm/cost.go})}]
+func allowed(e Edge, p VehicleProfile) bool {
+	if e.MaxHeightM > 0 && p.HeightM > e.MaxHeightM {
+		return false
+	}
+	if e.MaxWeightT > 0 && p.WeightKg/1000 > e.MaxWeightT {
+		return false
+	}
+	if e.Hazmat && p.Hazmat {
+		return false
+	}
+	return true
+}
+
+func cost(e Edge) float64 {
+	base := e.LengthM
+	switch e.Surface {
+	case "unpaved", "gravel", "dirt", "sett":
+		base *= 1.3
+	}
+	if mult, ok := roadClassMultiplier[e.RoadClass]; ok {
+		base *= mult
+	}
+	return base
+}
+\end{lstlisting}
+
+\textbf{Pretraga.} Dijkstra i A\emph{ dele istu implementaciju pretrage (funkcija \texttt{search}), sa jedinom razlikom u heuristici prosleđenoj prioritetnom redu: Dijkstra koristi heuristiku koja je uvek nula (ekvivalentno standardnom Dijkstra algoritmu), a A} koristi haversine udaljenost od trenutnog čvora do cilja. Pretraga koristi binarnu gomilu (\texttt{container/heap}) kao prioritetni red i prekida se čim je ciljni čvor skinut sa reda, umesto da izračuna najkraći put do svih čvorova u grafu. Listing 6.5 prikazuje deljenu funkciju pretrage.
+
+\begin{lstlisting}[caption={Deljena implementacija Dijkstra i A* pretrage (\texttt{backend/internal/algorithm/dijkstra.go})}]
+func search(g *Graph, start, goal int64, profile VehicleProfile,
+	heuristic func(node int64) float64) (Result, error) {
+	dist := map[int64]float64{start: 0}
+	prev := map[int64]int64{}
+	pq := &priorityQueue{{node: start, priority: heuristic(start)}}
+	heap.Init(pq)
+	visited := map[int64]bool{}
+
+	for pq.Len() > 0 {
+		current := heap.Pop(pq).(pqItem).node
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		if current == goal {
+			return Result{Path: reconstructPath(prev, start, goal), Cost: dist[goal]}, nil
+		}
+		for _, edge := range g.AdjList[current] {
+			if !allowed(edge, profile) || !nodeAllowed(g.Nodes[edge.To], profile) || visited[edge.To] {
+				continue
+			}
+			edgeCost := cost(edge)
+			if p, ok := prev[current]; ok {
+				edgeCost += turnPenaltyMeters(turnAngle(g, p, current, edge.To))
+			}
+			newDist := dist[current] + edgeCost
+			if old, ok := dist[edge.To]; !ok || newDist < old {
+				dist[edge.To] = newDist
+				prev[edge.To] = current
+				heap.Push(pq, pqItem{node: edge.To, priority: newDist + heuristic(edge.To)})
+			}
+		}
+	}
+	return Result{}, errNoPath
+}
+\end{lstlisting}
+
+\textbf{Poznato, dokumentovano pojednostavljenje.} Penal za skretanje se računa na osnovu \textbf{jednog} prethodno fiksiranog puta do trenutnog čvora (\texttt{prev[current]}), a ne na osnovu para (čvor, dolazna ivica), koje bi bilo teorijski korektnije (jer bi omogućilo da se do istog čvora stigne različitim uglovima dolaska i time različitim penalom za naredno skretanje). Ovo je jeftinije i jednostavnije za implementaciju od praćenja stanja pretrage po paru (čvor, ivica), po cenu da pretraga, u retkim slučajevima, ne mora biti globalno optimalna po ukupnom penalu za skretanje — pojednostavljenje koje je u samom kodu izričito i pošteno dokumentovano, u istom duhu kao i nekalibrisani koeficijenti pomenuti ranije u ovom poglavlju. Evaluacija ovog modula nad stvarnim podacima data je u poglavlju 9.2.
+
+\clearpage

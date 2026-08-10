@@ -684,7 +684,7 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
 <p>Sistem sledi troslojnu podelu odgovornosti sličnu klasičnoj veb arhitekturi <a class="cite" href="#ref2">[2]</a>: sloj prezentacije (Flutter aplikacija), sloj obrade (Go backend, uključujući scoring i explain module) i sloj perzistencije (PostgreSQL). Razlika u odnosu na uobičajenu troslojnu veb aplikaciju je što backend za svaki zahtev za rutu sam postaje klijent eksternog servisa (Valhalla), a deo obrade (predlog pauze) je pomeren u nezavisan, asinhron proces (worker), radi rasterećenja glavne HTTP niti obrade zahteva.</p>
 <h2>4.2 Kontejnerizacija i orkestracija servisa</h2>
 <p>Svi serverski delovi sistema definisani su u jednom <code>docker-compose.yml</code> fajlu i pokreću se komandom <code>docker compose up</code>. Listing 4.1 prikazuje definiciju PostgreSQL servisa, sa health-check-om koji ostali servisi (backend) koriste kao uslov za sopstveni start preko <code>depends_on: condition: service_healthy</code> — čime se garantuje da backend ne pokuša konekciju na bazu koja još nije spremna za prihvat konekcija.</p>
-<p><pre class="code lang-yaml"><code>postgres:
+<pre class="code lang-yaml"><code>postgres:
   image: postgis/postgis:16-3.4-alpine
   environment:
     POSTGRES_USER: hvr
@@ -699,7 +699,8 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
     interval: 10s
     timeout: 5s
     retries: 5
-</code></pre> <strong>Listing 4.1.</strong> Definicija PostgreSQL/PostGIS servisa u <code>docker-compose.yml</code></p>
+</code></pre>
+<p><strong>Listing 4.1.</strong> Definicija PostgreSQL/PostGIS servisa u <code>docker-compose.yml</code></p>
 <p>Tabela 4.1 sumira sve servise definisane u <code>docker-compose.yml</code>, njihovu ulogu i portove koje izlažu na host mašini.</p>
 <p><strong>Tabela 4.1.</strong> Servisi definisani u <code>docker-compose.yml</code></p>
 <table>
@@ -750,7 +751,7 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
 <h2>5.1 Izvor podataka i osmium filter</h2>
 <p>Osnovni izvor geografskih podataka je Geofabrik-ov dnevno ažuriran ekstrakt OpenStreetMap podataka za Srbiju (<code>serbia-latest.osm.pbf</code>) <a class="cite" href="#ref16">[16]</a>, preuzet automatizovanim <code>update-osm.sh</code> skriptom koja, pored preuzimanja, provera integritet fajla preko MD5 kontrolne sume koju Geofabrik objavljuje uz sam ekstrakt. Kompletan <code>.osm.pbf</code> fajl za Srbiju sadrži ogroman broj tagova nepotrebnih za rutiranje teretnih vozila (npr. sve poljoprivredne parcele, granice popisnih krugova, turističke oznake), pa se filtrira alatom <code>osmium-tools</code> <a class="cite" href="#ref17">[17]</a> pre nego što se prosledi Valhalla-i.</p>
 <p>Listing 5.1 prikazuje tačnu <code>osmium tags-filter</code> komandu korišćenu u projektu.</p>
-<p><pre class="code lang-bash"><code>osmium tags-filter \
+<pre class="code lang-bash"><code>osmium tags-filter \
   serbia-latest.osm.pbf \
   w/highway w/maxheight w/maxweight w/maxwidth \
   w/hgv w/hazmat w/bridge w/tunnel \
@@ -758,7 +759,8 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
   n/amenity=fuel,parking n/highway=rest_area n/barrier \
   r/type=restriction \
   --output serbia-hvt.osm.pbf --overwrite
-</code></pre> <strong>Listing 5.1.</strong> Osmium filter za ekstrakciju podataka relevantnih za teretni saobraćaj</p>
+</code></pre>
+<p><strong>Listing 5.1.</strong> Osmium filter za ekstrakciju podataka relevantnih za teretni saobraćaj</p>
 <p>Filter čuva way-eve (<code>w/</code>) sa tagovima relevantnim za geometriju i ograničenja puta (<code>highway</code>, <code>maxheight</code>, <code>maxweight</code>, <code>maxwidth</code>, <code>hgv</code>, <code>hazmat</code>, <code>bridge</code>, <code>tunnel</code>, <code>surface</code>, <code>maxspeed</code>), relacije (<code>r/</code>) tipa <code>restriction</code> (ograničenja skretanja) i, što je bilo kritično ispraviti tokom razvoja (videti dalje u ovom poglavlju), node-ove (<code>n/</code>) sa tagovima <code>amenity=fuel</code>, <code>amenity=parking</code>, <code>highway=rest_area</code> i <code>barrier</code>. Way i node su, kako je objašnjeno u poglavlju 2.4, dva različita nivoa na kojima OSM podaci nose ograničenja relevantna za teretna vozila — way-evi obično nose ograničenje za celu deonicu (npr. <code>maxheight</code> na mostu), a node-ovi tačkastu prepreku (npr. rampu ili stub na ulazu u parking).</p>
 <p><strong>Napomena o razvoju filtera.</strong> Prva verzija filtera korišćena u ranoj fazi razvoja sadržala je samo <code>w/</code> i <code>r/</code> pravila, bez ijednog <code>n/</code> pravila — što je značilo da su svi node-ovi sa <code>amenity=fuel</code>, <code>amenity=parking</code>, <code>highway=rest_area</code> i <code>barrier</code> tagovima bili odbačeni pri filtriranju, iako su neophodni za modul predloga pauze vozača (poglavlje 7.4). Ovaj propust je otkriven i ispravljen tokom pripreme podataka za rad — dodavanjem tri <code>n/</code> pravila filtrirani fajl je narastao sa 68 121 223 na 68 402 528 bajtova, a Valhalla graf je ponovo izgrađen sa ispravljenim skupom podataka. Ovaj slučaj ilustruje opštu lekciju vezanu za pripremu OSM podataka: filter koji izgleda kompletan gledano samo kroz way tagove tiho odbacuje čitavu kategoriju informacija zavedenih na node nivou, a greška se ne manifestuje kao pad sistema već kao <em>nedostajuća</em> funkcionalnost koja se lako previdi dok se posebno ne testira.</p>
 <h2>5.2 Izgradnja Valhalla grafa</h2>
@@ -770,7 +772,7 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
 <p>Ovo poglavlje je centralni algoritamski doprinos rada. Sistem koristi <strong>dvoslojni pristup</strong>: (1) u produkcionom putu, Valhalla generiše fizički dopustive alternativne rute preko svog <code>truck</code> costing modela (6.1), nad kojima sopstveni Go modul dodaje rangiranje po riziku (6.2) i objašnjenje odstupanja rute (6.3), pošto to Valhalla nativno ne radi; (2) kao odvojena, algoritamska celina namenjena evaluaciji i demonstraciji principa, implementirana je sopstvena Dijkstra/A* pretraga nad ograničenim podgrafom putne mreže, direktno nad OSM podacima, bez ikakve zavisnosti od Valhalla-e (6.4). Ovaj pristup je posledica realne procene obima rada: reimplementacija efikasnog nacionalnog routing engine-a nad grafom od skoro milion čvorova (poglavlje 5.2) nije realan cilj jednog diplomskog rada, dok je razumevanje i demonstracija principa na kojima takav engine počiva — kroz sopstvenu, testiranu implementaciju nad manjim, ali realnim podgrafom — sasvim ostvarivo i akademski relevantno.</p>
 <h2>6.1 Valhalla truck costing</h2>
 <p>Valhalla-in <code>truck</code> costing model prihvata profil vozila kao deo tela HTTP <code>/route</code> zahteva, bez potrebe da se graf iznova izgradi za svako vozilo. Listing 6.1 prikazuje tipičan zahtev korišćen u ovom sistemu.</p>
-<p><pre class="code lang-json"><code>POST /route
+<pre class="code lang-json"><code>POST /route
 {
   &quot;locations&quot;: [
     {&quot;lat&quot;: 44.8, &quot;lon&quot;: 20.4},
@@ -789,9 +791,10 @@ hr { border: none; border-top: 1px solid #000; margin: 0.6em 0; }
   },
   &quot;alternates&quot;: 2
 }
-</code></pre> <strong>Listing 6.1.</strong> Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)</p>
+</code></pre>
+<p><strong>Listing 6.1.</strong> Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)</p>
 <p>Backend mapira sopstveni <code>TruckProfile</code> (u SI jedinicama — metrima i kilogramima, radi konzistentnosti sa ostatkom sistema) u Valhalla-ine jedinice (metri za dimenzije, metrički toni za masu), i parsira odgovor u sopstvenu strukturu <code>RouteCandidate</code> koja, pored rastojanja i trajanja, izdvaja i broj manevara, udeo puta na magistralnim/autoputskim deonicama (<code>HighwayRatio</code>), prisustvo trajekta ili putarine, kao i nazive ulica i tačke svakog manevra — signale koje ne izlaže sam sažetak rute, ali su neophodni za sloj rangiranja (6.2) i objašnjenja (6.3). Listing 6.2 prikazuje deo implementacije koja šalje zahtev i mapira profil vozila.</p>
-<p><pre class="code lang-go"><code>// TruckProfile mirrors Valhalla&#x27;s truck costing_options, in SI units (meters, kilograms).
+<pre class="code lang-go"><code>// TruckProfile mirrors Valhalla&#x27;s truck costing_options, in SI units (meters, kilograms).
 type TruckProfile struct {
 	HeightM    float64
 	WidthM     float64
@@ -820,12 +823,13 @@ func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon
 	}
 	// ... serijalizacija, HTTP POST na baseURL+&quot;/route&quot;, parsiranje odgovora
 }
-</code></pre> <strong>Listing 6.2.</strong> <code>valhalla.Client.RouteAlternates</code> — mapiranje profila vozila u Valhalla <code>costing_options</code> (<code>backend/internal/valhalla/client.go</code>)</p>
+</code></pre>
+<p><strong>Listing 6.2.</strong> <code>valhalla.Client.RouteAlternates</code> — mapiranje profila vozila u Valhalla <code>costing_options</code> (<code>backend/internal/valhalla/client.go</code>)</p>
 <p>Ograničenje ovog pristupa je da odgovor običnog <code>/route</code> poziva ne izlaže <em>koja tačno</em> ivica grafa je isključena niti njenu tačnu vrednost ograničenja (npr. tačnu visinu nadvožnjaka) — ta informacija bi zahtevala poziv Valhalla-inog <code>/trace_attributes</code> endpoint-a nad već izračunatom rutom, ili direktan pristup OSM podacima nezavisno od Valhalla-e. Ovo ograničenje je direktno motivisalo modul opisan u 6.4, koji, radeći nad sopstvenim, manjim grafom, ima pristup tačnim OSM tagovima svake ivice.</p>
 <h2>6.2 Prilagođena funkcija rizika (scoring)</h2>
 <p>Valhalla po zahtevu vraća do tri alternativne rute, ali ih ne rangira po bilo kom kriterijumu specifičnom za teretni saobraćaj — sve tri su, sa njene tačke gledišta, fizički dopustive. Paket <code>scoring</code> dodaje taj nedostajući sloj: svaku alternativu bodira heurističkom funkcijom rizika koja kombinuje rastojanje, broj manevara, udeo puta van magistralnih deonica, prisustvo trajekta/putarine, procenu potrošnje goriva u odnosu na masu vozila, broj "oštrih" manevara (proxy za rizik pomeranja tereta) i blizinu omiljenih/brend benzinskih stanica vozača — a zatim vraća alternative sortirane od najboljeg (najmanji rizik) ka najgorem rezultatu.</p>
 <p>Svaka dimenzija skalira se prema preferenci vozača, izraženoj kao ceo broj od 1 do 5 (gde je 3 neutralna, podrazumevana vrednost) preko faktora <code>priority/3</code> — vozač koji nikad ne podesi svoje preference dobija rezultat identičan fiksnoj, uravnoteženoj formuli. Listing 6.3 prikazuje centralnu funkciju bodovanja.</p>
-<p><pre class="code lang-go"><code>func score(c valhalla.RouteCandidate, prefs Preferences, vehicleWeightKg,
+<pre class="code lang-go"><code>func score(c valhalla.RouteCandidate, prefs Preferences, vehicleWeightKg,
 	fastestDurationMin float64, preferredStops []valhalla.LatLon) float64 {
 	var timeTerm float64
 	if fastestDurationMin &gt; 0 {
@@ -850,7 +854,8 @@ func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon
 	s += preferredStopDiscount(c.Shape, preferredStops)
 	return s
 }
-</code></pre> <strong>Listing 6.3.</strong> Funkcija bodovanja rute (<code>backend/internal/scoring/scoring.go</code>) — manji rezultat je bolji</p>
+</code></pre>
+<p><strong>Listing 6.3.</strong> Funkcija bodovanja rute (<code>backend/internal/scoring/scoring.go</code>) — manji rezultat je bolji</p>
 <p>Vrednost <code>timeTerm</code> je relativno kašnjenje kandidata u odnosu na najbrži kandidat u istom skupu alternativa (0% ako je kandidat najbrži), a <code>fuelProxy</code> je relativna procena "potrošnje" izvedena iz rastojanja i mase vozila (nema pristupa podacima o nagibu puta, pa ovo nije stvarna potrošnja u litrima, već relativan signal za poređenje kandidata međusobno). Autor koda je u komentarima izričito naglasio da su bazne težine (<code>maneuverWeight</code>, <code>nonHighwayScale</code>, <code>ferryPenalty</code> itd.) prva heuristička procena, nekalibrisana prema stvarnim podacima o potrošnji ili nesrećama — što je pošteno i namerno ograničenje, razmatrano dalje u poglavlju 9.3 kroz konkretan primer greške koju je ova formula ispravila.</p>
 <p><strong>Motivacija dodavanja vremenskog člana.</strong> Rana verzija formule nije sadržala <code>timeTerm</code> — bodovala je isključivo na osnovu udela magistralne deonice (<code>highwayTerm</code>) i broja manevara. Testiranjem na konkretnoj ruti (Radalj, poglavlje 9.3) uočeno je da takva formula bira rutu koja je 47% duža i 30% sporija od alternative samo zato što ima nešto povoljniji odnos magistralne i lokalne deonice puta — očigledno pogrešan ishod sa stanovišta stvarnog transportnog troška. Dodavanje <code>timeTerm</code>-a, koji direktno kažnjava kandidata srazmerno tome koliko je sporiji od najbržeg u skupu, ispravilo je taj slučaj bez uklanjanja postojećih članova formule.</p>
 <h2>6.3 Objašnjenje predložene rute — slučaj Novi Banovci</h2>
@@ -959,7 +964,7 @@ func (c *Client) RouteAlternates(ctx context.Context, origin, destination LatLon
 </tr>
 </tbody></table>
 <p>Listing 6.4 prikazuje isključivanje nedopustivih ivica i čvorova (tvrdo ograničenje, princip identičan Valhalla-inom <code>truck</code> costing-u, poglavlje 2.3) i funkciju cene ivice.</p>
-<p><pre class="code lang-go"><code>func allowed(e Edge, p VehicleProfile) bool {
+<pre class="code lang-go"><code>func allowed(e Edge, p VehicleProfile) bool {
 	if e.MaxHeightM &gt; 0 &amp;&amp; p.HeightM &gt; e.MaxHeightM {
 		return false
 	}
@@ -983,9 +988,10 @@ func cost(e Edge) float64 {
 	}
 	return base
 }
-</code></pre> <strong>Listing 6.4.</strong> Isključivanje nedopustivih ivica i funkcija cene (<code>backend/internal/algorithm/cost.go</code>)</p>
+</code></pre>
+<p><strong>Listing 6.4.</strong> Isključivanje nedopustivih ivica i funkcija cene (<code>backend/internal/algorithm/cost.go</code>)</p>
 <p><strong>Pretraga.</strong> Dijkstra i A<em> dele istu implementaciju pretrage (funkcija <code>search</code>), sa jedinom razlikom u heuristici prosleđenoj prioritetnom redu: Dijkstra koristi heuristiku koja je uvek nula (ekvivalentno standardnom Dijkstra algoritmu), a A</em> koristi haversine udaljenost od trenutnog čvora do cilja. Pretraga koristi binarnu gomilu (<code>container/heap</code>) kao prioritetni red i prekida se čim je ciljni čvor skinut sa reda, umesto da izračuna najkraći put do svih čvorova u grafu. Listing 6.5 prikazuje deljenu funkciju pretrage.</p>
-<p><pre class="code lang-go"><code>func search(g *Graph, start, goal int64, profile VehicleProfile,
+<pre class="code lang-go"><code>func search(g *Graph, start, goal int64, profile VehicleProfile,
 	heuristic func(node int64) float64) (Result, error) {
 	dist := map[int64]float64{start: 0}
 	prev := map[int64]int64{}
@@ -1020,7 +1026,8 @@ func cost(e Edge) float64 {
 	}
 	return Result{}, errNoPath
 }
-</code></pre> <strong>Listing 6.5.</strong> Deljena implementacija Dijkstra i A* pretrage (<code>backend/internal/algorithm/dijkstra.go</code>)</p>
+</code></pre>
+<p><strong>Listing 6.5.</strong> Deljena implementacija Dijkstra i A* pretrage (<code>backend/internal/algorithm/dijkstra.go</code>)</p>
 <div style="page-break-after:always;break-after:page;"><p><strong>Poznato, dokumentovano pojednostavljenje.</strong> Penal za skretanje se računa na osnovu <strong>jednog</strong> prethodno fiksiranog puta do trenutnog čvora (<code>prev[current]</code>), a ne na osnovu para (čvor, dolazna ivica), koje bi bilo teorijski korektnije (jer bi omogućilo da se do istog čvora stigne različitim uglovima dolaska i time različitim penalom za naredno skretanje). Ovo je jeftinije i jednostavnije za implementaciju od praćenja stanja pretrage po paru (čvor, ivica), po cenu da pretraga, u retkim slučajevima, ne mora biti globalno optimalna po ukupnom penalu za skretanje — pojednostavljenje koje je u samom kodu izričito i pošteno dokumentovano, u istom duhu kao i nekalibrisani koeficijenti pomenuti ranije u ovom poglavlju. Evaluacija ovog modula nad stvarnim podacima data je u poglavlju 9.2.</p></div>
 <h1>7 Backend servis i model podataka</h1>
 <h2>7.1 REST API</h2>
@@ -1219,7 +1226,7 @@ func cost(e Edge) float64 {
 </tr>
 </tbody></table>
 <p>Listing 7.1 prikazuje deo osnovne šeme — tabele <code>vehicles</code> i <code>trips</code>, sa CHECK ograničenjem koje garantuje da osovinsko opterećenje vozila ne može biti veće od njegove ukupne mase (integritetno ograničenje na nivou baze, ne samo na nivou aplikacije).</p>
-<p><pre class="code lang-sql"><code>CREATE TABLE IF NOT EXISTS vehicles (
+<pre class="code lang-sql"><code>CREATE TABLE IF NOT EXISTS vehicles (
     id SERIAL PRIMARY KEY,
     height_m DOUBLE PRECISION NOT NULL,
     width_m DOUBLE PRECISION NOT NULL,
@@ -1245,7 +1252,8 @@ CREATE TABLE IF NOT EXISTS trips (
     status TEXT NOT NULL DEFAULT &#x27;created&#x27;,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-</code></pre> <strong>Listing 7.1.</strong> Osnovna šema tabela <code>vehicles</code> i <code>trips</code> (<code>00001_initial_schema.sql</code>)</p>
+</code></pre>
+<p><strong>Listing 7.1.</strong> Osnovna šema tabela <code>vehicles</code> i <code>trips</code> (<code>00001_initial_schema.sql</code>)</p>
 <p>Geometrija rute (<code>trips.shape</code>) čuva se kao enkodovan tekstualni polyline (isti format koji vraća Valhalla), a ne kao PostGIS <code>geometry</code> kolona — pragmatičan izbor koji izbegava dekodiranje/enkodiranje geometrije pri svakom čitanju iz baze, po cenu da prostorni upiti nad geometrijom rute (npr. "sve ture koje prolaze kroz ovaj region") nisu mogući direktno u bazi, već bi zahtevali dekodiranje u aplikacionom sloju — razmatrano kao mogući pravac budućeg rada u poglavlju 10.</p>
 <h2>7.3 Uloge vozač/dispečer</h2>
 <p>Sistem razlikuje dve uloge vozača: <strong>vozač</strong> (<code>driver</code>) i <strong>dispečer</strong> (<code>dispatcher</code>), zapisane u koloni <code>drivers.role</code>. Veza dispečer↔vozač se, namerno, ne uspostavlja pri registraciji, već isključivo preko mehanizma zahteva i odobrenja: dispečer šalje zahtev (<code>POST /dispatcher/requests</code>) izabranom vozaču, a vozač ga prihvata ili odbija (<code>POST /driver/requests/{id}/respond</code>); prihvatanje postavlja <code>drivers.dispatcher_id</code> na identifikator dispečera. Vozač u svakom trenutku može napustiti dispečera (<code>POST /driver/leave-dispatcher</code>), čime se ta veza raskida.</p>
@@ -1253,7 +1261,7 @@ CREATE TABLE IF NOT EXISTS trips (
 <p>Kada dispečer kreira turu za vozača (<code>assigned_by_id</code> postavljen na dispečera), ruta se generiše i rangira prema <strong>dispečerovom</strong> profilu preferenci, ne vozačevom — s obzirom na to da je dispečer taj koji donosi odluku o ruti u ime firme, a preference u ovom sistemu modeluju stil odlučivanja o ruti, ne lične navike vozača u vožnji.</p>
 <h2>7.4 Asinhrona obrada — RabbitMQ i modul pauza vozača</h2>
 <p>Kada vozač pokrene turu, backend objavljuje <code>trip.started</code> poruku na <code>trip.events</code> topic exchange RabbitMQ-a. Nezavisan worker proces, pokrenut kao goroutine unutar istog backend binarnog fajla (ne kao poseban kontejner), konzumira tu poruku i računa jednostavan predlog pauze: ako je planirano trajanje ture veće od praga od 270 minuta (4.5h — pojednostavljena zamena za stvarno AETR pravilo o obaveznoj pauzi nakon određenog vremena vožnje <a class="cite" href="#ref18">[18]</a>, obrazloženo dalje u ovom poglavlju), worker pronalazi tačku na ruti gde bi se vozilo teorijski nalazilo nakon isteka tog vremena (pod pretpostavkom konstantne brzine duž rute), i traži najbliže odmaralište iz skupa OSM node-ova učitanih u poglavlju 5.3 koje je stvarno u koridoru trase. Listing 7.2 prikazuje deo implementacije koja računa predlog.</p>
-<p><pre class="code lang-go"><code>const restThresholdMin = 270 // 4.5h - stand-in za AETR pravilo
+<pre class="code lang-go"><code>const restThresholdMin = 270 // 4.5h - stand-in za AETR pravilo
 
 func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store.RestStopSuggestion {
 	if trip.DurationMin &lt;= restThresholdMin {
@@ -1276,7 +1284,8 @@ func (w *TripWorker) computeRestStop(ctx context.Context, trip store.Trip) store
 	suggestion.Amenity = &amp;stop.Amenity
 	return suggestion
 }
-</code></pre> <strong>Listing 7.2.</strong> Proračun predloga pauze u <code>TripWorker</code> (<code>backend/internal/worker/trip_worker.go</code>)</p>
+</code></pre>
+<p><strong>Listing 7.2.</strong> Proračun predloga pauze u <code>TripWorker</code> (<code>backend/internal/worker/trip_worker.go</code>)</p>
 <p>Rezultat se upisuje u samu turu (<code>trips.rest_stop_*</code> kolone) i u dnevnik događaja (<code>trip_events</code>, tip <code>rest_stop_suggested</code>), koji mobilna aplikacija prikazuje vozaču kao vremensku liniju (poglavlje 8.1). Za vozila koja prevoze opasan teret, pretraga preferira benzinske stanice nad parkinzima (u granicama tolerancije rastojanja), a rezultat u svim slučajevima favorizuje vozačevu omiljenu ili brend-specifičnu stanicu, ako se takva nalazi u koridoru trase.</p>
 <p><strong>Namerno pojednostavljenje.</strong> Prag od 270 minuta je jednostavna, fiksna zamena za stvarnu evropsku AETR regulativu o radnom vremenu i obaveznim pauzama vozača teretnih vozila <a class="cite" href="#ref18">[18]</a>, koja u stvarnosti razlikuje dnevno i nedeljno vreme vožnje, obavezne dnevne i nedeljne odmore, i dozvoljava određena izuzeća. Puna implementacija te regulative izlazi iz obima ovog rada (obrazloženo u poglavlju 10) — cilj modula je da demonstrira <strong>mehanizam</strong> (asinhrono računanje predloga na osnovu proteklog vremena vožnje i geografske pretrage najbliže odgovarajuće lokacije), a ne da zameni stvarnu, zakonski obavezujuću logiku.</p>
 <p><strong>Napomena o evoluciji sistema.</strong> U ranoj fazi razvoja bio je planiran i drugi tok poruka — <code>trip.eta_updated</code>, koji bi worker objavljivao nakon računanja ETA, a WebSocket gateway (7.5) konzumirao radi guranja ka klijentu. Taj tok je napušten kada je uvedeno praćenje stvarne GPS pozicije vozila (umesto simulacije), pošto je ETA tada postalo jednostavnije računati direktno u WebSocket gateway-u, iz svake nove GPS pozicije (poglavlje 7.5) — čime je <code>trip.eta_updated</code> poruka postala "mrtav kod" (niko je nije konzumirao) i uklonjena je iz sistema. Ovo je uobičajena i zdrava evolucija u razvoju asinhronog sistema: mehanizam koji je u jednom trenutku bio neophodan postaje suvišan kada se promeni pretpostavka na kojoj je zasnovan, i treba ga ukloniti umesto ostaviti kao neaktivan kod.</p>

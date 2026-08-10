@@ -1,0 +1,84 @@
+\chapter{Pregled postojećih rešenja i teorijske osnove}
+
+\section{Komercijalna i otvorena rešenja za rutiranje teretnih vozila}
+
+Rutiranje teretnih vozila je specijalizovana varijanta opšteg problema pronalaženja puta u grafu, sa dodatnim skupom ograničenja koja zavise od fizičkih karakteristika vozila i tereta. Postojeća rešenja mogu se podeliti u tri grupe.
+
+\textbf{Komercijalna rešenja sa vlasničkim podacima.} PTV navigator i PTV xServer (nemački proizvođač PTV Group) su industrijski standard u logistici teretnog saobraćaja u Evropi; koriste vlasnički skup podataka o putnoj mreži sa ručno unetim ograničenjima za kamione (visina mostova, zabrane za HGV — \emph{Heavy Goods Vehicle} — u naseljima i sl.) i naplaćuju se po licenci. TomTom Truck i pojedini moduli Google Maps Platform-a (Routes API sa parametrima vozila) rade na sličnom principu — visok nivo tačnosti podataka, ali zatvoren izvor, zatvorena cena rute i bez mogućnosti da se razumeju ili prilagode kriterijumi po kojima je ruta izabrana.
+
+\textbf{Otvoreni routing engine-i.} OSRM (\emph{Open Source Routing Machine}), GraphHopper i Valhalla su tri najpoznatija otvorena routing engine-a koji rade nad OpenStreetMap podacima. OSRM je najbrži za rutiranje putničkih vozila (koristi \emph{contraction hierarchies}), ali njegova podrška za teretna vozila je ograničena i uglavnom se svodi na jednostavne profile bez finog podešavanja po osovinskom opterećenju. GraphHopper ima ugrađen \texttt{truck} profil sličan Valhalla-inom i dobru Java/JVM integraciju, ali slabiju podršku za alternativne rute i manje detaljan mehanizam maneuver-a u odgovoru. Valhalla, koji je razvio Mapzen (danas ga održava zajednica okupljena oko Valhalla projekta), izabran je za ovaj rad zbog tri razloga: (1) ima \emph{per-request} \texttt{truck} costing model koji prihvata visinu, širinu, dužinu, masu, osovinsko opterećenje i prevoz opasnog tereta kao parametre HTTP zahteva, bez potrebe da se engine iznova kompajlira ili graf iznova gradi za svako vozilo; (2) podržava vraćanje više alternativnih ruta (\texttt{alternates}) u jednom zahtevu, što je preduslov za sopstveni sloj rangiranja opisan u poglavlju 6; (3) odgovor sadrži dovoljno detalja o maneuver-ima (tip, naziv ulice, početni indeks u geometriji rute) da se nad njim može izgraditi mehanizam objašnjenja rute (poglavlje 6.3) bez potrebe za dodatnim pozivima ka engine-u.
+
+\textbf{Akademski i istraživački radovi.} Problem rutiranja vozila sa ograničenjima (\emph{constrained vehicle routing}) je dobro proučen u okviru šire oblasti \emph{Vehicle Routing Problem} (VRP) \cite{vrp} i njenih varijanti, gde se ograničenja tipično modeluju kao tvrda isključenja grana grafa (vozilo ne može da koristi granu) ili kao dodatni članovi u funkciji cene puta. Ovaj rad se ne bavi klasičnim VRP problemom (raspoređivanjem više vozila na više tura radi minimizacije ukupnog troška flote), već užim problemom rutiranja jednog vozila između dve tačke uz fizička ograničenja i sopstvenu procenu rizika — najbliži akademski okvir je \emph{constrained shortest path} problem, koji je u poglavlju 2.3 i 6.4 rešen sopstvenom implementacijom Dijkstra i A* algoritma sa isključivanjem grana koje vozilo ne može fizički da koristi.
+
+Tabela 2.1 sumira poređenje.
+
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.3}
+
+\begin{longtable}{@{}|p{0.148\textwidth}|p{0.148\textwidth}|p{0.148\textwidth}|p{0.148\textwidth}|p{0.148\textwidth}|p{0.148\textwidth}|@{}}
+\caption{Poređenje pristupa rutiranju teretnih vozila}\label{tab:2-1}\\
+\hline
+\rowcolor{black!12}
+\textbf{Rešenje} & \textbf{Izvor\newline podataka} & \textbf{Truck\newline costing} & \textbf{Alternative rute} & \textbf{Objašnjenje rute} & \textbf{Cena} \\
+\hline
+\endhead
+PTV navigator / xServer & Vlasnički & Da, detaljan & Da & Ne (crna kutija) & Komercijalna licenca \\
+\hline
+Google Routes API (vozilo) & Vlasnički & Delimično & Da & Ne & Po pozivu (plaćeno) \\
+\hline
+OSRM & OSM & Ograničen & Da & Ne & Besplatno (open source) \\
+\hline
+GraphHopper & OSM & Da & Ograničeno & Ne & Besplatno / komercijalna podrška \\
+\hline
+Valhalla (bez izmena) & OSM & Da, detaljan & Da & Ne & Besplatno (open source) \\
+\hline
+\textbf{Ovaj rad (Valhalla+ sopstveni sloj)} & OSM & Da (Valhalla) & Da (Valhalla) & \textbf{Da (sopstveni modul)} & Besplatno \\
+\hline
+\end{longtable}
+
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1}
+
+\section{Distribuirani sistemi — osnovni pojmovi}
+
+Sistem opisan u ovom radu je, u smislu klasifikacije koju daju Tanenbaum i van Steen \cite{tanenbaum}, \textbf{distribuiran sistem}: skup nezavisnih računarskih procesa (Go backend, PostgreSQL, RabbitMQ, Valhalla, Flutter klijenti) koji korisniku deluju kao jedinstvena celina, iako fizički i procesno rade odvojeno, najčešće u sopstvenim kontejnerima. U nastavku su ukratko definisani pojmovi neophodni za razumevanje arhitekture opisane u poglavlju 4 i 7.
+
+\textbf{Model klijent-server.} Osnovni obrazac komunikacije u sistemu: mobilna aplikacija (klijent) šalje HTTP zahtev Go backend servisu (server), koji obrađuje zahtev i vraća odgovor. Sam backend je, u odnosu na Valhallu i bazu podataka, istovremeno klijent — što je uobičajena situacija u slojevitim sistemima, gde jedan proces može biti server u jednoj interakciji i klijent u drugoj.
+
+\textbf{Sinhrona i asinhrona komunikacija.} REST API poziv je \emph{sinhron}: klijent čeka odgovor servera pre nego što nastavi. Za operacije koje ne moraju biti završene odmah da bi klijent nastavio sa radom (npr. proračun predloga pauze vozača nakon što je tura započeta), koristi se \emph{asinhroni} model preko posrednika poruka (RabbitMQ) — proizvođač (backend) objavljuje poruku o događaju i odmah nastavlja dalje, a potrošač (worker proces) je obrađuje kad je slobodan, nezavisno od toga da li je klijent koji je pokrenuo turu još povezan.
+
+\textbf{Model izdavač-pretplatnik (publish–subscribe).} RabbitMQ u ovom sistemu radi kao \emph{topic exchange}: proizvođači objavljuju poruke sa određenim \emph{routing key}-em (npr. \texttt{trip.started}), a potrošači se pretplaćuju na red vezan za taj routing key. Ovaj model referencijalno razdvaja proizvođača od potrošača — backend koji objavljuje \texttt{trip.started} ne mora znati ništa o tome ko (ili da li uopšte neko) sluša taj događaj, što olakšava dodavanje novih potrošača bez izmene postojećeg koda (detaljnije u poglavlju 7.4).
+
+\textbf{Real-time komunikacija (WebSocket).} REST model zahteva da klijent inicira svaki zahtev, što ga čini neprikladnim za slanje podataka od servera ka klijentu bez zahteva (npr. pozicija vozila koja se menja svake sekunde). WebSocket protokol (RFC 6455 \cite{websocket}) rešava taj problem uspostavljanjem trajne, dvosmerne veze preko jednog TCP soketa nakon početnog HTTP \emph{upgrade} zahteva — server u svakom trenutku može poslati poruku klijentu bez čekanja na njegov zahtev. U ovom sistemu se koristi za praćenje pozicije vozila uživo i za dopisivanje (chat) u realnom vremenu (poglavlje 7.5).
+
+\textbf{Transparentnost i pouzdanost.} Od četiri klasična cilja distribuiranog sistema — povezanost, transparentnost, otvorenost i skalabilnost \cite{tanenbaum} — u ovom radu je najrelevantnija \emph{transparentnost otkaza} (\emph{fault transparency}): sistem je dizajniran da otkaz jedne komponente (npr. privremeni gubitak RabbitMQ konekcije od strane worker procesa) ne obori ostatak sistema, već da se poruka ponovo isporuči (\emph{message redelivery}, videti poglavlje 7.4) kada se komponenta ponovo poveže. S obzirom na obim rada (jedan backend, jedna baza, jedan message broker — bez replikacije ijedne komponente), sistem ne postiže skalabilnost po veličini u produkcionom smislu, što je namerno ograničenje obrazloženo u poglavlju 10.
+
+\section{Grafovi i algoritmi najkraćeg puta}
+
+Putna mreža se prirodno modeluje kao usmereni, težinski graf $G = (V, E)$, gde skup čvorova $V$ predstavlja tačke na putu (raskrsnice, prelome geometrije), a skup grana $E$ predstavlja segmente puta između susednih čvorova, sa težinom koja predstavlja cenu prelaska te grane (najčešće rastojanje u metrima, vreme u sekundama ili neka izvedena veličina). Problem rutiranja se svodi na pronalaženje puta $P$ od početnog čvora $s$ do ciljnog čvora $t$ koji minimizuje zbir težina grana na putu, uz eventualna dodatna ograničenja (izuzete grane).
+
+\textbf{Dijkstra algoritam.} Dijkstrin algoritam \cite{dijkstra} pronalazi najkraći put od jednog čvora do svih ostalih čvorova u grafu sa nenegativnim težinama grana, koristeći greedy pristup: u svakom koraku bira neposećeni čvor sa najmanjom trenutno poznatom cenom od početka, "fiksira" tu cenu kao konačnu i ažurira cene njegovih suseda (\emph{relaxation}). Algoritam se efikasno implementira uz prioritetni red (u ovom radu binarna gomila, \texttt{container/heap} iz Go standardne biblioteke), sa vremenskom složenošću $O((|V| + |E|)\log|V|)$. Kada je poznat samo jedan ciljni čvor (a ne svi čvorovi grafa), pretraga se može prekinuti čim je ciljni čvor skinut sa reda — ta optimizacija je korišćena u implementaciji opisanoj u poglavlju 6.4.
+
+\textbf{A*\emph{ algoritam.} A*} algoritam \cite{astar} je uopštenje Dijkstre koje uvodi \emph{heuristiku} $h(n)$ — procenu preostale cene od čvora $n$ do cilja — i usmerava pretragu prioritetno ka čvorovima za koje je zbir $f(n) = g(n) + h(n)$ (stvarna cena do sada plus procena preostale cene) najmanji. Ako je heuristika \emph{dopustiva} (nikad ne preceni stvarnu preostalu cenu), A* garantovano pronalazi optimalan put, uz manji broj posećenih čvorova od Dijkstre u praksi. U ovom radu je kao heuristika korišćena haversine udaljenost (linija vazdušne udaljenosti po sferi Zemlje) od trenutnog čvora do cilja, podeljena maksimalnom mogućom brzinom kretanja po grani — dopustiva heuristika jer nikad ne potcenjuje stvarni put duž putne mreže, koji je uvek duži ili jednak vazdušnoj liniji.
+
+\textbf{Ograničena (constrained) pretraga.} Fizička ograničenja vozila (visina, masa, prevoz opasnog tereta) se u ovom radu modeluju kao \emph{tvrda isključenja} grane iz pretrage: grana koja ne zadovoljava profil vozila jednostavno se ne razmatra kao prelaz, čime pretraga po definiciji nikad ne predloži fizički neprohodnu rutu. Ovaj princip je identičan principu na kome interno počiva Valhalla-in \texttt{truck} costing model — razlika je u tome da Valhalla ta isključenja primenjuje nad grafom cele putne mreže, obogaćenim brojnim heuristikama (vreme prolaska, tipovi puta, istorijski podaci o saobraćaju), dok sopstvena implementacija u ovom radu (poglavlje 6.4) to radi nad znatno manjim, ograničenim podgrafom, isključivo radi transparentne demonstracije mehanizma.
+
+\section{OpenStreetMap podatkovni model i oznake za teretni saobraćaj}
+
+OpenStreetMap (OSM) je projekat slobodne, uređivačke geografske baze podataka sveta, u kojoj se putna mreža, objekti i granice modeluju preko tri osnovna geometrijska primitiva: \textbf{node} (tačka, definisana geografskom širinom i dužinom), \textbf{way} (uređena lista node-ova, predstavlja liniju ili poligon — npr. jedan segment puta) i \textbf{relation} (grupisanje node-ova, way-eva i drugih relation-a — npr. skup segmenata koji zajedno predstavljaju jednu magistralnu rutu ili ograničenje skretanja). Svaki od ova tri primitiva može imati proizvoljan skup \textbf{tag}-ova — parova ključ-vrednost koji opisuju njegova svojstva.
+
+Za teretni saobraćaj relevantni su, između ostalih, sledeći tagovi (dokumentovani na OSM Wiki-ju \cite{osmwiki}):
+
+\begin{itemize}
+\item \texttt{maxheight}, \texttt{maxweight}, \texttt{maxwidth} — na way-u, ograničenje visine/mase/širine za tu deonicu (npr. nadvožnjak, tunel);
+\item \texttt{hgv} — da li je way dozvoljen za teška teretna vozila (\emph{Heavy Goods Vehicle}), sa vrednostima poput \texttt{yes}, \texttt{no}, \texttt{destination};
+\item \texttt{hazmat} — ograničenje za vozila koja prevoze opasan teret;
+\item \texttt{maxaxleload} — ograničenje osovinskog opterećenja, relevantno za mostove;
+\item \texttt{surface} — vrsta podloge (asfalt, kolovoz, tucanik i sl.), indirektno relevantno za rizik (loša podloga + veliko opterećenje = veći rizik);
+\item \texttt{barrier} na node-u (npr. \texttt{barrier=height\_restrictor}, \texttt{barrier=lift\_gate}) — tačkasta prepreka koja može imati sopstveni \texttt{maxheight} tag, različit od tag-a way-a na kome se nalazi (npr. rampa niske visine na inače visokom putu);
+\item \texttt{amenity=fuel}, \texttt{amenity=parking}, \texttt{highway=rest\_area} — node-ovi koji predstavljaju benzinske stanice, parkinge i odmarališta, relevantni za modul predloga pauze vozača (poglavlje 7.4).
+\end{itemize}
+
+Bitna karakteristika OSM podataka, relevantna za poglavlje 5, je da su ograničenja poput \texttt{maxheight} i \texttt{barrier} gotovo uvek zavedena na \textbf{way} nivou (za deonicu puta), dok su tačkaste prepreke (rampe, stubovi) zavedene na \textbf{node} nivou — što znači da alat koji filtrira OSM ekstrakt mora eksplicitno čuvati oba tipa tagova (way i node), jer se u suprotnom gubi tačno ona informacija koja je najrelevantnija za bezbednost teretnog vozila.
+
+\clearpage
