@@ -6,7 +6,7 @@ Backend servis je implementiran u programskom jeziku Go (Golang) \cite{go}, koji
 
 \section{Flutter i Dart}
 
-Mobilna aplikacija je implementirana u Flutter okviru \cite{flutter}, koji koristi programski jezik Dart (oba razvijena od strane Google-a). Flutter kompajlira aplikaciju u nativni kod za Android i iOS iz jedinstvene baze izvornog koda, a korisnički interfejs se ne oslanja na nativne widgete platforme već na sopstveni \emph{rendering engine} (Skia/Impeller), čime se postiže vizuelna konzistentnost između platformi. Za potrebe ovog rada korišćene su, između ostalih, biblioteke \texttt{geolocator} (pristup GPS senzoru uređaja), \texttt{flutter\_map} odnosno OSM/vector tile prikaz mape, \texttt{web\_socket\_channel} za WebSocket konekcije i \texttt{google\_sign\_in} za prijavu preko Google naloga.
+Mobilna aplikacija je implementirana u Flutter okviru \cite{flutter}, koji koristi programski jezik Dart (oba razvijena od strane Google-a). Flutter kompajlira aplikaciju u nativni kod za Android i iOS iz jedinstvene baze izvornog koda, a korisnički interfejs se ne oslanja na nativne widgete platforme već na sopstveni \emph{rendering engine} (Skia/Impeller), čime se postiže vizuelna konzistentnost između platformi. Za potrebe ovog rada korišćene su, između ostalih, biblioteke \texttt{geolocator} (pristup GPS senzoru uređaja), \texttt{google\_maps\_flutter} za prikaz mape (umetanje nativnog Google Maps SDK-a u Flutter aplikaciju, uz iscrtavanje rute kao \emph{polyline} linije preko mape), \texttt{web\_socket\_channel} za WebSocket konekcije i \texttt{google\_sign\_in} za prijavu preko Google naloga.
 
 \section{Valhalla}
 
@@ -32,11 +32,11 @@ Svi serverski delovi sistema (Go backend, PostgreSQL, RabbitMQ, Valhalla) su kon
 
 \begin{itemize}
 \item \textbf{JWT (JSON Web Token, RFC 7519 \cite{jwt})} — format za autentifikacione tokene korišćen preko biblioteke \texttt{golang-jwt/jwt}, sa HS256 potpisom; nosi identitet vozača i broj verzije tokena (\texttt{token\_version}), koji se koristi za "odjavu sa svih uređaja" bez potrebe za posebnom listom opozvanih tokena (poglavlje 4.3).
-\item \textbf{bcrypt} — algoritam za heširanje lozinki sa ugrađenom "solju" i podesivim faktorom rada, korišćen umesto čuvanja lozinki u čistom tekstu ili prostog heša.
+\item \textbf{bcrypt} — algoritam za heširanje lozinki sa ugrađenom "solju"(\emph{salt}) i podesivim faktorom rada, korišćen umesto čuvanja lozinki u čistom tekstu ili prostog heša.
 \item \textbf{Google Sign-In / JWKS} — prijava preko Google naloga verifikuje se ručnom proverom Google-ovog ID token-a nad javnim skupom ključeva (JWKS) preko biblioteke \texttt{MicahParks/keyfunc}, bez uvođenja celog Firebase SDK-a kao zavisnosti.
 \item \textbf{Nominatim \cite{nominatim}} — javni servis za geokodiranje (pretvaranje adrese u koordinate i obrnuto) projekta OpenStreetMap, korišćen za pretragu adresa u mobilnoj aplikaciji (poglavlje 7.1), sa ograničenjem brzine poziva (throttling) u skladu sa politikom korišćenja servisa.
 \item \textbf{goose \cite{goose}} — alat za upravljanje migracijama šeme baze podataka preko numerisanih SQL fajlova (poglavlje 7.2), koji garantuje da se svaka migracija primeni tačno jednom.
-\item \textbf{osmium-tool} — komandolinijski alat za filtriranje i obradu \texttt{.osm}/\texttt{.osm.pbf} fajlova, korišćen u pripremi geografskih podataka (poglavlje 5.1).
+\item \textbf{osmium-tool} — alat komandne linije za filtriranje i obradu \texttt{.osm}/\texttt{.osm.pbf} fajlova, korišćen u pripremi geografskih podataka (poglavlje 5.1).
 \end{itemize}
 
 \clearpage

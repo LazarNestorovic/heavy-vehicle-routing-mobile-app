@@ -6,6 +6,7 @@ Ovo poglavlje je centralni algoritamski doprinos rada. Sistem koristi \textbf{dv
 
 Valhalla-in \texttt{truck} costing model prihvata profil vozila kao deo tela HTTP \texttt{/route} zahteva, bez potrebe da se graf iznova izgradi za svako vozilo. Listing 6.1 prikazuje tipičan zahtev korišćen u ovom sistemu.
 
+\newpage
 \begin{lstlisting}[caption={Zahtev za truck-costed rutu sa alternativama (visina/širina/dužina u metrima, masa/osovinsko opterećenje u tonama)}]
 POST /route
 {
@@ -30,6 +31,7 @@ POST /route
 
 Backend mapira sopstveni \texttt{TruckProfile} (u SI jedinicama — metrima i kilogramima, radi konzistentnosti sa ostatkom sistema) u Valhalla-ine jedinice (metri za dimenzije, metrički toni za masu), i parsira odgovor u sopstvenu strukturu \texttt{RouteCandidate} koja, pored rastojanja i trajanja, izdvaja i broj manevara, udeo puta na magistralnim/autoputskim deonicama (\texttt{HighwayRatio}), prisustvo trajekta ili putarine, kao i nazive ulica i tačke svakog manevra — signale koje ne izlaže sam sažetak rute, ali su neophodni za sloj rangiranja (6.2) i objašnjenja (6.3). Listing 6.2 prikazuje deo implementacije koja šalje zahtev i mapira profil vozila.
 
+\newpage
 \begin{lstlisting}[caption={\texttt{valhalla.Client.RouteAlternates} — mapiranje profila vozila u Valhalla \texttt{costing\_options} (\texttt{backend/internal/valhalla/client.go})}]
 // TruckProfile mirrors Valhalla's truck costing_options, in SI units (meters, kilograms).
 type TruckProfile struct {
@@ -66,7 +68,7 @@ Ograničenje ovog pristupa je da odgovor običnog \texttt{/route} poziva ne izla
 
 \section{Prilagođena funkcija rizika (scoring)}
 
-Valhalla po zahtevu vraća do tri alternativne rute, ali ih ne rangira po bilo kom kriterijumu specifičnom za teretni saobraćaj — sve tri su, sa njene tačke gledišta, fizički dopustive. Paket \texttt{scoring} dodaje taj nedostajući sloj: svaku alternativu bodira heurističkom funkcijom rizika koja kombinuje rastojanje, broj manevara, udeo puta van magistralnih deonica, prisustvo trajekta/putarine, procenu potrošnje goriva u odnosu na masu vozila, broj "oštrih" manevara (proxy za rizik pomeranja tereta) i blizinu omiljenih/brend benzinskih stanica vozača — a zatim vraća alternative sortirane od najboljeg (najmanji rizik) ka najgorem rezultatu.
+Valhalla po zahtevu vraća do tri alternativne rute, ali ih ne rangira po bilo kom kriterijumu specifičnom za teretni saobraćaj — sve tri su, sa njene tačke gledišta, fizički dopustive. Paket \texttt{scoring} dodaje taj nedostajući sloj: svaku alternativu boduje heurističkom funkcijom rizika koja kombinuje rastojanje, broj manevara, udeo puta van magistralnih deonica, prisustvo trajekta/putarine, procenu potrošnje goriva u odnosu na masu vozila, broj "oštrih" manevara (proxy za rizik pomeranja tereta) i blizinu omiljenih benzinskih stanica vozača — a zatim vraća alternative sortirane od najboljeg (najmanji rizik) ka najgorem rezultatu.
 
 Svaka dimenzija skalira se prema preferenci vozača, izraženoj kao ceo broj od 1 do 5 (gde je 3 neutralna, podrazumevana vrednost) preko faktora \texttt{priority/3} — vozač koji nikad ne podesi svoje preference dobija rezultat identičan fiksnoj, uravnoteženoj formuli. Listing 6.3 prikazuje centralnu funkciju bodovanja.
 
