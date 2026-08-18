@@ -4,47 +4,69 @@
 
 Backend je testiran automatizovanim, tabelarno-vođenim (\emph{table-driven}) Go testovima, standardnim pristupom u Go ekosistemu gde se više varijacija istog scenarija testira kroz jednu test funkciju sa nizom ulaznih/izlaznih parova. Tabela 9.1 prikazuje broj test funkcija po paketu, na dan pisanja rada; svi navedeni testovi prolaze (\texttt{go test ./...} vraća \texttt{ok} za svaki paket koji sadrži testove).
 
-\begin{longtable}{@{}p{0.313\textwidth}p{0.313\textwidth}p{0.313\textwidth}@{}}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.3}
+
+\begin{longtable}{@{}|>{\small\raggedright\arraybackslash}p{0.26\textwidth}|>{\small\centering\arraybackslash}p{0.11\textwidth}|>{\small\raggedright\arraybackslash}p{0.51\textwidth}|@{}}
 \caption{Broj automatizovanih testova po Go paketu}\label{tab:9-1}\\
-\toprule
+\hline
+\rowcolor{black!12}
 \textbf{Paket} & \textbf{Broj testova} & \textbf{Fokus testiranja} \\
-\midrule
+\hline
 \endhead
-\texttt{internal/algorithm} & 15 & Isključivanje nedopustivih ivica/čvorova, poklapanje Dijkstra/A*, penal za skretanje, ponašanje nad realnim OSM podacima \\
+\texttt{internal/\allowbreak algorithm} & 15 & Isključivanje nedopustivih ivica/čvorova, poklapanje Dijkstra/A*, penal za skretanje, ponašanje nad realnim OSM podacima \\
+\hline
 \texttt{internal/scoring} & 6 & Funkcija bodovanja rute, preferenca korisnika, popust za omiljenu stanicu \\
+\hline
 \texttt{internal/explain} & 8 & Detekcija odstupanja rute, identifikacija vezujuće dimenzije, geometrijska divergencija \\
+\hline
 \texttt{internal/reststop} & 9 & Pretraga najbližeg odmarališta u koridoru rute, hazmat preferenca, brend/omiljena lokacija \\
+\hline
 \texttt{internal/auth} & 5 & Izdavanje/parsiranje JWT tokena, provera lozinke, verzija tokena \\
+\hline
 \texttt{internal/ws} & 4 & Relej pozicije pretplatnicima, replay poslednje pozicije novom pretplatniku \\
+\hline
 \texttt{internal/httpapi} & 4 & HTTP handleri (integracioni testovi nad REST rutama) \\
+\hline
 \texttt{internal/geocode} & 6 & Nominatim proxy, throttling \\
-\textbf{Ukupno} & \textbf{57} &  \\
-\bottomrule
+\hline
+\textbf{Ukupno} & \textbf{57} & \\
+\hline
 \end{longtable}
+
+\setlength{\tabcolsep}{6pt}
 
 Paket \texttt{internal/algorithm} koristi dve vrste test podataka: (a) male, ručno konstruisane sintetičke grafove (npr. "dijamant" od četiri čvora sa kontrolisanim ograničenjima), pogodne za preciznu proveru jedne izolovane osobine algoritma (npr. "grana sa \texttt{maxheight=3.5} se isključuje za vozilo visine 4.0m"), i (b) stvaran OSM ekstrakt koridora Beograd–Novi Sad (poglavlje 9.2), koji dodatno potvrđuje da implementacija korektno parsira i koristi \emph{stvarne} OSM tagove, ne samo tagove koje je autor sam smislio za potrebe testa.
 
 \section{Evaluacija sopstvenog algoritma nad realnim podacima}
 
-Sopstvena Dijkstra/A* implementacija (poglavlje 6.4) je evaluirana nad stvarnim OSM ekstraktom koridora Beograd–Novi Sad (major-roads-only ekstrakt, \texttt{testdata/beograd-novisad-corridor.osm}), učitanim istim \texttt{LoadOSMXML} mehanizmom koji koristi i produkcioni kod. Ekstrakt se učitava u graf od \textbf{38 265 čvorova i 50 705 usmerenih ivica} — dva reda veličine manje od kompletnog nacionalnog Valhalla grafa (898 337 čvorova, poglavlje 5.2), u skladu sa namerom da ovaj modul bude ograničen, transparentan alat za evaluaciju, ne zamena za Valhallu.
+Sopstvena Dijkstra/A* implementacija (poglavlje 6.4) je evaluirana nad stvarnim OSM ekstraktom koridora Beograd–Novi Sad (major-roads-only ekstrakt, \newline \texttt{testdata/beograd-novisad-corridor.osm}), učitanim istim \texttt{LoadOSMXML} mehanizmom koji koristi i produkcioni kod. Ekstrakt se učitava u graf od \textbf{38 265 čvorova i 50 705 usmerenih ivica} — dva reda veličine manje od kompletnog nacionalnog Valhalla grafa (898 337 čvorova, poglavlje 5.2), u skladu sa namerom da ovaj modul bude ograničen, transparentan alat za evaluaciju, ne zamena za Valhallu.
 
 \textbf{Plauzibilnost rute.} Za par tačaka Beograd (44.80, 20.40) – Novi Sad (45.25, 19.85), Dijkstra pretraga (vozilo visine 4.0m, mase 40 000 kg) pronalazi put od \textbf{81,0 km kroz 1899 čvorova}. Za poređenje, Valhalla, nad kompletnim nacionalnim grafom sa punim skupom puteva (ne samo magistralnim), za isti par tačaka vraća rute u rasponu od 84,8 do 92,7 km (u zavisnosti od izabrane alternative), zabeleženo tokom rada na Valhalla integraciji (poglavlje 6.1). Rezultat sopstvenog modula je unutar plauzibilnog opsega — blago kraći, što je i očekivano jer ograničeni ekstrakt sadrži samo magistralne puteve i ne modeluje sve raskrsnice/petlje koje Valhalla uzima u obzir sa kompletnim grafom, a start/cilj pretrage su najbliži čvorovi grafa vazdušnoj liniji do date koordinate, ne tačno iste ulazno-izlazne rampe koje bi Valhalla izabrala.
 
 \textbf{Isključivanje na osnovu stvarnog OSM tag-a.} Nad istim ekstraktom pronađena je stvarna deonica sa tagom \texttt{maxheight=4.3} u centralnoj zoni Beograda. Za vozilo visine 4.0m, Dijkstra pronalazi put od 4036m preko te deonice; za vozilo visine 4.5m (koje premašuje 4,3m ograničenje), pretraga korektno ne pronalazi nijedan put između istih dveju tačaka — u ovom ograničenom, samo-magistralnom ekstraktu ne postoji alternativna deonica koja bi vozilo moglo koristiti umesto isključene, pa je ishod potpuno odsustvo puta, a ne duži zaobilazni put. Ovaj test potvrđuje da mehanizam isključivanja radi korektno na \textbf{stvarnim}, ne samo ručno konstruisanim OSM podacima.
 
-\textbf{Poklapanje Dijkstra i A\textbackslash\{\}\emph{.} Za isti par (Beograd, Novi Sad) i profil, Dijkstra i A} implementacija vraćaju identičnu cenu puta, što je i teorijski očekivano za dopustivu heuristiku (poglavlje 2.3) — A* ne pronalazi drugačiji (a kamoli lošiji) put, samo ga pronalazi pregledavajući manji broj čvorova. Vremenska analiza (Tabela 9.2) potvrđuje da je pretraga, nad grafom ove veličine, brza u odnosu na jednokratno parsiranje ulaznog XML fajla — 11,3 MB OSM XML-a.
+\textbf{Poklapanje Dijkstra i A*\emph{.} Za isti par (Beograd, Novi Sad) i profil, Dijkstra i A*} implementacija vraćaju identičnu cenu puta, što je i teorijski očekivano za dopustivu heuristiku (poglavlje 2.3) — A* ne pronalazi drugačiji (a kamoli lošiji) put, samo ga pronalazi pregledavajući manji broj čvorova. Vremenska analiza (Tabela 9.2) potvrđuje da je pretraga, nad grafom ove veličine, brza u odnosu na jednokratno parsiranje ulaznog XML fajla — 11,3 MB OSM XML-a.
 
-\begin{longtable}{@{}p{0.470\textwidth}p{0.470\textwidth}@{}}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.3}
+
+\begin{longtable}{@{}|>{\small\raggedright\arraybackslash}p{0.62\textwidth}|>{\small\centering\arraybackslash}p{0.20\textwidth}|@{}}
 \caption{Vreme izvršavanja nad koridorom Beograd–Novi Sad (38 265 čvorova, 50 705 ivica)}\label{tab:9-2}\\
-\toprule
+\hline
+\rowcolor{black!12}
 \textbf{Korak} & \textbf{Vreme} \\
-\midrule
+\hline
 \endhead
 Učitavanje i parsiranje OSM XML ekstrakta (\texttt{LoadOSMXML}) & ≈ 405 ms \\
+\hline
 Dijkstra pretraga (Beograd → Novi Sad) & ≈ 19,3 ms \\
+\hline
 A* pretraga (Beograd → Novi Sad) & ≈ 17,1 ms \\
-\bottomrule
+\hline
 \end{longtable}
+
+\setlength{\tabcolsep}{6pt}
 
 Rezultat u Tabeli 9.2 potvrđuje očekivanje iz poglavlja 2.3 i 6.4: sama pretraga, jednom kada je graf učitan u memoriju, izvršava se za desetine milisekundi i dominantno je ograničena parsiranjem ulaznih podataka, a ne samim algoritmom pretrage — što je i razlog zbog kojeg je u produkcionom putu ovog sistema izgradnja i održavanje grafa u celosti prepušteno Valhalla-i (poglavlje 5.2, 6.1), koja tu istu vrstu posla radi jednom, unapred, za ceo nacionalni graf, umesto pri svakom zahtevu.
 

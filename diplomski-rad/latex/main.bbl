@@ -1,0 +1,74 @@
+\begin{thebibliography}{10}
+
+\bibitem{vrp}
+G.~B. Dantzig and J.~H. Ramser, ``The truck dispatching problem,'' {\em
+  Management Science}, vol.~6, no.~1, pp.~80--91, 1959.
+
+\bibitem{tanenbaum}
+A.~S. Tanenbaum and M.~van Steen, {\em Distributed Systems: Principles and
+  Paradigms}.
+\newblock Pearson, 3~ed., 2017.
+
+\bibitem{websocket}
+I.~Fette and A.~Melnikov, ``The {WebSocket} protocol.'' RFC 6455, IETF, 2011.
+
+\bibitem{dijkstra}
+E.~W. Dijkstra, ``A note on two problems in connexion with graphs,'' {\em
+  Numerische Mathematik}, vol.~1, pp.~269--271, 1959.
+
+\bibitem{astar}
+P.~E. Hart, N.~J. Nilsson, and B.~Raphael, ``A formal basis for the heuristic
+  determination of minimum cost paths,'' {\em IEEE Transactions on Systems
+  Science and Cybernetics}, vol.~4, no.~2, pp.~100--107, 1968.
+
+\bibitem{osmwiki}
+{OpenStreetMap Wiki}, ``Map features.''
+  \url{https://wiki.openstreetmap.org/wiki/Map_features}, 2026.
+\newblock pristupljeno avgusta 2026.
+
+\bibitem{go}
+{Google}, ``The go programming language.'' \url{https://go.dev}, 2026.
+
+\bibitem{flutter}
+{Google}, ``Flutter --- build apps for any screen.''
+  \url{https://docs.flutter.dev}, 2026.
+
+\bibitem{valhalla}
+``Valhalla routing engine.'' \url{https://valhalla.github.io/valhalla/}, 2026.
+
+\bibitem{postgis}
+``Postgis --- spatial and geographic objects for postgresql.''
+  \url{https://postgis.net}, 2026.
+
+\bibitem{rabbitmq}
+``Rabbitmq documentation.'' \url{https://www.rabbitmq.com/documentation.html},
+  2026.
+
+\bibitem{docker}
+``Docker compose overview.'' \url{https://docs.docker.com/compose/}, 2026.
+
+\bibitem{jwt}
+M.~Jones, J.~Bradley, and N.~Sakimura, ``{JSON} web token ({JWT}).'' RFC 7519,
+  IETF, 2015.
+
+\bibitem{nominatim}
+``Nominatim --- openstreetmap geocoding.'' \url{https://nominatim.org}, 2026.
+
+\bibitem{goose}
+``goose --- database migration tool.'' \url{https://github.com/pressly/goose},
+  2026.
+
+\bibitem{geofabrik}
+{Geofabrik GmbH}, ``Openstreetmap data extracts.''
+  \url{https://download.geofabrik.de}, 2026.
+\newblock pristupljeno 2026.
+
+\bibitem{osmium}
+``osmium-tool --- command line tool for working with openstreetmap data.''
+  \url{https://osmcode.org/osmium-tool/}, 2026.
+
+\bibitem{aetr}
+{Evropski parlament i Savet}, ``Uredba (ez) br.\ 561/2006 o usklađivanju
+  određenih socijalnih propisa u vezi sa drumskim saobraćajem (aetr),'' 2006.
+
+\end{thebibliography}

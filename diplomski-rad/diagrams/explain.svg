@@ -1,65 +1,282 @@
-<svg viewBox="0 0 640 620" xmlns="http://www.w3.org/2000/svg" font-family="Times New Roman, serif" font-size="12.5">
-  <defs>
-    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#000"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 640 620"
+   font-family="Times New Roman, serif"
+   font-size="12.5"
+   version="1.1"
+   id="svg18"
+   sodipodi:docname="explain.svg"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview18"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="0.66774194"
+     inkscape:cx="11.231884"
+     inkscape:cy="351.93237"
+     inkscape:window-width="1853"
+     inkscape:window-height="1011"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg18" />
+  <defs
+     id="defs1">
+    <marker
+       style="overflow:visible"
+       id="Triangle"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Triangle arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <marker
+       id="arrow2"
+       markerWidth="8"
+       markerHeight="8"
+       refX="6"
+       refY="3"
+       orient="auto"
+       markerUnits="userSpaceOnUse">
+      <path
+         d="M0,0 L6,3 L0,6 Z"
+         fill="#000"
+         id="path1" />
     </marker>
   </defs>
-  <style>
+  <style
+     id="style1">
     .box{fill:#f6f6f6;stroke:#000;stroke-width:1.3;}
     .dec{fill:#ffffff;stroke:#000;stroke-width:1.3;stroke-dasharray:3,2;}
     .lbl{text-anchor:middle;dominant-baseline:middle;}
     .edge{stroke:#000;stroke-width:1.2;fill:none;marker-end:url(#arrow2);}
     .cap{font-size:11px;text-anchor:middle;fill:#333;}
   </style>
-
-  <rect class="box" x="170" y="10" width="300" height="45" rx="4"/>
-  <text class="lbl" x="320" y="33">Izabrana ruta (profil vozila) + referentna ruta</text>
-
-  <path class="edge" d="M320,55 L320,95"/>
-
-  <rect class="dec" x="150" y="95" width="340" height="55" rx="4"/>
-  <text class="lbl" x="320" y="115">|distance(izabrana) − distance(referentna)|</text>
-  <text class="lbl" x="320" y="132">&lt; 1 km ?</text>
-
-  <path class="edge" d="M490,122 L560,122 L560,30 L470,30"/>
-  <text class="cap" x="565" y="80">da</text>
-  <rect class="box" x="500" y="5" width="0" height="0"/>
-  <text class="lbl" x="595" y="30" transform="rotate(0)"></text>
-
-  <rect class="box" x="490" y="8" width="140" height="45" rx="4" transform="translate(0,0)"/>
-  <text class="lbl small" x="560" y="25" font-size="11">Nema odstupanja</text>
-  <text class="lbl small" x="560" y="40" font-size="11">— bez poruke</text>
-
-  <path class="edge" d="M320,150 L320,190"/>
-  <text class="cap" x="270" y="172">ne</text>
-
-  <rect class="box" x="120" y="190" width="400" height="55" rx="4"/>
-  <text class="lbl" x="320" y="210">Redom oslobodi JEDNU dimenziju profila</text>
-  <text class="lbl" x="320" y="227">(height, weight, axle_load, width, hazmat)</text>
-
-  <path class="edge" d="M320,245 L320,285"/>
-
-  <rect class="dec" x="150" y="285" width="340" height="55" rx="4"/>
-  <text class="lbl" x="320" y="305">Rastojanje nove rute ≈</text>
-  <text class="lbl" x="320" y="322">referentnoj (&lt; 1 km) ?</text>
-
-  <path class="edge" d="M150,312 L60,312 L60,217 L120,217"/>
-  <text class="cap" x="70" y="270" transform="rotate(-90 70 270)">ne — probaj sledeću dimenziju</text>
-
-  <path class="edge" d="M320,340 L320,380"/>
-  <text class="cap" x="270" y="362">da</text>
-
-  <rect class="box" x="120" y="380" width="400" height="50" rx="4"/>
-  <text class="lbl" x="320" y="405">Ta dimenzija je VEZUJUĆE OGRANIČENJE za ovaj segment</text>
-
-  <path class="edge" d="M320,430 L320,470"/>
-
-  <rect class="box" x="120" y="470" width="400" height="55" rx="4"/>
-  <text class="lbl" x="320" y="490">Geometrijska divergencija ruta → najbliži naziv</text>
-  <text class="lbl" x="320" y="507">ulice iz maneuver-a izabrane rute (6.3)</text>
-
-  <path class="edge" d="M320,525 L320,565"/>
-
-  <rect class="box" x="90" y="565" width="460" height="50" rx="4"/>
-  <text class="lbl" x="320" y="592" font-style="italic">„Ruta skreće kod {ulica} jer {dimenzija} vozila ne zadovoljava ograničenje.“</text>
+  <rect
+     class="box"
+     x="170"
+     y="10"
+     width="300"
+     height="45"
+     rx="4"
+     id="rect1" />
+  <text
+     class="lbl"
+     x="320"
+     y="33"
+     id="text1">Izabrana ruta (profil vozila) + referentna ruta</text>
+  <path
+     class="edge"
+     d="M320,55 L320,95"
+     id="path2" />
+  <rect
+     class="dec"
+     x="150"
+     y="95"
+     width="340"
+     height="55"
+     rx="4"
+     id="rect2" />
+  <text
+     class="lbl"
+     x="320"
+     y="115"
+     id="text2">|distance(izabrana) − distance(referentna)|</text>
+  <text
+     class="lbl"
+     x="320"
+     y="132"
+     id="text3">&lt; 1 km ?</text>
+  <text
+     class="cap"
+     x="536.5459"
+     y="82.995171"
+     id="text4">da</text>
+  <rect
+     class="box"
+     x="500"
+     y="5"
+     width="0"
+     height="0"
+     id="rect4" />
+  <text
+     class="lbl"
+     x="595"
+     y="30"
+     transform="rotate(0)"
+     id="text5" />
+  <rect
+     class="box"
+     x="490"
+     y="8"
+     width="140"
+     height="45"
+     rx="4"
+     transform="translate(0,0)"
+     id="rect5" />
+  <text
+     class="lbl small"
+     x="560"
+     y="25"
+     font-size="11"
+     id="text6">Nema odstupanja</text>
+  <text
+     class="lbl small"
+     x="560"
+     y="40"
+     font-size="11"
+     id="text7">— bez poruke</text>
+  <path
+     class="edge"
+     d="M320,150 L320,190"
+     id="path7" />
+  <text
+     class="cap"
+     x="270"
+     y="172"
+     id="text8">ne</text>
+  <rect
+     class="box"
+     x="120"
+     y="190"
+     width="400"
+     height="55"
+     rx="4"
+     id="rect8" />
+  <text
+     class="lbl"
+     x="320"
+     y="210"
+     id="text9">Redom oslobodi JEDNU dimenziju profila</text>
+  <text
+     class="lbl"
+     x="320"
+     y="227"
+     id="text10">(height, weight, axle_load, width, hazmat)</text>
+  <path
+     class="edge"
+     d="M320,245 L320,285"
+     id="path10" />
+  <rect
+     class="dec"
+     x="150"
+     y="285"
+     width="340"
+     height="55"
+     rx="4"
+     id="rect10" />
+  <text
+     class="lbl"
+     x="320"
+     y="305"
+     id="text11">Rastojanje nove rute ≈</text>
+  <text
+     class="lbl"
+     x="320"
+     y="322"
+     id="text12">referentnoj (&lt; 1 km) ?</text>
+  <path
+     class="edge"
+     d="M150,312 L60,312 L60,217 L120,217"
+     id="path12" />
+  <text
+     class="cap"
+     x="-267.75363"
+     y="49.033817"
+     transform="rotate(-90)"
+     id="text13">ne — probaj sledeću dimenziju</text>
+  <path
+     class="edge"
+     d="M320,340 L320,380"
+     id="path13" />
+  <text
+     class="cap"
+     x="270"
+     y="362"
+     id="text14">da</text>
+  <rect
+     class="box"
+     x="120"
+     y="380"
+     width="400"
+     height="50"
+     rx="4"
+     id="rect14" />
+  <text
+     class="lbl"
+     x="320"
+     y="405"
+     id="text15">Ta dimenzija je VEZUJUĆE OGRANIČENJE za ovaj segment</text>
+  <path
+     class="edge"
+     d="M320,430 L320,470"
+     id="path15" />
+  <rect
+     class="box"
+     x="120"
+     y="470"
+     width="400"
+     height="55"
+     rx="4"
+     id="rect15" />
+  <text
+     class="lbl"
+     x="320"
+     y="490"
+     id="text16">Geometrijska divergencija ruta → najbliži naziv</text>
+  <text
+     class="lbl"
+     x="320"
+     y="507"
+     id="text17">ulice iz maneuver-a izabrane rute (6.3)</text>
+  <path
+     class="edge"
+     d="M320,525 L320,565"
+     id="path17" />
+  <rect
+     class="box"
+     x="90"
+     y="565"
+     width="460"
+     height="50"
+     rx="4"
+     id="rect17" />
+  <text
+     class="lbl"
+     x="320"
+     y="592"
+     font-style="italic"
+     id="text18">„Ruta skreće kod {ulica} jer {dimenzija} vozila ne zadovoljava ograničenje.“</text>
+  <path
+     style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.878655px;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:6.3;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 570.43275,57.304025 -0.0573,60.031725"
+     id="path19"
+     inkscape:connector-type="polyline"
+     inkscape:connector-curvature="0" />
+  <path
+     style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1.00652px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     d="m 490.65627,117.77591 80.15224,-0.25027"
+     id="path20"
+     inkscape:connector-type="polyline"
+     inkscape:connector-curvature="0" />
 </svg>

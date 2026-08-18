@@ -1,0 +1,57 @@
+\selectlanguage *{serbian}
+\contentsline {chapter}{\numberline {1}Uvod}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Motivacija}{2}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Ciljevi i obim rada}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Struktura rada}{2}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Pregled postojećih rešenja i teorijske osnove}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Komercijalna i otvorena rešenja za rutiranje teretnih vozila}{4}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Distribuirani sistemi — osnovni pojmovi}{5}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Grafovi i algoritmi najkraćeg puta}{6}{section.2.3}%
+\contentsline {section}{\numberline {2.4}OpenStreetMap podatkovni model i oznake za teretni saobraćaj}{7}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Korišćene tehnologije}{9}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Go}{9}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Flutter i Dart}{9}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Valhalla}{9}{section.3.3}%
+\contentsline {section}{\numberline {3.4}PostgreSQL i PostGIS}{10}{section.3.4}%
+\contentsline {section}{\numberline {3.5}RabbitMQ}{10}{section.3.5}%
+\contentsline {section}{\numberline {3.6}WebSocket}{10}{section.3.6}%
+\contentsline {section}{\numberline {3.7}Docker i docker-compose}{10}{section.3.7}%
+\contentsline {section}{\numberline {3.8}Ostale biblioteke i servisi}{11}{section.3.8}%
+\contentsline {chapter}{\numberline {4}Arhitektura sistema}{12}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Pregled arhitekture i tok podataka}{12}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Kontejnerizacija i orkestracija servisa}{13}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Sigurnost i autentifikacija}{14}{section.4.3}%
+\contentsline {chapter}{\numberline {5}Priprema geografskih podataka — OSM ekstrakcija za teretna vozila u Srbiji}{16}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Izvor podataka i osmium filter}{16}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Izgradnja Valhalla grafa}{17}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Ekstrakcija podataka o odmaralištima}{17}{section.5.3}%
+\contentsline {chapter}{\numberline {6}Algoritam rutiranja prilagođen vozilu}{18}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Valhalla truck costing}{18}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Prilagođena funkcija rizika (scoring)}{21}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Objašnjenje predložene rute — slučaj Novi Banovci}{22}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Sopstvena implementacija pretrage puta nad ograničenim podgrafom}{24}{section.6.4}%
+\contentsline {chapter}{\numberline {7}Backend servis i model podataka}{28}{chapter.7}%
+\contentsline {section}{\numberline {7.1}REST API}{28}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Model podataka}{29}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Uloge vozač/dispečer}{31}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Asinhrona obrada — RabbitMQ i modul "pauza vozača"}{32}{section.7.4}%
+\contentsline {section}{\numberline {7.5}Real-time komunikacija — WebSocket gateway}{33}{section.7.5}%
+\contentsline {chapter}{\numberline {8}Mobilna aplikacija}{35}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Tok korisnika — vozač}{35}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Tok korisnika — dispečer}{36}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Arhitektura mobilne aplikacije}{36}{section.8.3}%
+\contentsline {chapter}{\numberline {9}Testiranje i evaluacija}{38}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Automatizovano testiranje backend-a}{38}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Evaluacija sopstvenog algoritma nad realnim podacima}{39}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Uticaj prilagođene funkcije rizika — studija slučaja}{40}{section.9.3}%
+\contentsline {section}{\numberline {9.4}Ograničenja identifikovana testiranjem}{41}{section.9.4}%
+\contentsline {chapter}{\numberline {10}Zaključak i budući rad}{42}{chapter.10}%
+\contentsline {section}{\numberline {10.1}Doprinosi rada}{42}{section.10.1}%
+\contentsline {section}{\numberline {10.2}Ograničenja rada}{43}{section.10.2}%
+\contentsline {section}{\numberline {10.3}Pravci budućeg rada}{43}{section.10.3}%
+\contentsline {chapter}{Literatura}{45}{section.10.3}%
+\contentsline {chapter}{Spisak skraćenica}{47}{chapter*.10}%
+\contentsline {chapter}{Spisak slika}{47}{table.10.1}%
+\contentsline {chapter}{Spisak tabela}{48}{chapter*.11}%
+\contentsline {chapter}{Spisak listinga}{49}{chapter*.12}%
+\contentsline {chapter}{Biografija}{51}{chapter*.14}%

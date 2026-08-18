@@ -15,3 +15,5 @@ Izmene na diplomskom radu:
 - (ISPRAVLJENO)4.3 drugi pasus i pre toga(3.8) na jednom delu kada se govori bcrypt pominje se "sol"(Istraziti sta je to)
 - (ISPRAVLJENO)4.2 Tabela 4.1 treba da bude ispravljena, preklapaju se reci.
 - (ISPRAVLJENO)4.3 mislim da bi lepse bilo da se iz poslednjeg pasusa izbrise višezakupčani.
+- (ISPRAVLJENO)6.3 grafik je potrebno poboljsati da se tekst sa leve strane ne preklapa sa strelicom
+- (ISPRAVLJENO)7.4 u naslovu module "pauza vozaca" da ide pod navosnike

@@ -104,6 +104,19 @@ def inline(s):
 CAPTION_RE = re.compile(r"^\*\*(Slika|Tabela|Listing)\s+(\d+)\.(\d+)\.\*\*\s*(.*)$")
 
 
+def short_caption(caption_latex):
+    """Kratak naslov listinga za "Spisak listinga".
+
+    Pun naslov cesto sadrzi putanju do fajla u zagradi i objasnjenje posle
+    crte; u spisku listinga takav red je predugacak (putanje se ne mogu
+    prelomiti) pa izlazi van margine. Zato se za spisak koristi skraceni
+    oblik: bez zagrade sa putanjom i bez dela posle " --- "/" - ".
+    """
+    s = re.sub(r"\s*\(\\texttt\{[^{}]*\}\)", "", caption_latex)
+    s = re.split(r"\s+[—–-]{1,3}\s+", s)[0]
+    return s.strip().rstrip(",;:")
+
+
 def render_table(lines, caption_latex=None, label=None):
     rows = [ln.strip().strip("|").split("|") for ln in lines]
     rows = [[c.strip() for c in r] for r in rows]
@@ -186,9 +199,12 @@ while i < len(blocks):
         code = CODE[int(m_code.group(1))]
         if code.endswith("\n"):
             code = code[:-1]
+        full_cap = inline(cap.group(4))
+        short_cap = short_caption(full_cap)
+        cap_opt = full_cap if short_cap == full_cap else "[%s]%s" % (short_cap, full_cap)
         rendered = (
             "\\begin{lstlisting}[caption={%s}]\n%s\n\\end{lstlisting}"
-            % (inline(cap.group(4)), code)
+            % (cap_opt, code)
         )
         consumed = 2
     elif m_tabcap and m_tabcap.group(1) == "Tabela" and i + 1 < len(blocks) \

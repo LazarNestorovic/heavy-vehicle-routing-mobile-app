@@ -14,7 +14,7 @@ Nakon prijave (\texttt{login\_screen}, \texttt{register\_screen} sa izborom ulog
 
 \section{Tok korisnika — dispečer}
 
-Dispečer upravlja flotom vozača i vozila kroz odvojen skup ekrana. \texttt{dispatcher\_home\_screen} je početna tačka; \texttt{dispatcher\_available\_drivers\_screen} prikazuje vozače koji trenutno nisu vezani za nijednog dispečera i omogućava slanje zahteva za povezivanje (poglavlje 7.3), dok \texttt{dispatcher\_requests\_screen} prikazuje status poslatih zahteva. \texttt{dispatcher\_create\_trip\_screen} omogućava kreiranje i dodelu ture jednom od svojih vozača, birajući između vozačevog sopstvenog vozila ili vozila u vlasništvu dispečera (poglavlje 7.3).
+Dispečer upravlja flotom vozača i vozila kroz odvojen skup ekrana. \texttt{dispatcher\_home\_screen} je početna tačka; \texttt{dispatcher\_available\_drivers\_screen} prikazuje vozače koji trenutno nisu vezani ni za jednog dispečera i omogućava slanje zahteva za povezivanje (poglavlje 7.3), dok \texttt{dispatcher\_requests\_screen} prikazuje status poslatih zahteva. \texttt{dispatcher\_create\_trip\_screen} omogućava kreiranje i dodelu ture jednom od svojih vozača, birajući između vozačevog sopstvenog vozila ili vozila u vlasništvu dispečera (poglavlje 7.3).
 
 Najkompleksniji ekran dispečerskog toka je \texttt{dispatcher\_live\_map\_screen}: prikazuje jednu mapu sa \textbf{N paralelnih WebSocket konekcija}, po jednu za svaku aktivnu turu svojih vozača, i ažurira poziciju svakog vozila na mapi čim gateway (poglavlje 7.5) emituje novu poziciju za odgovarajuću turu. \texttt{dispatcher\_trip\_list\_screen} prikazuje istoriju svih tura koje je dispečer dodelio.
 

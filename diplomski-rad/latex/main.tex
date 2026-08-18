@@ -25,6 +25,12 @@
 % code/identifier tokens (\texttt{}) that don't quite fit the line width.
 \emergencystretch=2.5em
 
+% Dugacki identifikatori tipa \texttt{dispatcher\_available\_drivers\_screen}
+% nemaju nijednu tacku preloma pa izlaze u marginu (i preko ivice papira).
+% Zato \texttt{} dobija dozvoljeno mesto preloma posle svake donje crte -
+% bez crtice za prelom, da se ne bi mesala sa crticom u samom imenu.
+\DeclareRobustCommand{\texttt}[1]{{\ttfamily\def\_{\char`\_\discretionary{}{}{}}#1}}
+
 % --- Stranica ---
 \usepackage[a4paper,left=30mm,right=25mm,top=25mm,bottom=25mm]{geometry}
 \usepackage{setspace}
@@ -49,6 +55,9 @@
 \usepackage{array}
 \usepackage{booktabs}
 \usepackage[table]{xcolor}
+% Mora POSLE xcolor: pdfpages ucitava eso-pic, koji povlaci xcolor bez opcija -
+% ako dodje ranije, \usepackage[table]{xcolor} puca sa "Option clash".
+\usepackage{pdfpages}
 
 % --- Kod (Listing okruzenje, sa okvirom kao u primerima FTN radova) ---
 \usepackage{listings}
@@ -69,6 +78,12 @@
   numbers=none,
 }
 
+% --- Opisi (caption) slika, tabela i listinga - manji font od osnovnog teksta.
+% Ucitati posle listings/longtable da bi caption zakrpio i njihove opise. ---
+\usepackage{caption}
+\captionsetup{font={small,stretch=1.0}, skip=6pt}
+\captionsetup[lstlisting]{font={small,stretch=1.0}, skip=6pt}
+
 % --- Citati / literatura (klasican BibTeX - dostupan u svakoj LaTeX
 % instalaciji, uklj. Overleaf, bez potrebe za biber-om) ---
 \usepackage{cite}
@@ -80,8 +95,8 @@
 \setlist{itemsep=1pt, topsep=3pt}
 
 \newcommand{\Naslov}{Razvoj aplikacije za rutiranje teretnih vozila prilago\-đe\-ne fizičkim ograničenjima vozila i terena}
-\newcommand{\Autor}{[IME PREZIME]}
-\newcommand{\Mentor}{[TITULA I IME MENTORA]}
+\newcommand{\Autor}{Lazar Nestorović}
+\newcommand{\Mentor}{Prof. Dr Dušana Gajića}
 
 \begin{document}
 
@@ -95,9 +110,15 @@
 \renewcommand{\bibname}{Literatura}
 \renewcommand{\listfigurename}{Spisak slika}
 \renewcommand{\listtablename}{Spisak tabela}
+% Naslov koji \lstlistoflistings sam stampa (\chapter*{\lstlistlistingname}) -
+% zato u 12-spiskovi.tex NE sme da stoji jos jedan rucni \chapter*{...}.
+\renewcommand{\lstlistlistingname}{Spisak listinga}
 
 \pagenumbering{roman}
-\input{chapters/00-frontmatter}
+\includepdf[pages=1]{korice_latinica.pdf} 
+\includepdf[pages=1-2]{kljucna_dokumentacija_latinica.pdf} 
+\includepdf[pages=1]{Zadatak_rada.pdf} 
+\includepdf[pages=1]{Izjava.pdf} 
 
 \tableofcontents
 \clearpage
