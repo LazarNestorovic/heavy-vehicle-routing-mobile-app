@@ -7,3 +7,35 @@ Key Features:
 * Mobile Application: Built with Flutter for real-time navigation.
 
 See [SPECIFIKACIJA.md](SPECIFIKACIJA.md) for the full architecture, data model, and work plan.
+
+## Running the app
+
+Prerequisites: Docker + Docker Compose, Flutter SDK (`flutter doctor`), and an Android emulator or a physical device.
+
+1. **Backend stack** — from the repository root:
+
+   ```bash
+   cp .env.example .env   # first run only; defaults work for a local demo
+   docker compose up -d   # Postgres, RabbitMQ, Valhalla, Go backend on :8080
+   ```
+
+   Routing tiles are already built in `valhalla/tiles/`. If they are missing or the
+   OSM extract changed, rebuild them once with
+   `docker compose --profile build up valhalla-build` (5-15 min).
+
+2. **Mobile app** — from `mobile/`:
+
+   ```bash
+   cd mobile
+   flutter pub get
+   flutter run   # pick the emulator/device from the list
+   ```
+
+   The app targets `http://10.0.2.2:8080` (the Android emulator's alias for the host
+   machine) by default. For an iOS simulator or a physical device, change
+   `apiBaseUrl` / `wsBaseUrl` in [mobile/lib/config.dart](mobile/lib/config.dart).
+
+Stop everything with `docker compose down` (add `-v` to also drop the database volume).
+
+More detail: [documentations/guides/run-flutter-app.md](documentations/guides/run-flutter-app.md)
+and [documentations/guides/rebuild-valhalla-graph.md](documentations/guides/rebuild-valhalla-graph.md).
