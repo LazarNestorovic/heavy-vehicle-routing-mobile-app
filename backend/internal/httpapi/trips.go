@@ -97,7 +97,7 @@ func toTripResponse(t store.Trip, candidates []candidateResponse) tripResponse {
 // shared by self-service creation (fires immediately) and the dispatcher-
 // offer flow (fires only once the driver clicks "start", see handleStartTrip).
 func (s *Server) startTripSideEffects(ctx context.Context, tripID int64) {
-	if _, err := s.TripEvents.Create(ctx, tripID, "departed", "Departed"); err != nil {
+	if _, err := s.TripEvents.Create(ctx, tripID, "departed", "Polazak sa lokacije preuzimanja"); err != nil {
 		log.Printf("log departed event for trip %d: %v", tripID, err)
 	}
 	// The trip is already persisted (source of truth); a queue hiccup here shouldn't
@@ -412,9 +412,9 @@ func (s *Server) handleUpdateTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventDesc := "Dispatcher updated the trip"
+	eventDesc := "Dispečer je izmenio putovanje"
 	if wasAccepted {
-		eventDesc = "Dispatcher updated the trip - review needed again"
+		eventDesc = "Dispečer je izmenio putovanje - potrebna je ponovna potvrda"
 	}
 	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "edited", eventDesc); err != nil {
 		log.Printf("log edited event for trip %d: %v", trip.ID, err)
@@ -603,7 +603,7 @@ func (s *Server) handleRerouteTrip(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to reroute trip: "+err.Error())
 		return
 	}
-	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "rerouted", "Route recalculated after deviation"); err != nil {
+	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "rerouted", "Ruta ponovo izračunata nakon odstupanja"); err != nil {
 		log.Printf("log rerouted event for trip %d: %v", trip.ID, err)
 	}
 	if body, err := json.Marshal(queue.TripStartedEvent{TripID: trip.ID}); err != nil {
@@ -664,7 +664,7 @@ func (s *Server) handleCompleteTrip(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to complete trip: "+err.Error())
 		return
 	}
-	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "arrived", "Arrived at destination"); err != nil {
+	if _, err := s.TripEvents.Create(r.Context(), trip.ID, "arrived", "Dolazak na odredište"); err != nil {
 		log.Printf("log arrived event for trip %d: %v", trip.ID, err)
 	}
 	s.WS.CompleteTrip(trip.ID)

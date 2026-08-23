@@ -75,7 +75,7 @@ func (w *TripWorker) handle(ctx context.Context, d amqp.Delivery) {
 	}
 
 	if rest.AfterMinutes != nil {
-		desc := fmt.Sprintf("Rest break recommended after %.0f min", *rest.AfterMinutes)
+		desc := fmt.Sprintf("Preporučena pauza za odmor nakon %.0f min", *rest.AfterMinutes)
 		if _, err := w.TripEvents.Create(ctx, trip.ID, "rest_stop_suggested", desc); err != nil {
 			log.Printf("worker: log rest_stop_suggested for trip %d: %v", trip.ID, err)
 		}

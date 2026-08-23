@@ -25,6 +25,14 @@ class _TripLogScreenState extends State<TripLogScreen> {
     _eventsFuture = widget.api.listTripEvents(widget.tripId);
   }
 
+  /// "23.08.2026. 14:05:09" - dovoljno precizno za dnevnik, bez milisekundi.
+  String _formatTime(DateTime dt) {
+    final d = dt.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(d.day)}.${two(d.month)}.${d.year}. '
+        '${two(d.hour)}:${two(d.minute)}:${two(d.second)}';
+  }
+
   IconData _iconFor(String eventType) {
     switch (eventType) {
       case 'departed':
@@ -65,7 +73,7 @@ class _TripLogScreenState extends State<TripLogScreen> {
               return ListTile(
                 leading: Icon(_iconFor(e.eventType), color: NocturneColors.accent),
                 title: Text(e.description),
-                subtitle: Text(e.occurredAt.toLocal().toString()),
+                subtitle: Text(_formatTime(e.occurredAt)),
               );
             },
           );
