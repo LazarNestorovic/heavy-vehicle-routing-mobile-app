@@ -1,0 +1,12 @@
+(URADJENO)5 slajd: stavi velike delove na sredinu i povecaj font
+(URADJENO)6 slajd: stavi strelice da idu od gore na dole , a tekst desno.
+(URADJENO)7 slajd povecati font koda i tekst na desnom delu vertikalno centrirati
+9 slajd: zasto se pri trazenju alternativne rute toliko dimenzije opustaju, takodje sta znaci ovo ispod da je prvo rucno potvrdjeno binarnom pretragom, pa tek onda automatizovano
+10 slajd: Desni tekst centrirati vertikalno i i italic promeniti
+12 slajd: strelice promeniti sa horizontale na vertikalu, celine teksta poreiti desno jedno ispod drugog
+13 slajd: potpuno izmeniti
+16 slajd: izbaciti recenicu na dnu
+17 slajd: Na desnoj strani izbaciti zeleni tekst i povecati natpir Hvala na paznji i zahvalnicu.
+
+
+
